@@ -1,0 +1,155 @@
+# cl-mahjong
+
+> **WARNING** - work in progress!
+
+Riichi mahjong game logic library library for Common Lisp.
+
+Common Lisp 用のコアリーチ麻雀ゲームロジックライブラiリ
+
+I am not an expert in common lisp or mahjong. I am happy to accept patches.
+
+Common Lisp や麻雀の専門家ではありません。パッチは喜んで受け付けます。私はあまり日本語を話せませんwwww 🙇
+
+## Features
+
+- **Hand Validation** - Standard, Chiitoitsu (7 pairs), Kokushi (13 orphans)
+- **Shanten Calculation** - Distance to tenpai
+- **Ukeire Calculation** - Acceptance count for improving hands
+- **Yaku Detection** - All standard yaku from 1-han through yakuman
+- **Fu Calculation** - Complete minipoints system with all components
+- **Scoring** - Han/fu to points conversion with limit hands
+- **Payment Distribution** - Ron and tsumo payment splits
+- **Furiten Checking** - Dead hand detection
+- **Event Tracking** - Rinshan, chankan, haitei, houtei, ippatsu
+- **Game State Management** - Complete game flow
+
+### Notes
+
+- 4-player game state (3-player is a **TODO**)
+- Wall management with dead wall and dora indicators
+- Player hands, melds, discards, and scores
+- Turn state tracking
+- Event-based yaku (rinshan, chankan, ippatsu, etc.)
+- Fu calculation with base, wait, group, pair, and tsumo components
+- Limit hands: Mangan, Haneman, Baiman, Sanbaiman, Yakuman
+- Payment distribution for dealer/non-dealer, ron/tsumo
+- Dora counting (regular dora, ura-dora, aka-dora support)
+
+### Rules Implementation
+
+Follows **WRC/EMA** (World Riichi Championship / European Mahjong Association) rules:
+
+- Japanese Riichi Mahjong variant
+- Aka-dora support (red fives)
+- Standard yaku set
+- Furiten enforcement
+- Atamahane (head bump) for multiple ron
+
+I would like to add custom rulesets as maybe other mahjong varients too. However for now that's a **TODO**.
+
+## Usage
+
+### Basic Hand Validation
+
+```lisp
+;; Check if hand is complete
+(let ((hand '(:2m :3m :4m :5p :6p :7p :8s :8s :8s :white :white :white :9m :9m)))
+  (validate-hand hand nil))
+;; => T, :STANDARD
+```
+
+### Calculate Shanten
+
+```lisp
+;; Calculate distance to tenpai
+(let ((hand '(:1m :2m :4m :5m :7m :8m :1p :3p :5p :7p :9p :east :south)))
+  (calculate-shanten hand nil))
+;; => 2 (2-shanten, need 2 exchanges to reach tenpai)
+```
+
+### Detect Yaku and Score
+
+```lisp
+;; Complete scoring example
+(let* ((hand '(:2m :3m :4m :5p :6p :7p :2s :3s :4s :6s :7s :8s :white :white))
+       (melds nil)
+       (winning-tile :white)
+       (context (make-winning-context
+                 :tsumo-p t
+                 :winning-tile winning-tile
+                 :winner-seat :south
+                 :dealer-p nil
+                 :round-wind :east
+                 :seat-wind :south
+                 :riichi-declared-p t
+                 :riichi-win-p t
+                 :dora-tiles '(:1m))))
+
+  ;; Calculate complete score
+  (let ((score (calculate-score hand melds winning-tile context)))
+    (print-score-result score)))
+
+;; Output:
+;; Yaku: RIICHI (1 han), MENZEN-TSUMO (1 han)
+;; Han: 2 yaku + 1 dora = 3 total
+;; Fu: 40
+;; Base points: 1280
+;; Payment: 5200 points (dealer pays 1300, others 700)
+```
+
+### Game State Management
+
+```lisp
+;; Create game
+(let ((game (create-game-state "game-1")))
+
+  ;; Add players
+  (add-player-to-game game "p1" "Alice" :east)
+  (add-player-to-game game "p2" "Bob" :south)
+  (add-player-to-game game "p3" "Charlie" :west)
+  (add-player-to-game game "p4" "Diana" :north)
+
+  ;; Start game (creates wall, deals hands)
+  (start-game game)
+
+  ;; Process ron declaration
+  (process-call-ron game "p2"))
+```
+
+### API Reference
+
+- `validate-hand` - Check if hand is complete
+- `decompose-hand` - Get exact grouping for fu calculation
+- `calculate-shanten` - Distance to tenpai
+- `calculate-ukeire` - Tiles that improve hand
+- `detect-yaku` - Detect all applicable yaku
+- `calculate-fu` - Minipoints calculation
+- `calculate-score` - Complete scoring (yaku + fu + dora → points)
+- `count-dora` - Count dora tiles in hand
+- `create-game-state` - Initialize new game
+- `add-player-to-game` - Add player at seat
+- `start-game` - Deal initial hands
+- `process-call-ron` - Handle ron declaration
+- `process-call-tsumo` - Handle tsumo declaration
+- `build-winning-context` - Extract win context from game state
+- `check-furiten-for-ron` - Validate ron eligibility
+- `apply-payment-to-players` - Distribute payments
+
+## LICENSE
+
+```
+Copyright (C) 2025 George Watson
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+```
