@@ -17,12 +17,14 @@
 
 (in-package #:cl-mahjong)
 
-(defun create-player (id name seat)
-  "Create a new player instance"
-  (make-instance 'player
-                 :id id
-                 :name name
-                 :seat seat))
+(defun create-player (id name seat &optional (config +yonma-config+))
+  "Create a new player instance with config-based starting score"
+  (let ((player (make-instance 'player
+                               :id id
+                               :name name
+                               :seat seat)))
+    (setf (player-score player) (game-config-starting-points config))
+    player))
 
 
 (defun player-add-tile (player tile)
@@ -158,12 +160,27 @@
                                 (member tile (meld-tiles meld) :test #'eq)))
                          (player-melds player))))))
 
+(defun player-can-extract-north (player config)
+  "Check if player can extract North (must be in hand and sanma variant).
+   CONFIG: game-config struct"
+  (and (game-config-north-nuki-enabled-p config)
+       (member :north (player-hand player) :test #'eq)))
+
+(defun player-extract-north (player)
+  "Extract a North wind tile from hand (sanma only).
+   Returns T if successful, NIL if no North in hand."
+  (when (member :north (player-hand player) :test #'eq)
+    (player-remove-tile player :north)
+    (incf (player-extracted-norths player))
+    t))
+
 
 (defun player-reset-for-new-hand (player)
   "Reset player state for a new hand (keep score and seat)"
   (setf (player-hand player) nil
         (player-discards player) nil
         (player-melds player) nil
+        (player-extracted-norths player) 0
         (player-riichi-declared player) nil
         (player-riichi-turn player) nil
         (player-ippatsu-active player) nil

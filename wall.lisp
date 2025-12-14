@@ -17,31 +17,38 @@
 
 (in-package #:cl-mahjong)
 
-(defun create-wall ()
-  "Create and shuffle a new wall with all 136 tiles (4 of each unique tile).
-   Split into live wall (122 tiles) and dead wall (14 tiles).
-   Initialize dora and ura-dora indicators."
-  (let ((all-tiles (loop for tile in +all-tiles+
-                        nconc (make-list 4 :initial-element tile))))
+(defun create-wall (&optional (config +yonma-config+))
+  "Create and shuffle a new wall based on game configuration.
+   CONFIG: game-config struct (defaults to 4-player)
+
+   4-player (yonma): 136 tiles (122 live + 14 dead)
+   3-player (sanma): 108 tiles (91 live + 17 dead)"
+  (let* ((tile-list (case (game-config-variant config)
+                      (:sanma +sanma-tiles+)
+                      (t +all-tiles+)))
+         (all-tiles (loop for tile in tile-list
+                         nconc (make-list 4 :initial-element tile))))
     ;; Shuffle using Fisher-Yates algorithm
     (loop for i from (1- (length all-tiles)) downto 1
           for j = (random (1+ i))
           do (rotatef (nth i all-tiles) (nth j all-tiles)))
+
     ;; Split into live wall and dead wall
-    ;; Dead wall is the last 14 tiles
-    ;; Live wall is the first 122 tiles
-    (let* ((dead-wall (subseq all-tiles 122 136))  ; Last 14 tiles
-           (live-wall (subseq all-tiles 0 122))    ; First 122 tiles
+    (let* ((dead-wall-size (game-config-dead-wall-size config))
+           (wall-size (game-config-wall-size config))
+           (live-wall-size (- wall-size dead-wall-size))
+           (dead-wall (subseq all-tiles live-wall-size wall-size))
+           (live-wall (subseq all-tiles 0 live-wall-size))
            (wall (make-instance 'wall)))
 
       (setf (wall-live-wall wall) live-wall
             (wall-dead-wall wall) dead-wall
             (wall-remaining-draws wall) (length live-wall))
+
       ;; Set up dora indicators
-      ;; Dead wall structure (14 tiles):
-      ;; Positions 0-4: dora indicators (revealed one at a time)
-      ;; Positions 5-9: ura-dora indicators (hidden until riichi win)
-      ;; Positions 10-13: kan replacement tiles
+      ;; Dead wall structure (both variants use same indicator positions):
+      ;; 4-player (14 tiles): 0,2,4,6,8 (dora), 5,7,9,11,13 (ura), 10-13 (kan replacement = 4)
+      ;; 3-player (17 tiles): 0,2,4,6,8 (dora), 5,7,9,11,13 (ura), 10-16 (kan replacement = 7)
       (setf (wall-dora-indicators wall) (list (nth 0 dead-wall))
             (wall-ura-dora-indicators wall) (list (nth 5 dead-wall)))
 

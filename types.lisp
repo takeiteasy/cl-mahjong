@@ -33,13 +33,61 @@
     ;; Dragons (honors)
     :white :green :red))
 
-(defconstant +all-tiles+
+(defparameter +all-tiles+
   '(:1m :2m :3m :4m :5m :6m :7m :8m :9m
     :1p :2p :3p :4p :5p :6p :7p :8p :9p
     :1s :2s :3s :4s :5s :6s :7s :8s :9s
     :east :south :west :north
     :white :green :red)
   "All 34 unique tiles in Japanese Riichi Mahjong")
+
+(defparameter +sanma-tiles+
+  '(:1m :9m  ; Only 1 and 9 man (remove man 2-8)
+    :1p :2p :3p :4p :5p :6p :7p :8p :9p
+    :1s :2s :3s :4s :5s :6s :7s :8s :9s
+    :east :south :west :north
+    :white :green :red)
+  "27 unique tiles in 3-player (sanma) mahjong - man 2-8 removed")
+
+(deftype game-variant ()
+  "Supported game variants"
+  '(member :yonma    ; 4-player (standard)
+           :sanma))  ; 3-player
+
+(defstruct game-config
+  "Configuration for game variant rules"
+  (variant :yonma :type game-variant)
+  (num-players 4 :type (integer 3 4))
+  (seats nil :type list)  ; '(:east :south :west :north) or '(:east :south :west)
+  (starting-points 25000 :type integer)
+  (wall-size 136 :type integer)
+  (dead-wall-size 14 :type integer)
+  (chi-enabled-p t :type boolean)
+  (north-nuki-enabled-p nil :type boolean))
+
+(defvar +yonma-config+
+  (make-game-config
+   :variant :yonma
+   :num-players 4
+   :seats '(:east :south :west :north)
+   :starting-points 25000
+   :wall-size 136
+   :dead-wall-size 14
+   :chi-enabled-p t
+   :north-nuki-enabled-p nil)
+  "Standard 4-player configuration")
+
+(defvar +sanma-config+
+  (make-game-config
+   :variant :sanma
+   :num-players 3
+   :seats '(:east :south :west)
+   :starting-points 35000
+   :wall-size 108
+   :dead-wall-size 17
+   :chi-enabled-p nil
+   :north-nuki-enabled-p t)
+  "Standard 3-player configuration")
 
 (defstruct meld
   "Represents a called meld (pon, chi, kan)"
@@ -80,6 +128,11 @@
     :initform nil
     :type list  ; List of meld structs
     :documentation "Called melds (pon, chi, kan)")
+   (extracted-norths
+    :accessor player-extracted-norths
+    :initform 0
+    :type integer
+    :documentation "Number of North winds extracted (sanma only)")
    (score
     :accessor player-score
     :initform 25000
@@ -223,6 +276,12 @@
     :accessor game-id
     :type string
     :documentation "Unique game identifier")
+   (config
+    :initarg :config
+    :accessor game-config
+    :initform +yonma-config+
+    :type game-config
+    :documentation "Game variant configuration")
    (players
     :accessor game-players
     :initform (make-hash-table :test 'equal)  ; seat -> player object
@@ -292,6 +351,7 @@
     :call-chi
     :call-kan
     :declare-riichi
+    :extract-north  ; Sanma only: extract North wind
     :pass))
 
 (defstruct action
@@ -347,7 +407,9 @@
   (aka-dora-enabled-p nil :type boolean)
   ;; Turn info
   (turn-number 0 :type integer)
-  (first-turn-p nil :type boolean))
+  (first-turn-p nil :type boolean)
+  ;; Sanma specific
+  (extracted-norths 0 :type integer))
 
 (defstruct fu-breakdown
   "Detailed breakdown of fu calculation"

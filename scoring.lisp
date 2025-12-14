@@ -223,7 +223,8 @@
     breakdown))
 
 
-(defun count-dora (hand melds dora-tiles ura-dora-tiles aka-dora-enabled-p)
+(defun count-dora (hand melds dora-tiles ura-dora-tiles aka-dora-enabled-p
+                   &optional (extracted-norths 0))
   "Count total dora han in a hand.
 
    Arguments:
@@ -232,6 +233,7 @@
    - DORA-TILES: List of actual dora tiles (not indicators)
    - URA-DORA-TILES: List of ura-dora tiles (only for riichi wins)
    - AKA-DORA-ENABLED-P: Whether red fives count as dora
+   - EXTRACTED-NORTHS: Number of extracted North winds (sanma only)
 
    Returns: Total dora count (1 han per dora)"
 
@@ -253,6 +255,8 @@
       (dolist (tile all-tiles)
         (when (red-five-p tile)
           (incf total-dora))))
+    ;; Count extracted Norths (sanma only) - each is +1 dora
+    (incf total-dora extracted-norths)
 
     total-dora))
 
@@ -319,12 +323,13 @@
   "Round value up to nearest 100."
   (* 100 (ceiling value 100)))
 
-(defun split-payment (base-points context)
+(defun split-payment (base-points context &optional (config +yonma-config+))
   "Calculate payment distribution based on win type and dealer status.
 
    Arguments:
    - BASE-POINTS: Base points calculated from han/fu
    - CONTEXT: winning-context struct
+   - CONFIG: Optional game-config (for variant-specific rules)
 
    Returns: payment-split struct with detailed breakdown
 
@@ -334,8 +339,13 @@
    - Dealer winner: 6 × base
 
    Tsumo (self-draw):
-   - Non-dealer winner: dealer pays 2 × base, others pay 1 × base
-   - Dealer winner: each player pays 2 × base
+   4-player (yonma):
+   - Non-dealer winner: dealer pays 2× base, others pay 1× base
+   - Dealer winner: each pays 2× base
+
+   3-player (sanma):
+   - Non-dealer winner: each other pays 2× base
+   - Dealer winner: each other pays 2× base
 
    Bonuses:
    - Honba: +300 per honba counter
@@ -347,7 +357,8 @@
         (is-dealer (winning-context-dealer-p context))
         (is-tsumo (winning-context-tsumo-p context))
         (honba (winning-context-honba context))
-        (riichi-sticks (winning-context-riichi-sticks context)))
+        (riichi-sticks (winning-context-riichi-sticks context))
+        (num-players (game-config-num-players config)))
 
     (cond
       ;; Ron
@@ -368,34 +379,49 @@
       ;; Tsumo
       (t
        (cond
-         ;; Dealer wins by tsumo: each player pays 2× base
+         ;; Dealer wins by tsumo
          (is-dealer
           (let* ((each-pays (round-up-100 (* base-points 2)))
                  ;; Honba bonus: +100 per player per honba
                  (honba-bonus (* 100 honba))
                  (each-pays-total (+ each-pays honba-bonus))
-                 ;; Winner receives from 3 players
+                 ;; Winner receives from (num-players - 1) players
+                 (num-payers (1- num-players))
                  (riichi-bonus (* 1000 riichi-sticks))
-                 (total (+ (* 3 each-pays-total) riichi-bonus)))
+                 (total (+ (* num-payers each-pays-total) riichi-bonus)))
 
             (setf (payment-split-non-dealer-pays payment) each-pays-total)
             (setf (payment-split-winner-receives payment) total)))
          ;; Non-dealer wins by tsumo
          (t
-          (let* ((dealer-pays (round-up-100 (* base-points 2)))
-                 (non-dealer-pays (round-up-100 base-points))
-                 ;; Honba bonus: +100 per player per honba
-                 (honba-bonus (* 100 honba))
-                 (dealer-pays-total (+ dealer-pays honba-bonus))
-                 (non-dealer-pays-total (+ non-dealer-pays honba-bonus))
-                 ;; Winner receives from dealer + 2 non-dealers
-                 (riichi-bonus (* 1000 riichi-sticks))
-                 (total (+ dealer-pays-total
-                          (* 2 non-dealer-pays-total)
-                          riichi-bonus)))
-            (setf (payment-split-dealer-pays payment) dealer-pays-total)
-            (setf (payment-split-non-dealer-pays payment) non-dealer-pays-total)
-            (setf (payment-split-winner-receives payment) total))))))
+          (case num-players
+            ;; 4-player: dealer pays 2×, non-dealers pay 1×
+            (4
+             (let* ((dealer-pays (round-up-100 (* base-points 2)))
+                    (non-dealer-pays (round-up-100 base-points))
+                    ;; Honba bonus: +100 per player per honba
+                    (honba-bonus (* 100 honba))
+                    (dealer-pays-total (+ dealer-pays honba-bonus))
+                    (non-dealer-pays-total (+ non-dealer-pays honba-bonus))
+                    ;; Winner receives from dealer + 2 non-dealers
+                    (riichi-bonus (* 1000 riichi-sticks))
+                    (total (+ dealer-pays-total
+                             (* 2 non-dealer-pays-total)
+                             riichi-bonus)))
+               (setf (payment-split-dealer-pays payment) dealer-pays-total)
+               (setf (payment-split-non-dealer-pays payment) non-dealer-pays-total)
+               (setf (payment-split-winner-receives payment) total)))
+            ;; 3-player: each other player pays 2× base (no dealer premium)
+            (3
+             (let* ((each-pays (round-up-100 (* base-points 2)))
+                    ;; Honba bonus: +100 per player per honba
+                    (honba-bonus (* 100 honba))
+                    (each-pays-total (+ each-pays honba-bonus))
+                    ;; Winner receives from 2 other players
+                    (riichi-bonus (* 1000 riichi-sticks))
+                    (total (+ (* 2 each-pays-total) riichi-bonus)))
+               (setf (payment-split-non-dealer-pays payment) each-pays-total)
+               (setf (payment-split-winner-receives payment) total))))))))
     payment))
 
 

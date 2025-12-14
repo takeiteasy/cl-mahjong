@@ -22,10 +22,11 @@ Common Lisp や麻雀の専門家ではありません。パッチは喜んで�
 - **Furiten Checking** - Dead hand detection
 - **Event Tracking** - Rinshan, chankan, haitei, houtei, ippatsu
 - **Game State Management** - Complete game flow
+- **Sanma Support** - Full 3-player mahjong with North extraction (kita)
 
 ### Notes
 
-- 4-player game state (3-player is a **TODO**)
+- **Yonma (4-player)** and **Sanma (3-player)** game variants
 - Wall management with dead wall and dora indicators
 - Player hands, melds, discards, and scores
 - Turn state tracking
@@ -34,6 +35,15 @@ Common Lisp や麻雀の専門家ではありません。パッチは喜んで�
 - Limit hands: Mangan, Haneman, Baiman, Sanbaiman, Yakuman
 - Payment distribution for dealer/non-dealer, ron/tsumo
 - Dora counting (regular dora, ura-dora, aka-dora support)
+
+### Sanma (3-Player) Features
+
+- **Modified tile set**: Excludes 2-8 man (character tiles), 108 tiles total
+- **Three players**: East, South, West seats only
+- **North extraction (Kita/抜き北)**: North tiles can be extracted as dora
+- **Chi disabled**: No sequence calls allowed
+- **Modified scoring**: Different starting points (35,000) and tsumo payments
+- **Adjusted wall**: 91 live tiles, 17 dead wall tiles
 
 ### Rules Implementation
 
@@ -100,7 +110,7 @@ I would like to add custom rulesets as maybe other mahjong varients too. However
 ### Game State Management
 
 ```lisp
-;; Create game
+;; Create a 4-player (yonma) game - default
 (let ((game (create-game-state "game-1")))
 
   ;; Add players
@@ -116,17 +126,49 @@ I would like to add custom rulesets as maybe other mahjong varients too. However
   (process-call-ron game "p2"))
 ```
 
+### Sanma (3-Player) Game
+
+```lisp
+;; Create a 3-player (sanma) game
+(let ((game (create-game-state "sanma-1" :sanma)))
+
+  ;; Add three players
+  (add-player-to-game game "p1" "Alice" :east)
+  (add-player-to-game game "p2" "Bob" :south)
+  (add-player-to-game game "p3" "Charlie" :west)
+
+  ;; Start game
+  (start-game game)
+
+  ;; Extract North tiles (kita)
+  (let ((player (get-player game :east)))
+    ;; When player draws a North, they can extract it
+    (when (player-can-extract-north player +sanma-config+)
+      (player-extract-north player)
+      ;; Extracted Norths count as dora
+      (player-extracted-norths player))) ; => number of extracted Norths
+
+  ;; Chi is automatically disabled in sanma
+  ;; Tsumo payments are calculated differently (2x base for each player)
+  )
+```
+
 ### API Reference
 
+#### Hand Analysis
 - `validate-hand` - Check if hand is complete
 - `decompose-hand` - Get exact grouping for fu calculation
 - `calculate-shanten` - Distance to tenpai
 - `calculate-ukeire` - Tiles that improve hand
+
+#### Scoring
 - `detect-yaku` - Detect all applicable yaku
 - `calculate-fu` - Minipoints calculation
 - `calculate-score` - Complete scoring (yaku + fu + dora → points)
-- `count-dora` - Count dora tiles in hand
-- `create-game-state` - Initialize new game
+- `count-dora` - Count dora tiles in hand (includes extracted Norths)
+
+#### Game Management
+- `create-game-state` - Initialize new game (accepts `:sanma` or `:yonma`)
 - `add-player-to-game` - Add player at seat
 - `start-game` - Deal initial hands
 - `process-call-ron` - Handle ron declaration
@@ -134,6 +176,13 @@ I would like to add custom rulesets as maybe other mahjong varients too. However
 - `build-winning-context` - Extract win context from game state
 - `check-furiten-for-ron` - Validate ron eligibility
 - `apply-payment-to-players` - Distribute payments
+
+#### Sanma-Specific
+- `player-can-extract-north` - Check if North extraction is available
+- `player-extract-north` - Extract a North tile as dora
+- `player-extracted-norths` - Get count of extracted Norths
+- `+sanma-config+` - Global sanma configuration
+- `+yonma-config+` - Global yonma configuration
 
 ## LICENSE
 

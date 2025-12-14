@@ -138,10 +138,14 @@
     (when (>= count 2)
       count)))
 
-(defun find-sequence-chi (hand tile seat last-discard-seat)
+(defun find-sequence-chi (hand tile seat last-discard-seat &optional config)
   "Check if player can call chi with TILE. Returns list of possible sequences.
    Chi can only be called by the next player (counter-clockwise)."
-  (when (not (eq seat (next-seat last-discard-seat)))
+  ;; Early return if chi disabled in config
+  (when (and config (not (game-config-chi-enabled-p config)))
+    (return-from find-sequence-chi nil))
+  ;; Check seat relation
+  (when (not (eq seat (next-seat last-discard-seat config)))
     (return-from find-sequence-chi nil))
   (let ((suit (tile-suit tile))
         (val (tile-value tile))
@@ -182,26 +186,39 @@
     sequences))
 
 
-(defun next-seat (seat)
-  "Return the next seat counter-clockwise (east -> south -> west -> north -> east)"
-  (case seat
-    (:east :south)
-    (:south :west)
-    (:west :north)
-    (:north :east)))
+(defun next-seat (seat &optional config)
+  "Return the next seat counter-clockwise.
+   CONFIG: Optional game-config (defaults to 4-player)"
+  (let ((seats (if config
+                   (game-config-seats config)
+                   '(:east :south :west :north))))
+    (let ((pos (position seat seats)))
+      (when pos
+        (nth (mod (1+ pos) (length seats)) seats)))))
 
-(defun prev-seat (seat)
-  "Return the previous seat clockwise"
-  (case seat
-    (:east :north)
-    (:north :west)
-    (:west :south)
-    (:south :east)))
+(defun prev-seat (seat &optional config)
+  "Return the previous seat clockwise.
+   CONFIG: Optional game-config (defaults to 4-player)"
+  (let ((seats (if config
+                   (game-config-seats config)
+                   '(:east :south :west :north))))
+    (let ((pos (position seat seats)))
+      (when pos
+        (nth (mod (1- pos) (length seats)) seats)))))
 
-(defun seat-relation (from-seat to-seat)
-  "Return the relation from FROM-SEAT to TO-SEAT (:left :across :right)"
-  (cond
-    ((eq to-seat (next-seat from-seat)) :left)
-    ((eq to-seat (next-seat (next-seat from-seat))) :across)
-    ((eq to-seat (prev-seat from-seat)) :right)
-    (t nil)))
+(defun seat-relation (from-seat to-seat &optional config)
+  "Return the relation from FROM-SEAT to TO-SEAT.
+   For 4-player: :left :across :right
+   For 3-player: :left :right (no :across)"
+  (let ((seats (if config
+                   (game-config-seats config)
+                   '(:east :south :west :north))))
+    (let ((from-pos (position from-seat seats))
+          (to-pos (position to-seat seats)))
+      (when (and from-pos to-pos)
+        (let ((distance (mod (- to-pos from-pos) (length seats))))
+          (cond
+            ((= distance 1) :left)
+            ((= distance 2) (if (= (length seats) 4) :across :right))
+            ((= distance 3) :right)
+            (t nil)))))))

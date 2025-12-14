@@ -18,9 +18,15 @@
 
 (in-package #:cl-mahjong)
 
-(defun create-game-state (game-id)
-  "Create a new game state instance"
-  (make-instance 'game-state :game-id game-id))
+(defun create-game-state (game-id &optional (variant :yonma))
+  "Create a new game state instance with specified variant.
+   VARIANT: :yonma (4-player) or :sanma (3-player)"
+  (let ((config (case variant
+                  (:sanma +sanma-config+)
+                  (t +yonma-config+))))
+    (make-instance 'game-state
+                   :game-id game-id
+                   :config config)))
 
 (defun add-player-to-game (game player-id name seat)
   "Add a player to the game at the specified seat.
@@ -29,7 +35,7 @@
     (when (gethash seat players)
       (return-from add-player-to-game nil))
 
-    (let ((player (create-player player-id name seat)))
+    (let ((player (create-player player-id name seat (game-config game))))
       (setf (gethash seat players) player)
       (format t "~&[GAME ~A] Player ~A (~A) joined at ~A~%"
               (game-id game) name player-id seat)
@@ -62,14 +68,15 @@
   (hash-table-count (game-players game)))
 
 (defun game-is-full (game)
-  "Check if the game has 4 players"
-  (= (game-player-count game) 4))
+  "Check if the game has the required number of players for its variant"
+  (= (game-player-count game)
+     (game-config-num-players (game-config game))))
 
 (defun all-players-ready (game)
-  "Check if all 4 players are ready"
+  "Check if all players are ready"
   (and (game-is-full game)
        (every #'player-is-ready
-              (loop for seat in '(:east :south :west :north)
+              (loop for seat in (game-config-seats (game-config game))
                     collect (get-player game seat)))))
 
 ;;; ============================================================================
@@ -79,37 +86,44 @@
 (defun start-game (game)
   "Start the game: create wall, deal initial hands, set phase.
    Returns T if successful, NIL if game cannot start."
-  (unless (game-is-full game)
-    (format t "~&[GAME ~A] Cannot start: need 4 players~%" (game-id game))
-    (return-from start-game nil))
+  (let ((config (game-config game)))
+    (unless (game-is-full game)
+      (format t "~&[GAME ~A] Cannot start: need ~A players~%"
+              (game-id game) (game-config-num-players config))
+      (return-from start-game nil))
 
-  (unless (all-players-ready game)
-    (format t "~&[GAME ~A] Cannot start: not all players ready~%" (game-id game))
-    (return-from start-game nil))
+    (unless (all-players-ready game)
+      (format t "~&[GAME ~A] Cannot start: not all players ready~%" (game-id game))
+      (return-from start-game nil))
 
-  (setf (game-wall game) (create-wall))
-  (deal-initial-hands game)
-  (setf (game-phase game) :turn-draw)
-  (setf (turn-current-player (game-turn-state game))
-        (game-dealer-seat game))
+    (setf (game-wall game) (create-wall config))
+    (deal-initial-hands game)
+    (setf (game-phase game) :turn-draw)
+    (setf (turn-current-player (game-turn-state game))
+          (game-dealer-seat game))
 
-  (format t "~&[GAME ~A] Game started! Dealer: ~A~%"
-          (game-id game) (game-dealer-seat game))
+    (format t "~&[GAME ~A] Game started! Dealer: ~A~%"
+            (game-id game) (game-dealer-seat game))
 
-  t)
+    t))
 
 (defun deal-initial-hands (game)
   "Deal initial hands to all players.
    Each player gets 13 tiles, dealer gets 14 tiles."
   (let ((wall (game-wall game))
-        (dealer-seat (game-dealer-seat game)))
-    (dolist (seat '(:east :south :west :north))
+        (dealer-seat (game-dealer-seat game))
+        (config (game-config game)))
+    (dolist (seat (game-config-seats config))
       (let ((player (get-player game seat)))
         (dotimes (i 13)
           (player-add-tile player (wall-draw-tile wall)))
+        ;; Auto-extract North if sanma
+        (auto-extract-north-if-needed game player)
         (player-sort-hand player)))
     (let ((dealer (get-player game dealer-seat)))
       (player-add-tile dealer (wall-draw-tile wall))
+      ;; Auto-extract North if sanma
+      (auto-extract-north-if-needed game dealer)
       (player-sort-hand dealer))
 
     (format t "~&[GAME ~A] Dealt initial hands~%" (game-id game))))
@@ -118,7 +132,8 @@
   "Advance to the next player's turn"
   (let* ((turn-state (game-turn-state game))
          (current (turn-current-player turn-state))
-         (next (next-seat current)))
+         (config (game-config game))
+         (next (next-seat current config)))
     (setf (turn-current-player turn-state) next)
     (incf (turn-turn-number turn-state))
     (format t "~&[GAME ~A] Turn ~D: ~A's turn~%"
@@ -129,6 +144,22 @@
 (defun current-player (game)
   "Get the current player whose turn it is"
   (get-player game (turn-current-player (game-turn-state game))))
+
+(defun auto-extract-north-if-needed (game player)
+  "Automatically extract North if drawn in sanma.
+   Called after every draw. Can extract multiple Norths in sequence."
+  (let ((config (game-config game)))
+    (loop while (player-can-extract-north player config)
+          do
+          (progn
+            ;; Extract the North
+            (player-extract-north player)
+            ;; Draw replacement from dead wall
+            (let ((replacement (wall-draw-kan-replacement (game-wall game))))
+              (when replacement
+                (player-add-tile player replacement)
+                (format t "~&[GAME ~A] Player ~A extracted North (automatic), drew ~A~%"
+                        (game-id game) (player-name player) replacement)))))))
 
 (defun process-action (game action)
   "Process a player action. Returns (values success error-message)"
@@ -191,7 +222,8 @@
         (progn
           (remove-player-from-game game seat)
           ;; Reset game phase if not enough players
-          (when (< (game-player-count game) 4)
+          (when (< (game-player-count game)
+                   (game-config-num-players (game-config game)))
             (setf (game-phase game) :waiting-for-players))
           (values t nil))
         (values nil "Player not in game"))))
@@ -242,11 +274,12 @@
   "Check which players can make calls on the discarded tile.
    Updates the turn-state with possible call information."
   (let ((turn-state (game-turn-state game))
+        (config (game-config game))
         (can-ron nil)
         (can-pon nil)
         (can-chi nil))
     ;; Check each player (except discarder)
-    (dolist (seat '(:east :south :west :north))
+    (dolist (seat (game-config-seats config))
       (unless (eq seat discarder-seat)
         (let ((player (get-player game seat)))
           (when player
@@ -258,9 +291,10 @@
             ;; Check for pon (needs 2 more of the tile)
             (when (player-can-call-pon player discarded-tile)
               (push seat can-pon))
-            ;; Check for chi (only next player)
-            (when (eq seat (next-seat discarder-seat))
-              (when (player-can-call-chi player discarded-tile seat discarder-seat)
+            ;; Check for chi (only next player, only if enabled)
+            (when (and (game-config-chi-enabled-p config)
+                       (eq seat (next-seat discarder-seat config)))
+              (when (player-can-call-chi player discarded-tile seat discarder-seat config)
                 (setf can-chi seat)))))))
     ;; Update turn state
     (setf (turn-can-call-ron turn-state) can-ron
@@ -281,7 +315,8 @@
         (t
          (let* ((tile (turn-last-discard turn-state))
                 (discarder-seat (turn-last-discard-player turn-state))
-                (relation (seat-relation seat discarder-seat)))
+                (config (game-config game))
+                (relation (seat-relation seat discarder-seat config)))
            ;; Remove 2 tiles from hand
            (player-remove-tile player tile)
            (player-remove-tile player tile)
@@ -295,7 +330,7 @@
            (setf (game-phase game) :turn-discard
                  (turn-current-player turn-state) seat)
            ;; Cancel ippatsu for all players
-           (dolist (s '(:east :south :west :north))
+           (dolist (s (game-config-seats config))
              (let ((p (get-player game s)))
                (when p (player-cancel-ippatsu p))))
            (format t "~&[GAME ~A] Player ~A called pon on ~A~%"
@@ -316,8 +351,9 @@
         (t
          (let* ((tile (turn-last-discard turn-state))
                 (discarder-seat (turn-last-discard-player turn-state))
-                (relation (seat-relation seat discarder-seat))
-                (sequences (player-can-call-chi player tile seat discarder-seat))
+                (config (game-config game))
+                (relation (seat-relation seat discarder-seat config))
+                (sequences (player-can-call-chi player tile seat discarder-seat config))
                 (chosen-sequence (or (getf data :sequence) (first sequences))))
            (unless chosen-sequence
              (return-from process-call-chi (values nil "No valid chi sequence")))
@@ -335,7 +371,7 @@
            (setf (game-phase game) :turn-discard
                  (turn-current-player turn-state) seat)
            ;; Cancel ippatsu for all players
-           (dolist (s '(:east :south :west :north))
+           (dolist (s (game-config-seats config))
              (let ((p (get-player game s)))
                (when p (player-cancel-ippatsu p))))
            (format t "~&[GAME ~A] Player ~A called chi on ~A~%"

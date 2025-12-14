@@ -6,7 +6,8 @@
            #:yakuman-tests
            #:scoring-tests
            #:integration-tests
-           #:call-mechanics-tests))
+           #:call-mechanics-tests
+           #:sanma-tests))
 
 (in-package #:cl-mahjong-tests)
 
@@ -30,3 +31,7 @@
 (def-suite call-mechanics-tests
   :in cl-mahjong-tests
   :description "Tests for call mechanics (pon, chi, kan, pass)")
+
+(def-suite sanma-tests
+  :in cl-mahjong-tests
+  :description "Tests for 3-player (sanma) mahjong")

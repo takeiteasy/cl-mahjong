@@ -18,7 +18,7 @@
 
 (in-package #:cl-mahjong)
 
-(defconstant +terminals-and-honors+
+(defparameter +terminals-and-honors+
   '(:1m :9m :1p :9p :1s :9s :east :south :west :north :white :green :red)
   "13 terminal and honor tiles for kokushi musou")
 

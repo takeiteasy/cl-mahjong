@@ -96,6 +96,9 @@
             (wall-get-ura-dora-tiles wall)))
     ;; Aka-dora (red 5s) - currently disabled, make configurable later
     (setf (winning-context-aka-dora-enabled-p context) nil)
+    ;; Extracted Norths (sanma only)
+    (setf (winning-context-extracted-norths context)
+          (player-extracted-norths player))
     context))
 
 
