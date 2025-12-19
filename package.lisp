@@ -139,6 +139,8 @@
    #:all-tiles
    #:standard-tile-p
    #:sort-tiles
+   #:next-seat
+   #:prev-seat
 
    ;; Wall operations
    #:create-wall

@@ -19,7 +19,8 @@
 
 (defstruct ui-state
   (selected-tile-index 0)
-  (last-key nil))
+  (last-key nil)
+  (human-seat :south))  ; Which seat the human player occupies
 
 (defparameter *game* nil
   "The current game state.")
@@ -150,9 +151,12 @@
          ;; Split into main hand (13 tiles) and drawn tile (14th) if applicable
          (main-hand (if has-14th (subseq sorted-hand 0 13) sorted-hand))
          (drawn-tile (when has-14th (nth 13 sorted-hand))))
-    ;; Draw player name/seat
+    ;; Draw player info: name, seat, score
     (croatoan:move scr row col)
-    (croatoan:add-string scr (player-name player))
+    (croatoan:add-string scr (format nil "~A [~A] ~D pts"
+                                     (player-name player)
+                                     (player-seat player)
+                                     (player-score player)))
 
     ;; Draw main hand (13 tiles or fewer)
     (loop for tile in main-hand
@@ -184,13 +188,16 @@
          ;; Split into main hand (13 tiles) and drawn tile (14th) if applicable
          (main-hand (if has-14th (subseq sorted-hand 0 13) sorted-hand))
          (drawn-tile (when has-14th (nth 13 sorted-hand)))
-         (player-name (player-name player))
+         (player-info (format nil "~A [~A] ~D"
+                              (player-name player)
+                              (player-seat player)
+                              (player-score player)))
          (name-col (if align-right
-                       (max 0 (- (+ col 4) (length player-name)))  ; Right-align name to end at tile right edge
+                       (max 0 (- (+ col 4) (length player-info)))  ; Right-align to end at tile right edge
                        col)))
-    ;; Draw player name/seat
+    ;; Draw player info: name, seat, score
     (croatoan:move scr row name-col)
-    (croatoan:add-string scr player-name)
+    (croatoan:add-string scr player-info)
 
     ;; Draw main hand (13 tiles or fewer) - first tile is 3 rows, subsequent tiles are 2 rows (shared border)
     (loop for tile in main-hand
@@ -212,9 +219,10 @@
                                   t    ; first-in-column (standalone)
                                   t)))))
 
-(defun init-new-game (&key (num-players 4) (player-names nil))
+(defun init-new-game (&key (num-players 4) (player-names nil) (human-seat nil))
   "Initialize a new game with NUM-PLAYERS players (3 or 4).
-   PLAYER-NAMES is an optional list of player names."
+   PLAYER-NAMES is an optional list of player names.
+   HUMAN-SEAT specifies which seat the human occupies (randomly assigned if nil)."
   (unless (member num-players '(3 4))
     (error "Number of players must be 3 or 4"))
 
@@ -224,28 +232,37 @@
          (seats (if (= num-players 3)
                     '(:east :south :west)
                     '(:east :south :west :north)))
+         ;; Randomly assign human seat if not specified
+         (actual-human-seat (or human-seat (nth (random num-players) seats)))
          (default-names (loop for i from 1 to num-players
                              collect (format nil "Player ~A" i)))
          (names (if player-names
                     (append player-names
                             (subseq default-names (length player-names)))
                     default-names)))
+    ;; Add players to game - human gets name "You", others get AI names
     (loop for seat in seats
-          for name in names
-          for id = (format nil "player-~A" name)
+          for i from 0
+          for name = (if (eq seat actual-human-seat)
+                         "You"
+                         (format nil "AI ~A" (1+ i)))
+          for id = (format nil "player-~A" seat)
           do (add-player-to-game game id name seat)
              (player-set-ready (get-player game seat) t))
     (start-game game)
-    game))
+    (values game actual-human-seat)))
 
 (defun handle-input (game ui-state ch)
   "Handle user input and return action result"
-  (let ((phase (game-phase game))
-        (south (get-player game :south))
-        ;; Extract key name if ch is a key object
-        (key-name (if (typep ch 'croatoan:key)
-                      (croatoan:key-name ch)
-                      ch)))
+  (let* ((phase (game-phase game))
+         (human-seat (ui-state-human-seat ui-state))
+         (human-player (get-player game human-seat))
+         (current-seat (player-seat (current-player game)))
+         (is-human-turn (eq current-seat human-seat))
+         ;; Extract key name if ch is a key object
+         (key-name (if (typep ch 'croatoan:key)
+                       (croatoan:key-name ch)
+                       ch)))
     ;; Store last key for debugging
     (setf (ui-state-last-key ui-state) ch)
     (cond
@@ -254,50 +271,51 @@
       ((or (eql key-name #\r) (eql key-name #\R)) :refresh)
       ((or (eql key-name #\n) (eql key-name #\N)) :new-game)
 
-      ;; Arrow keys for tile selection (only in discard phase)
-      ((and (eq phase :turn-discard) (eq key-name :left))
-       (let ((hand-size (length (player-hand south))))
+      ;; Arrow keys for tile selection (only in discard phase AND human's turn)
+      ((and is-human-turn (eq phase :turn-discard) (eq key-name :left))
+       (let ((hand-size (length (player-hand human-player))))
          (when (> hand-size 0)
            (setf (ui-state-selected-tile-index ui-state)
                  (mod (1- (ui-state-selected-tile-index ui-state)) hand-size))))
        :continue)
 
-      ((and (eq phase :turn-discard) (eq key-name :right))
-       (let ((hand-size (length (player-hand south))))
+      ((and is-human-turn (eq phase :turn-discard) (eq key-name :right))
+       (let ((hand-size (length (player-hand human-player))))
          (when (> hand-size 0)
            (setf (ui-state-selected-tile-index ui-state)
                  (mod (1+ (ui-state-selected-tile-index ui-state)) hand-size))))
        :continue)
 
-      ;; Enter to discard (only in discard phase)
-      ((and (eq phase :turn-discard) (or (eql key-name #\Newline) (eql key-name #\Return)))
+      ;; Enter to discard (only in discard phase AND human's turn)
+      ((and is-human-turn (eq phase :turn-discard) (or (eql key-name #\Newline) (eql key-name #\Return)))
        (handle-discard game ui-state)
        :continue)
 
-      ;; Default
+      ;; Default - ignore input if not human's turn
       (t :continue))))
 
-(defun process-turn-phase (game)
-  "Process automatic turn actions based on current phase"
+(defun process-turn-phase (game human-seat)
+  "Process automatic turn actions based on current phase.
+   HUMAN-SEAT is the seat occupied by the human player."
   (let ((phase (game-phase game))
         (current (current-player game))
         (current-seat (player-seat (current-player game)))
-        (south (get-player game :south))
+        (human-player (get-player game human-seat))
         (wall (game-wall game)))
     (cond
-      ;; Auto-draw for south player
+      ;; Auto-draw for human player
       ((and (eq phase :turn-draw)
-            (eq current-seat :south))
+            (eq current-seat human-seat))
        (let ((drawn-tile (wall-draw-tile wall)))
          (when drawn-tile
-           (player-add-tile south drawn-tile)
-           (auto-extract-north-if-needed game south)
-           (player-sort-hand south)
+           (player-add-tile human-player drawn-tile)
+           (auto-extract-north-if-needed game human-player)
+           (player-sort-hand human-player)
            (setf (game-phase game) :turn-discard))))
 
       ;; AI auto-draw (just draw, don't discard yet)
       ((and (eq phase :turn-draw)
-            (not (eq current-seat :south)))
+            (not (eq current-seat human-seat)))
        (let ((drawn-tile (wall-draw-tile wall)))
          (when drawn-tile
            (player-add-tile current drawn-tile)
@@ -308,7 +326,7 @@
 
       ;; AI auto-discard (separate phase to allow rendering of 14 tiles)
       ((and (eq phase :turn-discard)
-            (not (eq current-seat :south)))
+            (not (eq current-seat human-seat)))
        ;; Discard first tile (simple AI)
        (let ((first-tile (first (player-hand current))))
          (when first-tile
@@ -320,14 +338,15 @@
 
 (defun handle-discard (game ui-state)
   "Handle tile discard from UI"
-  (let* ((south (get-player game :south))
-         (sorted-hand (sort-tiles (player-hand south)))
+  (let* ((human-seat (ui-state-human-seat ui-state))
+         (human-player (get-player game human-seat))
+         (sorted-hand (sort-tiles (player-hand human-player)))
          (selected-index (ui-state-selected-tile-index ui-state))
          (selected-tile (nth selected-index sorted-hand)))
     (when (and selected-tile
                (< selected-index (length sorted-hand)))
       ;; Discard the tile
-      (player-discard-tile south selected-tile)
+      (player-discard-tile human-player selected-tile)
 
       ;; Skip call window - advance directly to next turn
       (setf (game-phase game) :call-window)
@@ -339,8 +358,114 @@
 
       t)))
 
+(defun draw-discards-horizontal (scr discards row col &optional (tiles-per-row 6) (reverse-horizontal nil))
+  "Draw discards in horizontal rows (for top/bottom players).
+   Discards are arranged in rows of TILES-PER-ROW tiles.
+   If REVERSE-HORIZONTAL is T, arranges right-to-left (for opposite player)."
+  (when discards
+    (loop for tile in discards
+          for i from 0
+          for row-num = (floor i tiles-per-row)
+          for col-num-base = (mod i tiles-per-row)
+          for col-num = (if reverse-horizontal
+                            (- (1- tiles-per-row) col-num-base)
+                            col-num-base)
+          for is-first = (if reverse-horizontal
+                             (or (= col-num-base (1- tiles-per-row))  ; last logical = first visual
+                                 (= i (1- (length discards))))
+                             (= col-num-base 0))  ; first logical = first visual
+          for is-last = (if reverse-horizontal
+                            (= col-num-base 0)  ; first logical = last visual
+                            (or (= col-num-base (1- tiles-per-row))  ; last logical = last visual
+                                (= i (1- (length discards)))))
+          do (draw-tile-block scr tile
+                              (+ row (* row-num 3))
+                              (+ col (* col-num 3))
+                              nil  ; not hidden
+                              is-first
+                              is-last))))  ; or last tile overall
+
+(defun draw-discards-vertical (scr discards row col &optional (tiles-per-column 6) (reverse-vertical nil))
+  "Draw discards in vertical columns (for left/right players).
+   Discards are arranged in columns of TILES-PER-COLUMN tiles.
+   If REVERSE-VERTICAL is T, arranges bottom-to-top (for right player)."
+  (when discards
+    (loop for tile in discards
+          for i from 0
+          for col-num = (floor i tiles-per-column)
+          for row-num-base = (mod i tiles-per-column)
+          for row-num = (if reverse-vertical
+                            (- (1- tiles-per-column) row-num-base)
+                            row-num-base)
+          for is-first = (if reverse-vertical
+                             (or (= row-num-base (1- tiles-per-column))  ; last logical = first visual
+                                 (= i (1- (length discards))))
+                             (= row-num-base 0))  ; first logical = first visual
+          for is-last = (if reverse-vertical
+                            (= row-num-base 0)  ; first logical = last visual
+                            (or (= row-num-base (1- tiles-per-column))  ; last logical = last visual
+                                (= i (1- (length discards)))))
+          do (draw-tile-block-vertical scr tile
+                                       (+ row (* row-num 2))
+                                       (+ col (* col-num 4))
+                                       nil  ; not hidden
+                                       is-first
+                                       is-last))))  ; or last tile overall
+
+(defun draw-center-info (scr game row col)
+  "Draw a centered info box with game information."
+  (let* ((round-wind (game-round-wind game))
+         (dealer-seat (game-dealer-seat game))
+         (wall (game-wall game))
+         (tiles-remaining (wall-tiles-remaining wall))
+         (honba (game-honba game))
+         (riichi-sticks (game-riichi-sticks game)))
+    ;; Draw box with info
+    ;; Top border
+    (croatoan:move scr row col)
+    (croatoan:add-char scr #\l :attributes '(:altcharset))  ; ┌
+    (loop repeat 28 do (croatoan:add-char scr #\q :attributes '(:altcharset)))  ; ─
+    (croatoan:add-char scr #\k :attributes '(:altcharset))  ; ┐
+
+    ;; Round wind
+    (croatoan:move scr (+ row 1) col)
+    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
+    (croatoan:add-string scr (format nil " Round: ~12A        " round-wind))
+    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
+
+    ;; Dealer
+    (croatoan:move scr (+ row 2) col)
+    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
+    (croatoan:add-string scr (format nil " Dealer: ~11A        " dealer-seat))
+    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
+
+    ;; Tiles remaining
+    (croatoan:move scr (+ row 3) col)
+    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
+    (croatoan:add-string scr (format nil " Tiles left: ~7D        " tiles-remaining))
+    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
+
+    ;; Honba counter
+    (croatoan:move scr (+ row 4) col)
+    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
+    (croatoan:add-string scr (format nil " Honba: ~12D        " honba))
+    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
+
+    ;; Riichi sticks
+    (croatoan:move scr (+ row 5) col)
+    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
+    (croatoan:add-string scr (format nil " Riichi: ~11D        " riichi-sticks))
+    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
+
+    ;; Bottom border
+    (croatoan:move scr (+ row 6) col)
+    (croatoan:add-char scr #\m :attributes '(:altcharset))  ; └
+    (loop repeat 28 do (croatoan:add-char scr #\q :attributes '(:altcharset)))  ; ─
+    (croatoan:add-char scr #\j :attributes '(:altcharset))))  ; ┘
+
 (defun draw-game (scr game &optional ui-state)
-  "Draw the entire game screen with mahjong table layout."
+  "Draw the entire game screen with mahjong table layout.
+   Human player is always drawn at bottom, others arranged around them."
   (croatoan:clear scr)
 
   (when game
@@ -350,8 +475,14 @@
            (screen-height (croatoan:height scr))
            (screen-width (croatoan:width scr))
            (selected-index (when ui-state (ui-state-selected-tile-index ui-state)))
+           (human-seat (when ui-state (ui-state-human-seat ui-state)))
            (current-seat (player-seat (current-player game)))
-           (phase (game-phase game)))
+           (phase (game-phase game))
+           ;; Calculate relative positions
+           (bottom-seat human-seat)
+           (right-seat (next-seat human-seat config))
+           (top-seat (next-seat right-seat config))
+           (left-seat (when (= num-players 4) (next-seat top-seat config))))
 
       ;; Draw current turn indicator at top
       (croatoan:move scr 0 0)
@@ -361,103 +492,149 @@
                                        (when ui-state (ui-state-selected-tile-index ui-state))
                                        (when ui-state (ui-state-last-key ui-state))))
 
-      ;; Draw help for South player's turn
-      (when (and (eq current-seat :south) (eq phase :turn-discard))
+      ;; Draw help for human player's turn
+      (when (and (eq current-seat human-seat) (eq phase :turn-discard))
         (croatoan:move scr 1 0)
         (croatoan:add-string scr "Use ← → to select tile, Enter to discard"))
 
       (cond
         ;; 4-player layout
         ((= num-players 4)
-         (let* ((east (get-player game :east))
-                (south (get-player game :south))
-                (west (get-player game :west))
-                (north (get-player game :north))
+         (let* ((bottom-player (get-player game bottom-seat))
+                (right-player (get-player game right-seat))
+                (top-player (get-player game top-seat))
+                (left-player (get-player game left-seat))
                 ;; Calculate positions dynamically
                 ;; Horizontal hand: 3 rows tall, width = 3*tiles + 1 (approx)
-                (north-hand-len (when north (length (player-hand north))))
-                (south-hand-len (when south (length (player-hand south))))
-                (north-width (when north-hand-len (+ 1 (* 3 north-hand-len))))
-                (south-width (when south-hand-len (+ 1 (* 3 south-hand-len))))
-                (north-col (when north-width (max 0 (- (floor screen-width 2) (floor north-width 2)))))
-                (south-col (when south-width (max 0 (- (floor screen-width 2) (floor south-width 2)))))
+                (top-hand-len (when top-player (length (player-hand top-player))))
+                (bottom-hand-len (when bottom-player (length (player-hand bottom-player))))
+                (top-width (when top-hand-len (+ 1 (* 3 top-hand-len))))
+                (bottom-width (when bottom-hand-len (+ 1 (* 3 bottom-hand-len))))
+                (top-col (when top-width (max 0 (- (floor screen-width 2) (floor top-width 2)))))
+                (bottom-col (when bottom-width (max 0 (- (floor screen-width 2) (floor bottom-width 2)))))
                 ;; Vertical hand: 4 chars wide, height = 2*tiles + 1
-                (east-hand-len (when east (length (player-hand east))))
-                (west-hand-len (when west (length (player-hand west))))
-                (east-height (when east-hand-len (+ 1 (* 2 east-hand-len))))
-                (west-height (when west-hand-len (+ 1 (* 2 west-hand-len))))
-                (east-row (when east-height (max 0 (- (floor screen-height 2) (floor east-height 2)))))
-                (west-row (when west-height (max 0 (- (floor screen-height 2) (floor west-height 2)))))
-                (east-col (max 0 (- screen-width 5)))  ; Right edge - 5 chars for tile width
-                (west-col 0))  ; Left edge
+                (right-hand-len (when right-player (length (player-hand right-player))))
+                (left-hand-len (when left-player (length (player-hand left-player))))
+                (right-height (when right-hand-len (+ 1 (* 2 right-hand-len))))
+                (left-height (when left-hand-len (+ 1 (* 2 left-hand-len))))
+                (right-row (when right-height (max 0 (- (floor screen-height 2) (floor right-height 2)))))
+                (left-row (when left-height (max 0 (- (floor screen-height 2) (floor left-height 2)))))
+                (right-col (max 0 (- screen-width 5)))  ; Right edge - 5 chars for tile width
+                (left-col 0))  ; Left edge
 
-           ;; North player (top) - hidden
-           (when north
-             (draw-hand-horizontal scr north 3 north-col t))
+           ;; Top player - hidden
+           (when top-player
+             (draw-hand-horizontal scr top-player 3 top-col t))
 
-           ;; West player (left) - hidden
-           (when west
-             (draw-hand-vertical scr west west-row west-col t nil))  ; Left-aligned
+           ;; Left player - hidden
+           (when left-player
+             (draw-hand-vertical scr left-player left-row left-col t nil))  ; Left-aligned
 
-           ;; East player (right) - hidden
-           (when east
-             (draw-hand-vertical scr east east-row east-col t t))  ; Right-aligned
+           ;; Right player - hidden
+           (when right-player
+             (draw-hand-vertical scr right-player right-row right-col t t))  ; Right-aligned
 
-           ;; South player (bottom) - visible (current player)
-           (when south
-             (draw-hand-horizontal scr south (max 0 (- screen-height 4)) south-col nil selected-index))))
+           ;; Bottom player (human) - visible
+           (when bottom-player
+             (draw-hand-horizontal scr bottom-player (max 0 (- screen-height 4)) bottom-col nil selected-index))))
 
         ;; 3-player layout (sanma)
         ((= num-players 3)
-         (let* ((east (get-player game :east))
-                (south (get-player game :south))
-                (west (get-player game :west))
+         (let* ((bottom-player (get-player game bottom-seat))
+                (right-player (get-player game right-seat))
+                (top-player (get-player game top-seat))
                 ;; Calculate positions dynamically
-                (east-hand-len (when east (length (player-hand east))))
-                (south-hand-len (when south (length (player-hand south))))
-                (west-hand-len (when west (length (player-hand west))))
-                (east-width (when east-hand-len (+ 1 (* 3 east-hand-len))))
-                (south-width (when south-hand-len (+ 1 (* 3 south-hand-len))))
-                (east-col (when east-width (max 0 (- (floor screen-width 2) (floor east-width 2)))))
-                (south-col (when south-width (max 0 (- (floor screen-width 2) (floor south-width 2)))))
-                (west-height (when west-hand-len (+ 1 (* 2 west-hand-len))))
-                (west-row (when west-height (max 0 (- (floor screen-height 2) (floor west-height 2)))))
-                (west-col 0))
+                (top-hand-len (when top-player (length (player-hand top-player))))
+                (bottom-hand-len (when bottom-player (length (player-hand bottom-player))))
+                (right-hand-len (when right-player (length (player-hand right-player))))
+                (top-width (when top-hand-len (+ 1 (* 3 top-hand-len))))
+                (bottom-width (when bottom-hand-len (+ 1 (* 3 bottom-hand-len))))
+                (top-col (when top-width (max 0 (- (floor screen-width 2) (floor top-width 2)))))
+                (bottom-col (when bottom-width (max 0 (- (floor screen-width 2) (floor bottom-width 2)))))
+                (right-height (when right-hand-len (+ 1 (* 2 right-hand-len))))
+                (right-row (when right-height (max 0 (- (floor screen-height 2) (floor right-height 2)))))
+                (right-col 0))
 
-           ;; East player (top) - hidden
-           (when east
-             (draw-hand-horizontal scr east 3 east-col t))
+           ;; Top player - hidden
+           (when top-player
+             (draw-hand-horizontal scr top-player 3 top-col t))
 
-           ;; West player (left) - hidden
-           (when west
-             (draw-hand-vertical scr west west-row west-col t nil))  ; Left-aligned
+           ;; Right player (left side for 3-player) - hidden
+           (when right-player
+             (draw-hand-vertical scr right-player right-row right-col t nil))  ; Left-aligned
 
-           ;; South player (bottom) - visible (current player)
-           (when south
-             (draw-hand-horizontal scr south (max 0 (- screen-height 4)) south-col nil selected-index))))))
+           ;; Bottom player (human) - visible
+           (when bottom-player
+             (draw-hand-horizontal scr bottom-player (max 0 (- screen-height 4)) bottom-col nil selected-index)))))
+
+      ;; Draw center info box and discards around it
+      (let* ((center-row (max 0 (- (floor screen-height 2) 3)))
+             (center-col (max 0 (- (floor screen-width 2) 15)))
+             ;; Center box dimensions: 7 rows tall, 30 chars wide
+             (center-box-height 7)
+             (center-box-width 30)
+             ;; Get players for discard rendering
+             (bottom-player (get-player game bottom-seat))
+             (top-player (get-player game top-seat))
+             (right-player (get-player game right-seat))
+             (left-player (when (= num-players 4) (get-player game left-seat))))
+
+        ;; Draw center info box
+        (draw-center-info scr game center-row center-col)
+
+        ;; Draw discards around center box
+        ;; Bottom player discards: below center box (closer to their hand)
+        (when bottom-player
+          (let ((discards (reverse (player-discards bottom-player)))  ; Reverse list for correct order
+                (discard-row (+ center-row center-box-height 1))  ; 1 row below center box
+                (discard-col (- center-col 1)))  ; Closer to center
+            (draw-discards-horizontal scr discards discard-row discard-col 6 nil)))
+
+        ;; Top player discards: above center box (closer to their hand)
+        ;; From their perspective: oldest on left (our right), newest on right (our left)
+        (when top-player
+          (let ((discards (reverse (player-discards top-player)))  ; Reverse list AND use horizontal reverse
+                (discard-row (max 0 (- center-row 4)))  ; 4 rows above center box
+                (discard-col (+ center-col 2)))  ; More to the right
+            (draw-discards-horizontal scr discards discard-row discard-col 6 t)))  ; reversed horizontal
+
+        ;; Right player discards: to the right of center box
+        (when right-player
+          (let ((discards (reverse (player-discards right-player)))  ; Reverse list for correct order
+                (discard-row (- center-row 1))  ; Closer to center
+                (discard-col (+ center-col center-box-width 1)))  ; Closer to center
+            (draw-discards-vertical scr discards discard-row discard-col 6 t)))  ; reversed vertical
+
+        ;; Left player discards (4-player only): to the left of center box
+        (when left-player
+          (let ((discards (reverse (player-discards left-player)))  ; Reverse list for correct order
+                (discard-row (- center-row 1))  ; Closer to center
+                (discard-col (max 0 (- center-col 12))))  ; More to the right
+            (draw-discards-vertical scr discards discard-row discard-col 6 nil)))))
 
   (croatoan:refresh scr)))
 
 (defun main-loop (scr &key (num-players 4) (player-names nil))
   "Main event loop with optional game configuration."
-  (setf *game* (init-new-game :num-players num-players
-                              :player-names player-names))
-  (let ((ui-state (make-ui-state))
-        (last-ai-turn-time 0))
-    (loop
-       ;; Auto-process turn phases (draw tiles, etc.)
-       ;; Add delay for AI turns to make them visible
-       (let ((current-seat (player-seat (current-player *game*)))
-             (current-time (get-internal-real-time)))
-         (when (not (eq current-seat :south))
-           ;; AI player turn - add 1000ms delay between turns
-           (when (> (- current-time last-ai-turn-time)
-                    (* 1.0 internal-time-units-per-second))
-             (process-turn-phase *game*)
-             (setf last-ai-turn-time current-time)))
-         (when (eq current-seat :south)
-           ;; South player turn - process immediately
-           (process-turn-phase *game*)))
+  (multiple-value-bind (game human-seat)
+      (init-new-game :num-players num-players :player-names player-names)
+    (setf *game* game)
+    (let ((ui-state (make-ui-state :human-seat human-seat))
+          (last-ai-turn-time 0))
+      (loop
+         ;; Auto-process turn phases (draw tiles, etc.)
+         ;; Add delay for AI turns to make them visible
+         (let ((current-seat (player-seat (current-player *game*)))
+               (current-time (get-internal-real-time)))
+           (when (not (eq current-seat human-seat))
+             ;; AI player turn - add 1000ms delay between turns
+             (when (> (- current-time last-ai-turn-time)
+                      (* 1.0 internal-time-units-per-second))
+               (process-turn-phase *game* human-seat)
+               (setf last-ai-turn-time current-time)))
+           (when (eq current-seat human-seat)
+             ;; Human player turn - process immediately
+             (process-turn-phase *game* human-seat)))
 
        ;; Render game state
        (draw-game scr *game* ui-state)
@@ -476,11 +653,13 @@
             (let ((result (handle-input *game* ui-state ch)))
               (case result
                 (:quit (return))
-                (:new-game (setf *game* (init-new-game :num-players num-players
-                                                       :player-names player-names)
-                                 ui-state (make-ui-state)))
+                (:new-game
+                 (multiple-value-bind (new-game new-human-seat)
+                     (init-new-game :num-players num-players :player-names player-names)
+                   (setf *game* new-game
+                         ui-state (make-ui-state :human-seat new-human-seat))))
                 (:refresh nil)
-                (t nil)))))))))
+                (t nil))))))))))
 
 (defun main (&key (num-players 4) (player-names nil))
   "Entry point for the TUI client.
