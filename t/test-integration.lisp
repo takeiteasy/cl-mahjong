@@ -1,6 +1,6 @@
 ;; t/test-integration.lisp
 
-(in-package #:cl-mahjong-tests)
+(in-package #:cl-mahjong/test)
 (in-suite integration-tests)
 
 (test furiten-check

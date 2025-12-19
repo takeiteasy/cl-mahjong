@@ -3,7 +3,7 @@
 ;;
 ;; Copyright (C) 2025 George Watson
 
-(in-package #:cl-mahjong-tests)
+(in-package #:cl-mahjong/test)
 (in-suite sanma-tests)
 
 (test sanma-config

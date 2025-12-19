@@ -94,6 +94,7 @@
 (defun yaku-menzen-tsumo-p (hand melds context)
   "Menzen Tsumo (門前清自摸和) - 1 han
    Self-draw with closed hand"
+  (declare (ignore hand))
   (when (and (winning-context-tsumo-p context)
              (hand-is-closed-p melds))
     1))
@@ -109,6 +110,7 @@
   "Yakuhai (役牌) - 1 han per triplet/kan of value tiles
    Value tiles: seat wind, round wind, dragons
    Note: A wind that is both seat and round wind counts as 2 han"
+  (declare (ignore hand melds))
   (when (and decomposition
              (eq (hand-decomposition-pattern-type decomposition) :standard))
     (let ((total-han 0))
@@ -153,6 +155,7 @@
    - All groups must be chi (sequences)
    - Ryanmen wait (two-sided)
    - Pair must not be value tiles (dragons or seat/round wind)"
+  (declare (ignore hand))
   (when (and decomposition
              (hand-is-closed-p melds)
              (eq (hand-decomposition-pattern-type decomposition) :standard)
@@ -495,6 +498,7 @@
   "Suuankou (四暗刻) - 13 han (yakuman)
    Four concealed triplets
    Double yakuman (26 han) if tanki wait"
+  (declare (ignore winning-tile))
   (when (and decomposition
              (eq (hand-decomposition-pattern-type decomposition) :standard)
              (winning-context-tsumo-p context))  ; Must be tsumo
@@ -600,9 +604,7 @@
       (when (and (= (length suits) 1)
                  (not has-honors))
         ;; Count tiles by value for the suit
-        (let* ((suit (first suits))
-               (counts (make-hash-table))
-               (pattern-1112345678999 t))
+        (let ((counts (make-hash-table)))
           ;; Initialize counts
           (loop for val from 1 to 9
                 do (setf (gethash val counts) 0))

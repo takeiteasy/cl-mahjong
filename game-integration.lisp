@@ -44,10 +44,13 @@
     (dolist (seat '(:east :south :west :north))
       (unless (eq seat discarder-seat)
         (let ((player (get-player game seat)))
-          (when (and player
-                     (not (player-furiten player))
-                     (player-has-winning-hand player winning-tile))
-            (push seat eligible-seats)))))
+          ;; Temporarily add winning-tile to check if hand would be complete
+          (when player
+            (player-add-tile player winning-tile)
+            (when (and (not (player-furiten player))
+                       (player-has-winning-hand player))
+              (push seat eligible-seats))
+            (player-remove-tile player winning-tile)))))
 
     ;; Return first eligible (atamahane - head bump rule)
     ;; In full implementation, would return all and let players declare
@@ -78,18 +81,12 @@
          ;; Winner receives
          (player-adjust-score winner (payment-split-winner-receives payment))
          ;; Loser pays
-         (player-adjust-score loser (- amount))
-
-         (format t "~&[PAYMENT] ~A pays ~A to ~A (ron)~%"
-                 (player-name loser)
-                 (payment-split-winner-receives payment)
-                 (player-name winner))))
+         (player-adjust-score loser (- amount))))
 
       ;; Tsumo (all players pay)
       (t
        (let ((dealer-pays (payment-split-dealer-pays payment))
-             (non-dealer-pays (payment-split-non-dealer-pays payment))
-             (is-dealer-winner (eq winner-seat dealer-seat)))
+             (non-dealer-pays (payment-split-non-dealer-pays payment)))
 
          ;; All other players pay
          (dolist (seat '(:east :south :west :north))
@@ -99,11 +96,7 @@
                               dealer-pays
                               non-dealer-pays)))
                (when payer
-                 (player-adjust-score payer (- amount))
-                 (format t "~&[PAYMENT] ~A pays ~A to ~A (tsumo)~%"
-                         (player-name payer)
-                         amount
-                         (player-name winner))))))
+                 (player-adjust-score payer (- amount))))))
 
          ;; Winner receives total
          (player-adjust-score winner (payment-split-winner-receives payment)))))))
@@ -158,17 +151,6 @@
                  (let ((payment (score-result-payment score)))
                    (apply-payment-to-players game winner-seat payment context)
                    (setf (game-phase game) :hand-ended)
-
-                   (format t "~&[GAME ~A] ~A wins by RON!~%"
-                           (game-id game)
-                           (player-name player))
-                   (format t "~&  Yaku: ~{~A~^, ~}~%"
-                           (mapcar #'first (score-result-yaku-list score)))
-                   (format t "~&  Score: ~A han ~A fu~%"
-                           (score-result-total-han score)
-                           (score-result-fu score))
-                   (format t "~&  Payment: ~A points~%"
-                           (payment-split-winner-receives payment))
 
                    (values t nil score))))))))))))
 
@@ -226,17 +208,6 @@
                  (apply-payment-to-players game winner-seat payment context)
 
                  (setf (game-phase game) :hand-ended)
-
-                 (format t "~&[GAME ~A] ~A wins by TSUMO!~%"
-                         (game-id game)
-                         (player-name player))
-                 (format t "~&  Yaku: ~{~A~^, ~}~%"
-                         (mapcar #'first (score-result-yaku-list score)))
-                 (format t "~&  Score: ~A han ~A fu~%"
-                         (score-result-total-han score)
-                         (score-result-fu score))
-                 (format t "~&  Payment: ~A points~%"
-                         (payment-split-winner-receives payment))
 
                  (values t nil score)))))))))))
 

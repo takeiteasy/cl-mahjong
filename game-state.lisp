@@ -37,8 +37,6 @@
 
     (let ((player (create-player player-id name seat (game-config game))))
       (setf (gethash seat players) player)
-      (format t "~&[GAME ~A] Player ~A (~A) joined at ~A~%"
-              (game-id game) name player-id seat)
       player)))
 
 (defun remove-player-from-game (game seat)
@@ -47,8 +45,6 @@
   (let ((players (game-players game)))
     (when (gethash seat players)
       (remhash seat players)
-      (format t "~&[GAME ~A] Player at ~A left the game~%"
-              (game-id game) seat)
       t)))
 
 (defun get-player (game seat)
@@ -88,22 +84,17 @@
    Returns T if successful, NIL if game cannot start."
   (let ((config (game-config game)))
     (unless (game-is-full game)
-      (format t "~&[GAME ~A] Cannot start: need ~A players~%"
-              (game-id game) (game-config-num-players config))
       (return-from start-game nil))
 
     (unless (all-players-ready game)
-      (format t "~&[GAME ~A] Cannot start: not all players ready~%" (game-id game))
       (return-from start-game nil))
 
     (setf (game-wall game) (create-wall config))
     (deal-initial-hands game)
-    (setf (game-phase game) :turn-draw)
+    ;; Dealer already has 14 tiles from initial deal, so start in discard phase
+    (setf (game-phase game) :turn-discard)
     (setf (turn-current-player (game-turn-state game))
           (game-dealer-seat game))
-
-    (format t "~&[GAME ~A] Game started! Dealer: ~A~%"
-            (game-id game) (game-dealer-seat game))
 
     t))
 
@@ -124,9 +115,7 @@
       (player-add-tile dealer (wall-draw-tile wall))
       ;; Auto-extract North if sanma
       (auto-extract-north-if-needed game dealer)
-      (player-sort-hand dealer))
-
-    (format t "~&[GAME ~A] Dealt initial hands~%" (game-id game))))
+      (player-sort-hand dealer))))
 
 (defun advance-turn (game)
   "Advance to the next player's turn"
@@ -135,11 +124,7 @@
          (config (game-config game))
          (next (next-seat current config)))
     (setf (turn-current-player turn-state) next)
-    (incf (turn-turn-number turn-state))
-    (format t "~&[GAME ~A] Turn ~D: ~A's turn~%"
-            (game-id game)
-            (turn-turn-number turn-state)
-            next)))
+    (incf (turn-turn-number turn-state))))
 
 (defun current-player (game)
   "Get the current player whose turn it is"
@@ -157,9 +142,7 @@
             ;; Draw replacement from dead wall
             (let ((replacement (wall-draw-kan-replacement (game-wall game))))
               (when replacement
-                (player-add-tile player replacement)
-                (format t "~&[GAME ~A] Player ~A extracted North (automatic), drew ~A~%"
-                        (game-id game) (player-name player) replacement)))))))
+                (player-add-tile player replacement)))))))
 
 (defun process-action (game action)
   "Process a player action. Returns (values success error-message)"
@@ -168,9 +151,6 @@
   (let ((action-type (action-type action))
         (player-id (action-player-id action))
         (data (action-data action)))
-
-    (format t "~&[GAME ~A] Processing action ~A from ~A~%"
-            (game-id game) action-type player-id)
 
     (case action-type
       (:join-game
@@ -209,9 +189,7 @@
       (if player
           (progn
             (when (game-is-full game)
-              (setf (game-phase game) :ready-check)
-              (format t "~&[GAME ~A] All players joined, waiting for ready~%"
-                      (game-id game)))
+              (setf (game-phase game) :ready-check))
             (values t nil))
           (values nil "Seat already occupied")))))
 
@@ -235,10 +213,6 @@
     (if player
         (progn
           (player-set-ready player ready)
-          (format t "~&[GAME ~A] Player ~A is ~A~%"
-                  (game-id game)
-                  (player-name player)
-                  (if ready "ready" "not ready"))
           (when (and ready (all-players-ready game))
             (start-game game))
           (values t nil))
@@ -294,15 +268,16 @@
             ;; Check for chi (only next player, only if enabled)
             (when (and (game-config-chi-enabled-p config)
                        (eq seat (next-seat discarder-seat config)))
-              (when (player-can-call-chi player discarded-tile seat discarder-seat config)
+              (when (player-can-call-chi player discarded-tile seat discarder-seat)
                 (setf can-chi seat)))))))
     ;; Update turn state
     (setf (turn-can-call-ron turn-state) can-ron
           (turn-can-call-pon turn-state) can-pon
           (turn-can-call-chi turn-state) can-chi)))
 
-(defun process-call-pon (game player-id data)
+(defun process-call-pon (game player-id _data)
   "Handle a player calling pon"
+  (declare (ignore _data))
   (multiple-value-bind (player seat) (get-player-by-id game player-id)
     (let ((turn-state (game-turn-state game)))
       (cond
@@ -333,8 +308,6 @@
            (dolist (s (game-config-seats config))
              (let ((p (get-player game s)))
                (when p (player-cancel-ippatsu p))))
-           (format t "~&[GAME ~A] Player ~A called pon on ~A~%"
-                   (game-id game) (player-name player) tile)
            (values t nil)))))))
 
 (defun process-call-chi (game player-id data)
@@ -353,7 +326,7 @@
                 (discarder-seat (turn-last-discard-player turn-state))
                 (config (game-config game))
                 (relation (seat-relation seat discarder-seat config))
-                (sequences (player-can-call-chi player tile seat discarder-seat config))
+                (sequences (player-can-call-chi player tile seat discarder-seat))
                 (chosen-sequence (or (getf data :sequence) (first sequences))))
            (unless chosen-sequence
              (return-from process-call-chi (values nil "No valid chi sequence")))
@@ -374,8 +347,6 @@
            (dolist (s (game-config-seats config))
              (let ((p (get-player game s)))
                (when p (player-cancel-ippatsu p))))
-           (format t "~&[GAME ~A] Player ~A called chi on ~A~%"
-                   (game-id game) (player-name player) tile)
            (values t nil)))))))
 
 (defun process-call-kan (game player-id data)
@@ -422,8 +393,6 @@
               ;; Give turn to caller
               (setf (game-phase game) :turn-discard
                     (turn-current-player turn-state) seat)
-              (format t "~&[GAME ~A] Player ~A called open kan on ~A~%"
-                      (game-id game) (player-name player) tile)
               (values t nil)))))
 
         ;; Closed kan (from own hand during turn)
@@ -453,8 +422,6 @@
               (setf (turn-rinshan-active turn-state) t))
             ;; Stay in draw phase (can tsumo or discard)
             (setf (game-phase game) :turn-draw)
-            (format t "~&[GAME ~A] Player ~A declared closed kan on ~A~%"
-                    (game-id game) (player-name player) tile)
             (values t nil))))
 
         ;; Added kan (adding to existing pon)
@@ -496,8 +463,6 @@
                     (setf (turn-can-call-ron turn-state) can-rob
                           (turn-last-discard turn-state) tile
                           (game-phase game) :call-window)
-                    (format t "~&[GAME ~A] Player ~A added kan on ~A (chankan possible)~%"
-                            (game-id game) (player-name player) tile)
                     (values t nil))
                   ;; No chankan, proceed with rinshan draw
                   (progn
@@ -505,8 +470,6 @@
                       (player-add-tile player replacement-tile)
                       (setf (turn-rinshan-active turn-state) t))
                     (setf (game-phase game) :turn-draw)
-                    (format t "~&[GAME ~A] Player ~A added kan on ~A~%"
-                            (game-id game) (player-name player) tile)
                     (values t nil)))))))
 
         (t
@@ -531,8 +494,6 @@
        ;; Declare riichi
        (player-declare-riichi player (turn-turn-number (game-turn-state game)))
        (incf (game-riichi-sticks game))
-       (format t "~&[GAME ~A] Player ~A declared riichi!~%"
-               (game-id game) (player-name player))
        (values t nil)))))
 
 (defun process-pass (game player-id)
@@ -563,14 +524,9 @@
                (setf (turn-current-player turn-state)
                      (next-seat (turn-last-discard-player turn-state))
                      (game-phase game) :turn-draw)
-               (format t "~&[GAME ~A] All players passed, advancing turn~%"
-                       (game-id game))
                (values t nil))
              ;; Still waiting for other players
-             (progn
-               (format t "~&[GAME ~A] Player ~A passed~%"
-                       (game-id game) (player-name player))
-               (values t nil))))))))
+             (values t nil)))))))
 
 
 (defun game-in-progress (game)

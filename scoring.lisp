@@ -24,6 +24,7 @@
    - 20: Open hand (has called melds)
    - 25: Chiitoitsu (fixed)
    - 30: Closed hand (menzen)"
+  (declare (ignore context))
   (cond
     ;; Chiitoitsu is always 25 fu
     ((eq (hand-decomposition-pattern-type decomposition) :chiitoitsu)
@@ -78,8 +79,7 @@
       ((eq group-type :chi)
        0)
       ((eq group-type :pon)
-       (let ((tile (first tiles))
-             (is-terminal-or-honor (yaochuuhai-p (first tiles))))
+       (let ((is-terminal-or-honor (yaochuuhai-p (first tiles))))
          (cond
            ;; Concealed pon of terminals/honors: 8 fu
            ((and concealed-p is-terminal-or-honor) 8)
@@ -90,8 +90,7 @@
            ;; Open pon of simples: 2 fu
            (t 2))))
       ((eq group-type :kan)
-       (let ((tile (first tiles))
-             (is-terminal-or-honor (yaochuuhai-p (first tiles))))
+       (let ((is-terminal-or-honor (yaochuuhai-p (first tiles))))
          (cond
            ;; Concealed kan of terminals/honors: 32 fu
            ((and concealed-p is-terminal-or-honor) 32)
@@ -486,45 +485,12 @@
 
 (defun print-fu-breakdown (breakdown)
   "Print a human-readable fu breakdown."
-  (format t "Fu Breakdown:~%")
-  (format t "  Base fu: ~A~%" (fu-breakdown-base-fu breakdown))
-  (format t "  Wait fu: ~A~%" (fu-breakdown-wait-fu breakdown))
-  (format t "  Pair fu: ~A~%" (fu-breakdown-pair-fu breakdown))
-  (format t "  Tsumo fu: ~A~%" (fu-breakdown-tsumo-fu breakdown))
-  (format t "  Group fu:~%")
-  (dolist (entry (fu-breakdown-group-fu-list breakdown))
-    (let ((group (car entry))
-          (fu (cdr entry)))
-      (format t "    ~A ~A: ~A fu~%"
-              (group-type group)
-              (group-tiles group)
-              fu)))
-  (format t "  Total fu: ~A~%~%" (fu-breakdown-total-fu breakdown)))
+  ;; Disabled to avoid interfering with TUI
+  (declare (ignore breakdown))
+  nil)
 
 (defun print-score-result (result)
   "Print a human-readable score result."
-  (format t "~%Score Result:~%")
-  (format t "========================================~%")
-  (format t "Yaku:~%")
-  (dolist (yaku (score-result-yaku-list result))
-    (format t "  ~A: ~A han~%" (first yaku) (second yaku)))
-  (format t "~%Han breakdown:~%")
-  (format t "  From yaku: ~A han~%" (score-result-han-from-yaku result))
-  (format t "  From dora: ~A han~%" (score-result-dora-count result))
-  (format t "  Total: ~A han~%~%" (score-result-total-han result))
-  (format t "Fu: ~A~%" (score-result-fu result))
-  (when (score-result-limit-hand result)
-    (format t "Limit hand: ~A~%" (score-result-limit-hand result)))
-  (format t "Base points: ~A~%~%" (score-result-base-points result))
-
-  (let ((payment (score-result-payment result)))
-    (format t "Payment:~%")
-    (if (payment-split-direct-payment payment)
-        (format t "  Direct payment: ~A~%" (payment-split-direct-payment payment))
-        (progn
-          (when (payment-split-dealer-pays payment)
-            (format t "  Dealer pays: ~A~%" (payment-split-dealer-pays payment)))
-          (when (payment-split-non-dealer-pays payment)
-            (format t "  Each non-dealer pays: ~A~%" (payment-split-non-dealer-pays payment)))))
-    (format t "  Winner receives: ~A~%" (payment-split-winner-receives payment)))
-  (format t "========================================~%~%"))
+  ;; Disabled to avoid interfering with TUI
+  (declare (ignore result))
+  nil)

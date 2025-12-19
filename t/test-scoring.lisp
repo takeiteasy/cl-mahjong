@@ -1,6 +1,6 @@
 ;; t/test-scoring.lisp
 
-(in-package #:cl-mahjong-tests)
+(in-package #:cl-mahjong/test)
 (in-suite scoring-tests)
 
 (test riichi-tsumo

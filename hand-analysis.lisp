@@ -263,6 +263,7 @@
 (defun decompose-chiitoitsu (tiles winning-tile)
   "Decompose chiitoitsu hand (7 pairs).
    Wait type is always :tanki (pair wait)."
+  (declare (ignore tiles))
   (make-hand-decomposition
    :pattern-type :chiitoitsu
    :groups nil  ; No groups in chiitoitsu
@@ -343,10 +344,7 @@
       ;; Try using as pon (if we need groups)
       (when (and (> groups-needed 0) (>= tile-count 3))
         (decf (gethash tile counts) 3)
-        (let ((new-group (make-group :type :pon
-                                      :tiles (list tile tile tile)
-                                      :concealed-p t))
-              (new-groups (cons (make-group :type :pon
+        (let ((new-groups (cons (make-group :type :pon
                                             :tiles (list tile tile tile)
                                             :concealed-p t)
                                 current-groups)))

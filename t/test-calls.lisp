@@ -1,6 +1,6 @@
 ;; t/test-calls.lisp
 
-(in-package #:cl-mahjong-tests)
+(in-package #:cl-mahjong/test)
 (in-suite call-mechanics-tests)
 
 (test pon-call

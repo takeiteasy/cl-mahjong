@@ -40,6 +40,8 @@
    #:player-is-ready
    #:game-state
    #:game-id
+   #:game-config
+   #:game-config-seats
    #:game-players
    #:game-wall
    #:game-phase
@@ -136,6 +138,7 @@
    #:calculate-dora
    #:all-tiles
    #:standard-tile-p
+   #:sort-tiles
 
    ;; Wall operations
    #:create-wall
@@ -154,6 +157,7 @@
    #:player-remove-tile
    #:player-add-meld
    #:player-discard-tile
+   #:player-sort-hand
    #:player-can-pon
    #:player-can-chi
    #:player-can-kan
@@ -182,6 +186,9 @@
    #:game-in-progress
    #:game-waiting-for-players
    #:game-in-ready-check
+   #:current-player
+   #:advance-turn
+   #:auto-extract-north-if-needed
 
    ;; Hand analysis
    #:validate-hand
@@ -227,3 +234,7 @@
    #:payment-split-dealer-pays
    #:payment-split-non-dealer-pays
    #:player-set-ready))
+
+(defpackage #:cli-mahjong
+  (:use #:cl #:cl-mahjong)
+  (:export #:main))

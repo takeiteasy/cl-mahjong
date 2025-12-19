@@ -1,7 +1,7 @@
 ;;;; t/test-yakuman.lisp
 ;;;; Tests for yakuman detection
 
-(in-package #:cl-mahjong-tests)
+(in-package #:cl-mahjong/test)
 (in-suite yakuman-tests)
 
 (test kokushi-musou

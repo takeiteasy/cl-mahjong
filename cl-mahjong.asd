@@ -32,3 +32,35 @@
                (:file "wall")
                (:file "player")
                (:file "game-state")))
+
+(asdf:defsystem #:cl-mahjong/cli
+  :description "TUI-based client for Riichi Mahjong"
+  :author "George Watson <gigolo@hotmail.co.uk>"
+  :license  "GPL-3.0"
+  :version "0.1.0"
+  :depends-on (#:cl-mahjong
+               #:croatoan)
+  :components ((:file "cli-mahjong"))
+  :build-operation "program-op"
+  :build-pathname "cli-mahjong"
+  :entry-point "cli-mahjong:main")
+
+(asdf:defsystem #:cl-mahjong/test
+  :description "Test suite for cl-mahjong"
+  :author "George Watson <gigolo@hotmail.co.uk>"
+  :license "GPL-3.0"
+  :version "0.1.0"
+  :serial t
+  :depends-on (#:cl-mahjong
+               #:fiveam)
+  :components ((:module "t"
+                :serial t
+                :components ((:file "package")
+                             (:file "test-yakuman")
+                             (:file "test-scoring")
+                             (:file "test-integration")
+                             (:file "test-calls"))))
+  :perform (asdf:test-op (o c)
+                         (symbol-call :fiveam :run!
+                                      (find-symbol* :cl-mahjong-tests
+                                                    :cl-mahjong-tests))))

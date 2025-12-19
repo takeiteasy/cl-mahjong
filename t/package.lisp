@@ -1,6 +1,6 @@
 ;; t/package.lisp
 
-(defpackage #:cl-mahjong-tests
+(defpackage #:cl-mahjong/test
   (:use #:cl #:cl-mahjong #:fiveam)
   (:export #:cl-mahjong-tests
            #:yakuman-tests
@@ -9,7 +9,7 @@
            #:call-mechanics-tests
            #:sanma-tests))
 
-(in-package #:cl-mahjong-tests)
+(in-package #:cl-mahjong/test)
 
 ;; Define main test suite
 (def-suite cl-mahjong-tests
