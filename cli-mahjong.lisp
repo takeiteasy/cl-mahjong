@@ -20,7 +20,13 @@
 (defstruct ui-state
   (selected-tile-index 0)
   (last-key nil)
-  (human-seat :south))  ; Which seat the human player occupies
+  (human-seat :south)  ; Which seat the human player occupies
+  (hand-position nil)  ; (row col) of where human hand is drawn
+  (active-modal nil)   ; Current modal dialog (modal-state or nil)
+  (riichi-pending nil) ; T if player confirmed riichi and is choosing tile to discard
+  (valid-riichi-discards nil))  ; List of tiles that maintain tempai for riichi
+
+(defparameter *debug-ui* t)
 
 (defparameter *game* nil
   "The current game state.")
@@ -56,45 +62,52 @@
       ((eq tile :white) '(:yellow :black)) ; white dragon (yellow)
       (t nil))))                           ; default for winds
 
-(defun draw-tile-block (scr tile row col &optional (hidden nil) (first-in-row nil) (last-in-row nil) (highlighted nil))
+(defun draw-tile-block (scr tile row col &optional (hidden nil) (first-in-row nil) (last-in-row nil) (highlighted nil) (is-valid nil))
   "Draw a single tile as a block using ACS box-drawing characters with shared borders.
    Format (horizontal):
    ┌──┬──┐  (first ── middle ── last)
    │XX│XX│
-   └──┴──┘"
+   └──┴──┘
+   HIGHLIGHTED makes the tile reverse video (selected).
+   IS-VALID highlights the tile border in green (valid for riichi discard)."
   (let ((tile-str (if hidden
                       "XX"
                       (tile-to-string tile)))
-        (start-col (if first-in-row col (1+ col))))
+        (start-col (if first-in-row col (1+ col)))
+        (border-attrs (if is-valid '(:altcharset :bold) '(:altcharset))))
     ;; Top border
     (croatoan:move scr row start-col)
     (when first-in-row
-      (croatoan:add-char scr #\l :attributes '(:altcharset)))  ; upper-left corner ┌
-    (croatoan:add-char scr #\q :attributes '(:altcharset))  ; horizontal ─
-    (croatoan:add-char scr #\q :attributes '(:altcharset))  ; horizontal ─
+      (croatoan:add-char scr #\l :attributes border-attrs))  ; upper-left corner ┌
+    (croatoan:add-char scr #\q :attributes border-attrs)  ; horizontal ─
+    (croatoan:add-char scr #\q :attributes border-attrs)  ; horizontal ─
     (if last-in-row
-        (croatoan:add-char scr #\k :attributes '(:altcharset))  ; upper-right corner ┐
-        (croatoan:add-char scr #\w :attributes '(:altcharset)))  ; top tee ┬
+        (croatoan:add-char scr #\k :attributes border-attrs)  ; upper-right corner ┐
+        (croatoan:add-char scr #\w :attributes border-attrs))  ; top tee ┬
 
     ;; Middle with tile content
     (croatoan:move scr (+ row 1) start-col)
     (when first-in-row
-      (croatoan:add-char scr #\x :attributes '(:altcharset)))  ; vertical │
-    (let ((attrs (if highlighted '(:reverse) nil)))
+      (croatoan:add-char scr #\x :attributes border-attrs))  ; vertical │
+    (let ((attrs (cond
+                   ((and highlighted is-valid) '(:reverse :bold))
+                   (highlighted '(:reverse))
+                   (is-valid '(:bold))
+                   (t nil))))
       (if hidden
           (croatoan:add-string scr tile-str :attributes attrs)
-          (croatoan:add-string scr tile-str :color-pair (get-tile-color-pair tile) :attributes attrs)))
-    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; vertical │
+          (croatoan:add-string scr tile-str :color-pair (if is-valid '(:green :black) (get-tile-color-pair tile)) :attributes attrs)))
+    (croatoan:add-char scr #\x :attributes border-attrs)  ; vertical │
 
     ;; Bottom border
     (croatoan:move scr (+ row 2) start-col)
     (when first-in-row
-      (croatoan:add-char scr #\m :attributes '(:altcharset)))  ; lower-left corner └
-    (croatoan:add-char scr #\q :attributes '(:altcharset))  ; horizontal ─
-    (croatoan:add-char scr #\q :attributes '(:altcharset))  ; horizontal ─
+      (croatoan:add-char scr #\m :attributes border-attrs))  ; lower-left corner └
+    (croatoan:add-char scr #\q :attributes border-attrs)  ; horizontal ─
+    (croatoan:add-char scr #\q :attributes border-attrs)  ; horizontal ─
     (if last-in-row
-        (croatoan:add-char scr #\j :attributes '(:altcharset))  ; lower-right corner ┘
-        (croatoan:add-char scr #\v :attributes '(:altcharset)))))  ; bottom tee ┴
+        (croatoan:add-char scr #\j :attributes border-attrs)  ; lower-right corner ┘
+        (croatoan:add-char scr #\v :attributes border-attrs))))  ; bottom tee ┴
 
 (defun draw-tile-block-vertical (scr tile row col &optional (hidden nil) (first-in-column nil) (last-in-column nil))
   "Draw a single tile as a block using ACS box-drawing characters with shared borders (vertical stacking).
@@ -141,16 +154,17 @@
           (croatoan:add-char scr #\q :attributes '(:altcharset))  ; horizontal ─
           (croatoan:add-char scr #\u :attributes '(:altcharset))))))  ; right tee ┤
 
-(defun draw-hand-horizontal (scr player row col &optional (hidden nil) (selected-index nil))
+(defun draw-hand-horizontal (scr player row col &optional (hidden nil) (selected-index nil) (valid-tiles nil))
   "Draw a player's hand horizontally (for top/bottom positions).
-   If hand has 14 tiles, draw first 13 together and 14th tile separate."
+   If hand has 14 tiles, draw first 13 together and 14th tile separate.
+   VALID-TILES is a list of tiles to highlight as valid for riichi discard."
   (let* ((hand (player-hand player))
-         (sorted-hand (sort-tiles hand))
-         (num-tiles (length sorted-hand))
+         (num-tiles (length hand))
          (has-14th (= num-tiles 14))
          ;; Split into main hand (13 tiles) and drawn tile (14th) if applicable
-         (main-hand (if has-14th (subseq sorted-hand 0 13) sorted-hand))
-         (drawn-tile (when has-14th (nth 13 sorted-hand))))
+         ;; Hand is already sorted with drawn tile at position 14
+         (main-hand (if has-14th (subseq hand 0 13) hand))
+         (drawn-tile (when has-14th (nth 13 hand))))
     ;; Draw player info: name, seat, score
     (croatoan:move scr row col)
     (croatoan:add-string scr (format nil "~A [~A] ~D pts"
@@ -161,33 +175,38 @@
     ;; Draw main hand (13 tiles or fewer)
     (loop for tile in main-hand
           for i from 0
+          for is-valid = (and valid-tiles (member tile valid-tiles :test #'eq))
+          for is-selected = (and selected-index (= i selected-index))
           do (draw-tile-block scr tile (+ row 1) (+ col (* i 3))
                               hidden
                               (= i 0)
                               (= i (1- (length main-hand)))
-                              (and selected-index (= i selected-index))))
+                              is-selected
+                              is-valid))  ; Pass validity for highlighting
 
     ;; Draw 14th tile separately with gap if present
     (when drawn-tile
-      (let ((gap-offset 2))  ; 2 character gap
+      (let ((gap-offset 2)  ; 2 character gap
+            (is-valid (and valid-tiles (member drawn-tile valid-tiles :test #'eq))))
         (draw-tile-block scr drawn-tile (+ row 1)
                         (+ col (* (length main-hand) 3) gap-offset)
                         hidden
                         t    ; first-in-row (standalone)
                         t    ; last-in-row (standalone)
-                        (and selected-index (= selected-index 13)))))))
+                        (and selected-index (= selected-index 13))
+                        is-valid)))))
 
 (defun draw-hand-vertical (scr player row col &optional (hidden nil) (align-right nil))
   "Draw a player's hand vertically (for left/right positions).
    If align-right is true, name is right-aligned to fit on screen.
    If hand has 14 tiles, draw first 13 together and 14th tile separate."
   (let* ((hand (player-hand player))
-         (sorted-hand (sort-tiles hand))
-         (num-tiles (length sorted-hand))
+         (num-tiles (length hand))
          (has-14th (= num-tiles 14))
          ;; Split into main hand (13 tiles) and drawn tile (14th) if applicable
-         (main-hand (if has-14th (subseq sorted-hand 0 13) sorted-hand))
-         (drawn-tile (when has-14th (nth 13 sorted-hand)))
+         ;; Hand is already sorted with drawn tile at position 14
+         (main-hand (if has-14th (subseq hand 0 13) hand))
+         (drawn-tile (when has-14th (nth 13 hand)))
          (player-info (format nil "~A [~A] ~D"
                               (player-name player)
                               (player-seat player)
@@ -219,27 +238,18 @@
                                   t    ; first-in-column (standalone)
                                   t)))))
 
-(defun init-new-game (&key (num-players 4) (player-names nil) (human-seat nil))
-  "Initialize a new game with NUM-PLAYERS players (3 or 4).
-   PLAYER-NAMES is an optional list of player names.
+(defun init-new-game (&key (sanma nil) (human-seat nil))
+  "Initialize a new game.
+   SANMA specifies 3-player variant (default: nil for 4-player yonma).
    HUMAN-SEAT specifies which seat the human occupies (randomly assigned if nil)."
-  (unless (member num-players '(3 4))
-    (error "Number of players must be 3 or 4"))
-
-  (let* ((variant (if (= num-players 3) :sanma :yonma))
+  (let* ((variant (if sanma :sanma :yonma))
          (game-id (format nil "game-~A" (get-universal-time)))
          (game (create-game-state game-id variant))
-         (seats (if (= num-players 3)
+         (seats (if sanma
                     '(:east :south :west)
                     '(:east :south :west :north)))
          ;; Randomly assign human seat if not specified
-         (actual-human-seat (or human-seat (nth (random num-players) seats)))
-         (default-names (loop for i from 1 to num-players
-                             collect (format nil "Player ~A" i)))
-         (names (if player-names
-                    (append player-names
-                            (subseq default-names (length player-names)))
-                    default-names)))
+         (actual-human-seat (or human-seat (nth (random (length seats)) seats))))
     ;; Add players to game - human gets name "You", others get AI names
     (loop for seat in seats
           for i from 0
@@ -252,51 +262,122 @@
     (start-game game)
     (values game actual-human-seat)))
 
-(defun handle-input (game ui-state ch)
+(defun get-clicked-tile-index (mouse-y mouse-x hand-row hand-col hand-size)
+  "Determine which tile was clicked based on mouse coordinates.
+   Returns tile index or NIL if click was not on a tile.
+   Each tile is 3 chars wide (including shared border), 3 rows tall."
+  (when (and (>= mouse-y (+ hand-row 1))
+             (<= mouse-y (+ hand-row 2)))  ; Middle row of tiles
+    (let* ((main-hand-size (if (= hand-size 14) 13 hand-size))
+           (main-hand-width (* main-hand-size 3))
+           (relative-x (- mouse-x hand-col)))
+      (cond
+        ;; Click on main hand (first 13 tiles)
+        ((and (>= relative-x 0)
+              (< relative-x main-hand-width))
+         (let ((tile-index (floor relative-x 3)))
+           (when (< tile-index main-hand-size)
+             tile-index)))
+        ;; Click on 14th tile (if present)
+        ((= hand-size 14)
+         (let* ((gap-offset 2)
+                (tile-14-start (+ main-hand-width gap-offset))
+                (tile-14-end (+ tile-14-start 4)))  ; 4 chars wide (standalone)
+           (when (and (>= relative-x tile-14-start)
+                      (< relative-x tile-14-end))
+             13)))))))
+
+(defun handle-input (game ui-state event)
   "Handle user input and return action result"
-  (let* ((phase (game-phase game))
-         (human-seat (ui-state-human-seat ui-state))
-         (human-player (get-player game human-seat))
-         (current-seat (player-seat (current-player game)))
-         (is-human-turn (eq current-seat human-seat))
-         ;; Extract key name if ch is a key object
-         (key-name (if (typep ch 'croatoan:key)
-                       (croatoan:key-name ch)
-                       ch)))
-    ;; Store last key for debugging
-    (setf (ui-state-last-key ui-state) ch)
-    (cond
-      ;; Always available commands
-      ((or (eql key-name #\q) (eql key-name #\Q)) :quit)
-      ((or (eql key-name #\r) (eql key-name #\R)) :refresh)
-      ((or (eql key-name #\n) (eql key-name #\N)) :new-game)
+  (handler-case
+      (let* ((phase (game-phase game))
+             (human-seat (ui-state-human-seat ui-state))
+             (human-player (get-player game human-seat))
+             (current-seat (player-seat (current-player game)))
+             (is-human-turn (eq current-seat human-seat))
+             ;; Extract key info from event - handle all cases safely
+             (key-name (cond
+                         ((typep event 'croatoan:event)
+                          (let ((key (croatoan:event-key event)))
+                            (cond
+                              ((null key) nil)
+                              ((typep key 'croatoan:key) (croatoan:key-name key))
+                              (t key))))  ; key is already a character or keyword
+                         ((typep event 'croatoan:key)
+                          (croatoan:key-name event))
+                         (t event))))
+        ;; Store last key for debugging
+        (setf (ui-state-last-key ui-state) key-name)
+        
+        ;; Check if modal is active - route input there first
+        (when (ui-state-active-modal ui-state)
+          (let ((result (handle-modal-input (ui-state-active-modal ui-state) key-name)))
+            (unless (eq result :continue)
+              ;; Modal returned a selection - process it
+              (handle-modal-result game ui-state result))
+            (return-from handle-input :continue)))
+        
+        (cond
+          ;; Always available commands
+          ((or (eql key-name #\q) (eql key-name #\Q)) :quit)
+          ((or (eql key-name #\r) (eql key-name #\R)) :refresh)
+          ((or (eql key-name #\n) (eql key-name #\N)) :new-game)
 
-      ;; Arrow keys for tile selection (only in discard phase AND human's turn)
-      ((and is-human-turn (eq phase :turn-discard) (eq key-name :left))
-       (let ((hand-size (length (player-hand human-player))))
-         (when (> hand-size 0)
-           (setf (ui-state-selected-tile-index ui-state)
-                 (mod (1- (ui-state-selected-tile-index ui-state)) hand-size))))
-       :continue)
+          ;; Mouse events - only during human's turn in discard phase
+          ((and is-human-turn (eq phase :turn-discard) (eq key-name :button-1-click))
+           (handle-mouse-click game ui-state event :single)
+           :continue)
 
-      ((and is-human-turn (eq phase :turn-discard) (eq key-name :right))
-       (let ((hand-size (length (player-hand human-player))))
-         (when (> hand-size 0)
-           (setf (ui-state-selected-tile-index ui-state)
-                 (mod (1+ (ui-state-selected-tile-index ui-state)) hand-size))))
-       :continue)
+          ((and is-human-turn (eq phase :turn-discard) (eq key-name :button-1-double-click))
+           (handle-mouse-click game ui-state event :double)
+           :continue)
 
-      ;; Enter to discard (only in discard phase AND human's turn)
-      ((and is-human-turn (eq phase :turn-discard) (or (eql key-name #\Newline) (eql key-name #\Return)))
-       (handle-discard game ui-state)
-       :continue)
+          ;; Arrow keys for tile selection (only in discard phase AND human's turn)
+          ((and is-human-turn (eq phase :turn-discard) (eq key-name :left))
+           (let ((hand-size (length (player-hand human-player))))
+             (when (> hand-size 0)
+               (setf (ui-state-selected-tile-index ui-state)
+                     (mod (1- (ui-state-selected-tile-index ui-state)) hand-size))))
+           :continue)
 
-      ;; Default - ignore input if not human's turn
-      (t :continue))))
+          ((and is-human-turn (eq phase :turn-discard) (eq key-name :right))
+           (let ((hand-size (length (player-hand human-player))))
+             (when (> hand-size 0)
+               (setf (ui-state-selected-tile-index ui-state)
+                     (mod (1+ (ui-state-selected-tile-index ui-state)) hand-size))))
+           :continue)
 
-(defun process-turn-phase (game human-seat)
+          ;; Enter to discard (only in discard phase AND human's turn)
+          ((and is-human-turn (eq phase :turn-discard) (or (eql key-name #\Newline) (eql key-name #\Return)))
+           (handle-discard game ui-state)
+           :continue)
+
+          ;; Escape key - cancel riichi-pending and reopen modal
+          ((and is-human-turn (eq phase :turn-discard)
+                (ui-state-riichi-pending ui-state)
+                (eq key-name :escape))
+           ;; Clear riichi-pending and reopen the modal
+           (setf (ui-state-riichi-pending ui-state) nil
+                 (ui-state-valid-riichi-discards ui-state) nil
+                 (ui-state-active-modal ui-state) (make-riichi-modal))
+           :continue)
+
+          ;; Default - ignore unrecognized input
+          (t :continue)))
+    ;; Catch any errors during input handling and continue
+    (error (e)
+      (when *debug-ui*
+        (setf (ui-state-last-key ui-state) (format nil "ERROR: ~A" e)))
+      :continue)))
+
+(defun process-turn-phase (game human-seat &optional ui-state)
   "Process automatic turn actions based on current phase.
-   HUMAN-SEAT is the seat occupied by the human player."
+   HUMAN-SEAT is the seat occupied by the human player.
+   UI-STATE is optional but required for showing modals."
+  ;; Don't process if modal is active
+  (when (and ui-state (ui-state-active-modal ui-state))
+    (return-from process-turn-phase nil))
+  
   (let ((phase (game-phase game))
         (current (current-player game))
         (current-seat (player-seat (current-player game)))
@@ -310,8 +391,34 @@
          (when drawn-tile
            (player-add-tile human-player drawn-tile)
            (auto-extract-north-if-needed game human-player)
-           (player-sort-hand human-player)
-           (setf (game-phase game) :turn-discard))))
+           (player-sort-hand-keep-drawn human-player)
+           
+           ;; Check for tsumo opportunity (player has complete hand)
+           (cond
+             ;; Winning hand - show tsumo modal
+             ((and ui-state (check-tsumo-opportunity human-player))
+              (setf (ui-state-active-modal ui-state) (make-tsumo-modal)))
+             
+             ;; Player is in riichi - must auto-discard (can't choose)
+             ((player-riichi-declared human-player)
+              ;; Auto-discard the drawn tile (last in sorted hand)
+              (let ((discard-tile (find-safe-riichi-discard human-player)))
+                (when discard-tile
+                  (player-discard-tile human-player discard-tile)
+                  (setf (game-phase game) :call-window)
+                  (advance-turn game)
+                  (setf (game-phase game) :turn-draw))))
+             
+             ;; Check if can declare riichi (closed hand and has valid discards that maintain tempai)
+             ((and ui-state 
+                   (player-can-declare-riichi human-player)
+                   (calculate-valid-riichi-discards human-player))  ; Non-nil means at least one valid discard
+              (setf (ui-state-active-modal ui-state) (make-riichi-modal))
+              (setf (game-phase game) :turn-discard))
+             
+             ;; Normal discard phase
+             (t
+              (setf (game-phase game) :turn-discard))))))
 
       ;; AI auto-draw (just draw, don't discard yet)
       ((and (eq phase :turn-draw)
@@ -321,6 +428,8 @@
            (player-add-tile current drawn-tile)
            (auto-extract-north-if-needed game current)
            (player-sort-hand current)
+           
+           ;; Check if human can ron on AI's discard (after AI discards)
            ;; Transition to discard phase, but don't discard yet
            (setf (game-phase game) :turn-discard))))
 
@@ -331,22 +440,74 @@
        (let ((first-tile (first (player-hand current))))
          (when first-tile
            (player-discard-tile current first-tile)
+           
+           ;; Check if human can ron on this discard
+           (when (and ui-state 
+                      (check-ron-opportunity human-player first-tile)
+                      (not (player-furiten human-player)))
+             (setf (ui-state-active-modal ui-state) (make-ron-modal)))
+           
            ;; Skip call window and advance turn
            (setf (game-phase game) :call-window)
            (advance-turn game)
            (setf (game-phase game) :turn-draw)))))))
 
+(defun handle-mouse-click (game ui-state event click-type)
+  "Handle mouse click on tiles. CLICK-TYPE is :single or :double."
+  (handler-case
+      (let* ((human-seat (ui-state-human-seat ui-state))
+             (human-player (get-player game human-seat))
+             (hand-size (length (player-hand human-player)))
+             (mouse-y (croatoan:position-y event))
+             (mouse-x (croatoan:position-x event)))
+        ;; Only proceed if we have valid mouse coordinates and hand position
+        (when (and mouse-y mouse-x (ui-state-hand-position ui-state))
+          (destructuring-bind (hand-row hand-col) (ui-state-hand-position ui-state)
+            (let ((tile-index (get-clicked-tile-index mouse-y mouse-x hand-row hand-col hand-size)))
+              (when tile-index
+                (case click-type
+                  (:single
+                   ;; Single click - select tile
+                   (setf (ui-state-selected-tile-index ui-state) tile-index))
+                  (:double
+                   ;; Double click - select and discard
+                   (setf (ui-state-selected-tile-index ui-state) tile-index)
+                   (handle-discard game ui-state))))))))
+    ;; Silently ignore errors in mouse handling
+    (error () nil)))
+
 (defun handle-discard (game ui-state)
   "Handle tile discard from UI"
   (let* ((human-seat (ui-state-human-seat ui-state))
          (human-player (get-player game human-seat))
-         (sorted-hand (sort-tiles (player-hand human-player)))
+         (hand (player-hand human-player))  ; Use hand as-is, already sorted with drawn tile at end
          (selected-index (ui-state-selected-tile-index ui-state))
-         (selected-tile (nth selected-index sorted-hand)))
+         (selected-tile (nth selected-index hand))
+         (riichi-pending (ui-state-riichi-pending ui-state))
+         (valid-discards (ui-state-valid-riichi-discards ui-state)))
     (when (and selected-tile
-               (< selected-index (length sorted-hand)))
+               (< selected-index (length hand)))
+      
+      ;; If riichi is pending, check if selected tile is valid
+      (when riichi-pending
+        (unless (member selected-tile valid-discards :test #'eq)
+          ;; Invalid tile for riichi - don't discard (for now, could add chombo later)
+          (return-from handle-discard nil)))
+      
       ;; Discard the tile
       (player-discard-tile human-player selected-tile)
+      
+      ;; If riichi was pending, now officially declare it
+      (when riichi-pending
+        (let ((turn-state (game-turn-state game)))
+          (player-declare-riichi human-player (turn-turn-number turn-state))
+          (incf (game-riichi-sticks game)))
+        ;; Clear riichi-pending state
+        (setf (ui-state-riichi-pending ui-state) nil
+              (ui-state-valid-riichi-discards ui-state) nil))
+      
+      ;; Sort the remaining hand (now 13 tiles)
+      (player-sort-hand human-player)
 
       ;; Skip call window - advance directly to next turn
       (setf (game-phase game) :call-window)
@@ -358,10 +519,100 @@
 
       t)))
 
-(defun draw-discards-horizontal (scr discards row col &optional (tiles-per-row 6) (reverse-horizontal nil))
+;;; ============================================================================
+;;; Modal Result Handling
+;;; ============================================================================
+
+(defun handle-modal-result (game ui-state result)
+  "Process the result of a modal dialog selection."
+  (let* ((modal (ui-state-active-modal ui-state))
+         (title (when modal (modal-state-title modal))))
+    ;; Clear the modal
+    (setf (ui-state-active-modal ui-state) nil)
+    
+    (cond
+      ;; Riichi decision
+      ((string= title "RIICHI?")
+       (if (string= result "RIICHI")
+           ;; Enter riichi-pending mode - player must choose tile to discard
+           (let* ((human-seat (ui-state-human-seat ui-state))
+                  (human-player (get-player game human-seat)))
+             (setf (ui-state-riichi-pending ui-state) t)
+             (setf (ui-state-valid-riichi-discards ui-state)
+                   (calculate-valid-riichi-discards human-player)))
+           ;; Skip was chosen - clear riichi pending state
+           (setf (ui-state-riichi-pending ui-state) nil
+                 (ui-state-valid-riichi-discards ui-state) nil)))
+      
+      ;; Tsumo decision
+      ((string= title "TSUMO!")
+       (when (string= result "TSUMO")
+         ;; Player wins by tsumo - show win dialog
+         (let* ((human-seat (ui-state-human-seat ui-state))
+                (human-player (get-player game human-seat)))
+           (setf (ui-state-active-modal ui-state)
+                 (make-win-modal (player-name human-player)))
+           (setf (game-phase game) :hand-ended))))
+      
+      ;; Ron decision
+      ((string= title "RON!")
+       (when (string= result "RON")
+         ;; Player wins by ron - show win dialog
+         (let* ((human-seat (ui-state-human-seat ui-state))
+                (human-player (get-player game human-seat)))
+           (setf (ui-state-active-modal ui-state)
+                 (make-win-modal (player-name human-player)))
+           (setf (game-phase game) :hand-ended))))
+      
+      ;; Win acknowledgment
+      ((string= title "WIN!")
+       ;; For now, just start a new round (placeholder)
+       ;; TODO: implement proper round transition
+       nil))))
+
+;;; ============================================================================
+;;; Win Detection
+;;; ============================================================================
+
+(defun check-tsumo-opportunity (player)
+  "Check if player's current hand (with 14 tiles) is a winning hand.
+   Returns T if the hand is complete."
+  (and (= (length (player-hand player)) 14)
+       (player-has-winning-hand player)))
+
+(defun check-ron-opportunity (player tile)
+  "Check if adding TILE to player's hand would create a winning hand.
+   Also checks that player is not in furiten."
+  (let ((test-hand (cons tile (player-hand player))))
+    (and (validate-hand test-hand (player-melds player))
+         (not (player-check-furiten player tile)))))
+
+(defun find-safe-riichi-discard (player)
+  "Find the drawn tile for auto-discard during riichi.
+   The drawn tile is always at position 14 (index 13) since the hand
+   is sorted with the drawn tile kept separate at the end."
+  (let ((hand (player-hand player)))
+    (when (= (length hand) 14)
+      (nth 13 hand))))  ; Drawn tile is at the end
+
+(defun calculate-valid-riichi-discards (player)
+  "Calculate which tiles can be discarded to declare riichi while maintaining tempai.
+   Returns a list of tiles that keep the hand in tempai after discarding."
+  (let ((hand (player-hand player))
+        (melds (player-melds player))
+        (valid-tiles nil))
+    (dolist (tile hand)
+      ;; Try removing this tile and check if still in tempai
+      (let ((test-hand (remove tile hand :test #'eq :count 1)))
+        (when (zerop (calculate-shanten test-hand melds))
+          (pushnew tile valid-tiles :test #'eq))))
+    valid-tiles))
+
+(defun draw-discards-horizontal (scr discards row col &optional (tiles-per-row 10) (reverse-horizontal nil) (stack-upward nil))
   "Draw discards in horizontal rows (for top/bottom players).
    Discards are arranged in rows of TILES-PER-ROW tiles.
-   If REVERSE-HORIZONTAL is T, arranges right-to-left (for opposite player)."
+   If REVERSE-HORIZONTAL is T, arranges right-to-left (for opposite player).
+   If STACK-UPWARD is T, newer rows appear above older rows."
   (when discards
     (loop for tile in discards
           for i from 0
@@ -378,17 +629,21 @@
                             (= col-num-base 0)  ; first logical = last visual
                             (or (= col-num-base (1- tiles-per-row))  ; last logical = last visual
                                 (= i (1- (length discards)))))
+          for actual-row = (if stack-upward
+                               (- row (* row-num 2)) ;; was 3
+                               (+ row (* row-num 2))) ;; was 3 (gapped)
           do (draw-tile-block scr tile
-                              (+ row (* row-num 3))
+                              actual-row
                               (+ col (* col-num 3))
                               nil  ; not hidden
                               is-first
                               is-last))))  ; or last tile overall
 
-(defun draw-discards-vertical (scr discards row col &optional (tiles-per-column 6) (reverse-vertical nil))
+(defun draw-discards-vertical (scr discards row col &optional (tiles-per-column 6) (reverse-vertical nil) (stack-leftward nil))
   "Draw discards in vertical columns (for left/right players).
    Discards are arranged in columns of TILES-PER-COLUMN tiles.
-   If REVERSE-VERTICAL is T, arranges bottom-to-top (for right player)."
+   If REVERSE-VERTICAL is T, arranges bottom-to-top (for right player).
+   If STACK-LEFTWARD is T, newer columns appear to the left of older columns."
   (when discards
     (loop for tile in discards
           for i from 0
@@ -405,9 +660,12 @@
                             (= row-num-base 0)  ; first logical = last visual
                             (or (= row-num-base (1- tiles-per-column))  ; last logical = last visual
                                 (= i (1- (length discards)))))
+          for actual-col = (if stack-leftward
+                               (- col (* col-num 3)) ;; was 4
+                               (+ col (* col-num 3))) ;; was 4 (gapped)
           do (draw-tile-block-vertical scr tile
                                        (+ row (* row-num 2))
-                                       (+ col (* col-num 4))
+                                       actual-col
                                        nil  ; not hidden
                                        is-first
                                        is-last))))  ; or last tile overall
@@ -485,22 +743,15 @@
            (left-seat (when (= num-players 4) (next-seat top-seat config))))
 
       ;; Draw current turn indicator at top
-      (croatoan:move scr 0 0)
-      (croatoan:add-string scr (format nil "Turn: ~A | Phase: ~A | Selected: ~A | Last key: ~S"
-                                       current-seat
-                                       phase
-                                       (when ui-state (ui-state-selected-tile-index ui-state))
-                                       (when ui-state (ui-state-last-key ui-state))))
+      (when *debug-ui*
+        (croatoan:move scr 0 0)
+        (croatoan:add-string scr (format nil "Turn: ~A | Phase: ~A | Selected: ~A | Last key: ~S"
+                                         current-seat
+                                         phase
+                                         (when ui-state (ui-state-selected-tile-index ui-state))
+                                         (when ui-state (ui-state-last-key ui-state)))))
 
-      ;; Draw help for human player's turn
-      (when (and (eq current-seat human-seat) (eq phase :turn-discard))
-        (croatoan:move scr 1 0)
-        (croatoan:add-string scr "Use ← → to select tile, Enter to discard"))
-
-      (cond
-        ;; 4-player layout
-        ((= num-players 4)
-         (let* ((bottom-player (get-player game bottom-seat))
+      (let* ((bottom-player (get-player game bottom-seat))
                 (right-player (get-player game right-seat))
                 (top-player (get-player game top-seat))
                 (left-player (get-player game left-seat))
@@ -524,7 +775,7 @@
 
            ;; Top player - hidden
            (when top-player
-             (draw-hand-horizontal scr top-player 3 top-col t))
+             (draw-hand-horizontal scr top-player 1 top-col t))
 
            ;; Left player - hidden
            (when left-player
@@ -536,36 +787,12 @@
 
            ;; Bottom player (human) - visible
            (when bottom-player
-             (draw-hand-horizontal scr bottom-player (max 0 (- screen-height 4)) bottom-col nil selected-index))))
-
-        ;; 3-player layout (sanma)
-        ((= num-players 3)
-         (let* ((bottom-player (get-player game bottom-seat))
-                (right-player (get-player game right-seat))
-                (top-player (get-player game top-seat))
-                ;; Calculate positions dynamically
-                (top-hand-len (when top-player (length (player-hand top-player))))
-                (bottom-hand-len (when bottom-player (length (player-hand bottom-player))))
-                (right-hand-len (when right-player (length (player-hand right-player))))
-                (top-width (when top-hand-len (+ 1 (* 3 top-hand-len))))
-                (bottom-width (when bottom-hand-len (+ 1 (* 3 bottom-hand-len))))
-                (top-col (when top-width (max 0 (- (floor screen-width 2) (floor top-width 2)))))
-                (bottom-col (when bottom-width (max 0 (- (floor screen-width 2) (floor bottom-width 2)))))
-                (right-height (when right-hand-len (+ 1 (* 2 right-hand-len))))
-                (right-row (when right-height (max 0 (- (floor screen-height 2) (floor right-height 2)))))
-                (right-col 0))
-
-           ;; Top player - hidden
-           (when top-player
-             (draw-hand-horizontal scr top-player 3 top-col t))
-
-           ;; Right player (left side for 3-player) - hidden
-           (when right-player
-             (draw-hand-vertical scr right-player right-row right-col t nil))  ; Left-aligned
-
-           ;; Bottom player (human) - visible
-           (when bottom-player
-             (draw-hand-horizontal scr bottom-player (max 0 (- screen-height 4)) bottom-col nil selected-index)))))
+             (let ((hand-row (max 0 (- screen-height 4)))
+                   (valid-tiles (when ui-state (ui-state-valid-riichi-discards ui-state))))
+               (draw-hand-horizontal scr bottom-player hand-row bottom-col nil selected-index valid-tiles)
+               ;; Store hand position for mouse click handling
+               (when ui-state
+                 (setf (ui-state-hand-position ui-state) (list hand-row bottom-col))))))
 
       ;; Draw center info box and discards around it
       (let* ((center-row (max 0 (- (floor screen-height 2) 3)))
@@ -586,38 +813,44 @@
         ;; Bottom player discards: below center box (closer to their hand)
         (when bottom-player
           (let ((discards (reverse (player-discards bottom-player)))  ; Reverse list for correct order
-                (discard-row (+ center-row center-box-height 1))  ; 1 row below center box
-                (discard-col (- center-col 1)))  ; Closer to center
-            (draw-discards-horizontal scr discards discard-row discard-col 6 nil)))
+                (discard-row (+ center-row center-box-height))  ; 1 row below center box
+                (discard-col center-col ))  ; Closer to center
+            (draw-discards-horizontal scr discards discard-row discard-col 10 nil)))
 
         ;; Top player discards: above center box (closer to their hand)
         ;; From their perspective: oldest on left (our right), newest on right (our left)
+        ;; Stack upward (away from center)
         (when top-player
           (let ((discards (reverse (player-discards top-player)))  ; Reverse list AND use horizontal reverse
-                (discard-row (max 0 (- center-row 4)))  ; 4 rows above center box
-                (discard-col (+ center-col 2)))  ; More to the right
-            (draw-discards-horizontal scr discards discard-row discard-col 6 t)))  ; reversed horizontal
+                (discard-row (max 0 (- center-row 3)))  ; 4 rows above center box
+                (discard-col (- center-col 1)))  ; More to the right
+            (draw-discards-horizontal scr discards discard-row discard-col 10 t t)))  ; reversed horizontal, stack upward
 
         ;; Right player discards: to the right of center box
         (when right-player
           (let ((discards (reverse (player-discards right-player)))  ; Reverse list for correct order
-                (discard-row (- center-row 1))  ; Closer to center
-                (discard-col (+ center-col center-box-width 1)))  ; Closer to center
+                (discard-row (- center-row 6))  ; Closer to center
+                (discard-col (+ center-col center-box-width)))  ; Closer to center
             (draw-discards-vertical scr discards discard-row discard-col 6 t)))  ; reversed vertical
 
         ;; Left player discards (4-player only): to the left of center box
+        ;; Stack leftward (away from center)
         (when left-player
           (let ((discards (reverse (player-discards left-player)))  ; Reverse list for correct order
-                (discard-row (- center-row 1))  ; Closer to center
-                (discard-col (max 0 (- center-col 12))))  ; More to the right
-            (draw-discards-vertical scr discards discard-row discard-col 6 nil)))))
+                (discard-row (- center-row 0))  ; Closer to center
+                (discard-col (max 0 (- center-col 5))))  ; More to the right
+            (draw-discards-vertical scr discards discard-row discard-col 6 nil t))))
+    
+    ;; Draw modal overlay if active
+    (when (and ui-state (ui-state-active-modal ui-state))
+      (draw-modal scr (ui-state-active-modal ui-state))))
 
   (croatoan:refresh scr)))
 
-(defun main-loop (scr &key (num-players 4) (player-names nil))
+(defun main-loop (scr &key (sanma nil))
   "Main event loop with optional game configuration."
   (multiple-value-bind (game human-seat)
-      (init-new-game :num-players num-players :player-names player-names)
+      (init-new-game :sanma sanma)
     (setf *game* game)
     (let ((ui-state (make-ui-state :human-seat human-seat))
           (last-ai-turn-time 0))
@@ -630,11 +863,11 @@
              ;; AI player turn - add 1000ms delay between turns
              (when (> (- current-time last-ai-turn-time)
                       (* 1.0 internal-time-units-per-second))
-               (process-turn-phase *game* human-seat)
+               (process-turn-phase *game* human-seat ui-state)
                (setf last-ai-turn-time current-time)))
            (when (eq current-seat human-seat)
              ;; Human player turn - process immediately
-             (process-turn-phase *game* human-seat)))
+             (process-turn-phase *game* human-seat ui-state)))
 
        ;; Render game state
        (draw-game scr *game* ui-state)
@@ -650,36 +883,34 @@
 
            ;; Handle all other input
            ((and ch (not (eq ch :resize)))
-            (let ((result (handle-input *game* ui-state ch)))
+            (let ((result (handle-input *game* ui-state event)))
               (case result
                 (:quit (return))
                 (:new-game
                  (multiple-value-bind (new-game new-human-seat)
-                     (init-new-game :num-players num-players :player-names player-names)
+                     (init-new-game :sanma sanma)
                    (setf *game* new-game
                          ui-state (make-ui-state :human-seat new-human-seat))))
                 (:refresh nil)
                 (t nil))))))))))
 
-(defun main (&key (num-players 4) (player-names nil))
+(defun main (&key (sanma nil))
   "Entry point for the TUI client.
 
    Optional arguments:
-   - NUM-PLAYERS: Number of players (3 for sanma, 4 for regular). Default: 4
-   - PLAYER-NAMES: List of player names. Default: (\"Player 1\" \"Player 2\" ...)
+   - SANMA: If T, start 3-player sanma game. Default: NIL (4-player yonma)
 
    Examples:
-   (main)  ; Start with default 4 players
-   (main :num-players 3)  ; Start sanma (3 player) game
-   (main :player-names '(\"Alice\" \"Bob\" \"Charlie\" \"David\"))  ; Custom names
-   (main :num-players 3 :player-names '(\"Alice\" \"Bob\" \"Charlie\"))  ; Both"
+   (main)            ; Start 4-player yonma game
+   (main :sanma t)   ; Start 3-player sanma game"
   (handler-case
       (croatoan:with-screen (scr :input-echoing nil
                                  :input-blocking 100
                                  :enable-colors t
                                  :cursor-visible nil)
-        (main-loop scr :num-players num-players
-                      :player-names player-names))
+        ;; Enable mouse events
+        (croatoan:set-mouse-event '(:button-1-click :button-1-double-click))
+        (main-loop scr :sanma sanma))
     (sb-sys:interactive-interrupt ()
       ;; Handle Ctrl-C gracefully
       (format t "~%Interrupted.~%"))

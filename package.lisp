@@ -160,6 +160,7 @@
    #:player-add-meld
    #:player-discard-tile
    #:player-sort-hand
+   #:player-sort-hand-keep-drawn
    #:player-can-pon
    #:player-can-chi
    #:player-can-kan

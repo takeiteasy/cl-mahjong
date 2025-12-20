@@ -45,6 +45,20 @@
   (setf (player-hand player)
         (sort-tiles (player-hand player))))
 
+(defun player-sort-hand-keep-drawn (player)
+  "Sort the player's hand but keep the most recently added tile (drawn tile) separate.
+   When the hand has 14 tiles, sorts only the first 13 and keeps the 14th at the end."
+  (let ((hand (player-hand player)))
+    (if (= (length hand) 14)
+        ;; Hand has 14 tiles - the drawn tile is at the front (from push)
+        ;; Sort the remaining 13 and put drawn tile at the end
+        (let ((drawn-tile (first hand))
+              (rest-of-hand (rest hand)))
+          (setf (player-hand player)
+                (append (sort-tiles rest-of-hand) (list drawn-tile))))
+        ;; Otherwise just sort normally
+        (player-sort-hand player))))
+
 (defun player-hand-size (player)
   "Return the number of tiles in the player's hand"
   (length (player-hand player)))
