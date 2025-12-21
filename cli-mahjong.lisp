@@ -1,4 +1,3 @@
-;; cli-mahjong.lisp
 ;;
 ;; Copyright (C) 2025 George Watson
 ;;
@@ -37,12 +36,13 @@
 ;;; ============================================================================
 
 (defstruct modal-state
-  "State for a modal dialog"
+  "State for a modal dialog.
+   message-lines can contain strings or (:text TEXT :color :COLOR) plists for colored text."
   (title "" :type string)
-  (message nil :type (or null string))  ; Optional message below title
-  (buttons nil :type list)              ; List of button label strings
-  (selected-index 0 :type integer)      ; Currently selected button
-  (result nil))                         ; Set when user confirms selection
+  (message-lines nil :type list)         ; List of message lines (strings or colored plists)
+  (buttons nil :type list)               ; List of button label strings
+  (selected-index 0 :type integer)       ; Currently selected button
+  (result nil))                          ; Set when user confirms selection
 
 ;;; ============================================================================
 ;;; Modal Creation Helpers
@@ -52,7 +52,7 @@
   "Create a modal for riichi declaration prompt."
   (make-modal-state
    :title "RIICHI?"
-   :message "You are in tempai. Declare riichi?"
+   :message-lines '("You are in tempai. Declare riichi?")
    :buttons '("RIICHI" "SKIP")
    :selected-index 0))
 
@@ -60,7 +60,7 @@
   "Create a modal for tsumo (self-draw win) prompt."
   (make-modal-state
    :title "TSUMO!"
-   :message "You have completed your hand!"
+   :message-lines '("You have completed your hand!")
    :buttons '("TSUMO" "SKIP")
    :selected-index 0))
 
@@ -68,40 +68,134 @@
   "Create a modal for ron (win on discard) prompt."
   (make-modal-state
    :title "RON!"
-   :message "You can win on this discard!"
+   :message-lines '("You can win on this discard!")
    :buttons '("RON" "SKIP")
    :selected-index 0))
 
-(defun make-win-modal (winner-name)
-  "Create a modal for showing win result."
-  (make-modal-state
-   :title "WIN!"
-   :message (format nil "~A wins the hand!" winner-name)
-   :buttons '("OK")
-   :selected-index 0))
+(defun format-yaku-name (yaku-keyword)
+  "Convert a yaku keyword to a readable name."
+  (let ((name (symbol-name yaku-keyword)))
+    (string-capitalize (substitute #\Space #\- name))))
+
+(defun limit-hand-name (limit-hand)
+  "Get the display name for a limit hand."
+  (case limit-hand
+    (:mangan "MANGAN")
+    (:haneman "HANEMAN")
+    (:baiman "BAIMAN")
+    (:sanbaiman "SANBAIMAN")
+    (:yakuman "YAKUMAN")
+    (t nil)))
+
+(defun make-score-result-modal (score-result game winner-seat is-tsumo)
+  "Create a modal for displaying detailed win result.
+   Shows yaku list, fu/han, points, and score changes for all players."
+  (let* ((yaku-list (score-result-yaku-list score-result))
+         (total-han (score-result-total-han score-result))
+         (fu (score-result-fu score-result))
+         (limit-hand (score-result-limit-hand score-result))
+         (payment (score-result-payment score-result))
+         (winner-receives (payment-split-winner-receives payment))
+         (config (game-config game))
+         (lines nil))
+    
+    ;; Title line depends on limit hand
+    (if limit-hand
+        (push (format nil "~A!" (limit-hand-name limit-hand)) lines)
+        (push (format nil "~A Han ~A Fu" total-han fu) lines))
+    
+    ;; Yaku list
+    (push "" lines)  ; separator
+    (dolist (yaku yaku-list)
+      (let ((name (format-yaku-name (first yaku)))
+            (han (second yaku)))
+        (push (format nil "~A: ~A Han" name han) lines)))
+    
+    ;; Dora count if any
+    (when (> (score-result-dora-count score-result) 0)
+      (push (format nil "Dora: ~A Han" (score-result-dora-count score-result)) lines))
+    
+    ;; Points separator
+    (push "" lines)
+    (push (format nil "Total: ~A points" winner-receives) lines)
+    
+    ;; Player score changes
+    (push "" lines)
+    (dolist (seat (game-config-seats config))
+      (let* ((player (get-player game seat))
+             (name (player-name player))
+             (score-change (cond
+                             ((eq seat winner-seat) winner-receives)
+                             (is-tsumo
+                              ;; Tsumo: all others pay
+                              (if (eq seat (game-dealer-seat game))
+                                  (- (or (payment-split-dealer-pays payment) 
+                                         (payment-split-non-dealer-pays payment)))
+                                  (- (payment-split-non-dealer-pays payment))))
+                             (t
+                              ;; Ron: only loser pays
+                              (if (eq seat (payment-split-loser-seat payment))
+                                  (- (payment-split-direct-payment payment))
+                                  0)))))
+        (when (and score-change (/= score-change 0))
+          (push (list :text (format nil "~A: ~@D" name score-change)
+                      :color (if (> score-change 0) :green :red))
+                lines))))
+    
+    (make-modal-state
+     :title (if is-tsumo "TSUMO" "RON")
+     :message-lines (nreverse lines)
+     :buttons '("OK")
+     :selected-index 0)))
+
+(defun make-win-modal (winner-name &optional score-result game winner-seat is-tsumo)
+  "Create a modal for showing win result.
+   If score-result is provided, shows detailed scoring info."
+  (if (and score-result game)
+      (make-score-result-modal score-result game winner-seat is-tsumo)
+      (make-modal-state
+       :title (if is-tsumo "TSUMO" "RON")
+       :message-lines (list (format nil "~A wins the hand!" winner-name))
+       :buttons '("OK")
+       :selected-index 0)))
 
 ;;; ============================================================================
 ;;; Modal Drawing
 ;;; ============================================================================
 
+(defun get-line-text (line)
+  "Extract text from a line (which may be a string or plist with :text key)."
+  (if (stringp line)
+      line
+      (getf line :text "")))
+
+(defun get-line-color (line)
+  "Extract color from a line plist, or nil for plain text."
+  (unless (stringp line)
+    (getf line :color)))
+
 (defun calculate-modal-dimensions (modal)
   "Calculate the width and height needed for the modal.
    Returns (values width height)."
   (let* ((title-len (length (modal-state-title modal)))
-         (message-len (if (modal-state-message modal)
-                          (length (modal-state-message modal))
-                          0))
+         (message-lines (modal-state-message-lines modal))
+         (max-message-len (if message-lines
+                              (reduce #'max message-lines 
+                                      :key (lambda (l) (length (get-line-text l)))
+                                      :initial-value 0)
+                              0))
          (buttons (modal-state-buttons modal))
          ;; Each button: [ LABEL ] with 2 chars padding, 3 chars for brackets+spaces
          ;; Plus 2 chars spacing between buttons
          (button-width (+ (reduce #'+ buttons :key #'length)
                           (* (length buttons) 5)  ; brackets and padding per button
                           (* (1- (length buttons)) 2)))  ; spacing between
-         ;; Width is max of title, message, buttons + border padding
-         (content-width (max title-len message-len button-width))
+         ;; Width is max of title, messages, buttons + border padding
+         (content-width (max title-len max-message-len button-width))
          (total-width (+ content-width 4))  ; 2 chars padding on each side
-         ;; Height: top border, title, separator, message (optional), buttons, bottom border
-         (total-height (if (modal-state-message modal) 6 5)))
+         ;; Height: top border, title, separator, message-lines, buttons, bottom border
+         (num-lines (length message-lines))
+         (total-height (+ 4 num-lines)))  ; top, title, separator, lines, buttons, bottom
     (values total-width total-height)))
 
 (defun draw-modal (scr modal)
@@ -113,7 +207,7 @@
            (start-col (max 0 (- (floor screen-width 2) (floor width 2))))
            (inner-width (- width 2))  ; Width inside borders
            (title (modal-state-title modal))
-           (message (modal-state-message modal))
+           (message-lines (modal-state-message-lines modal))
            (buttons (modal-state-buttons modal))
            (selected (modal-state-selected-index modal)))
       
@@ -143,21 +237,36 @@
         (croatoan:add-char scr #\q :attributes '(:altcharset)))  ; ─
       (croatoan:add-char scr #\u :attributes '(:altcharset))  ; ┤
       
-      ;; Message row (if present): │  message   │
-      (let ((button-row (if message (+ start-row 4) (+ start-row 3))))
-        (when message
-          (croatoan:move scr (+ start-row 3) start-col)
-          (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
-          (let* ((msg-padding (floor (- inner-width (length message)) 2))
-                 (msg-str (format nil "~A~A~A"
-                                 (make-string msg-padding :initial-element #\Space)
-                                 message
-                                 (make-string (- inner-width msg-padding (length message))
-                                             :initial-element #\Space))))
-            (croatoan:add-string scr msg-str))
-          (croatoan:add-char scr #\x :attributes '(:altcharset)))  ; │
-        
-        ;; Button row: │ [BTN1]  [BTN2] │
+      ;; Message lines
+      (loop for line in message-lines
+            for row from (+ start-row 3)
+            do (croatoan:move scr row start-col)
+               (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
+               (let* ((text (get-line-text line))
+                      (color (get-line-color line))
+                      (padding (floor (- inner-width (length text)) 2))
+                      (attrs (case color
+                               (:green '(:bold))
+                               (:red '(:bold))
+                               (t nil))))
+                 ;; Left padding
+                 (croatoan:add-string scr (make-string padding :initial-element #\Space))
+                 ;; Text with optional color
+                 (case color
+                   (:green 
+                    (croatoan:add-string scr text :fgcolor :green :attributes attrs))
+                   (:red 
+                    (croatoan:add-string scr text :fgcolor :red :attributes attrs))
+                   (t
+                    (croatoan:add-string scr text :attributes attrs)))
+                 ;; Right padding
+                 (let ((remaining (- inner-width padding (length text))))
+                   (when (> remaining 0)
+                     (croatoan:add-string scr (make-string remaining :initial-element #\Space)))))
+               (croatoan:add-char scr #\x :attributes '(:altcharset)))  ; │
+      
+      ;; Button row
+      (let ((button-row (+ start-row 3 (length message-lines))))
         (croatoan:move scr button-row start-col)
         (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
         
@@ -263,7 +372,7 @@
       ;; Dragons - check the tile itself
       ((eq tile :red) '(:red :black))      ; red dragon
       ((eq tile :green) '(:green :black))  ; green dragon
-      ((eq tile :white) '(:yellow :black)) ; white dragon (yellow)
+      ((eq tile :white) '(:blue :black)) ; white dragon (blue)
       (t nil))))                           ; default for winds
 
 (defun draw-tile-block (scr tile row col &optional (hidden nil) (first-in-row nil) (last-in-row nil) (highlighted nil) (is-valid nil))
@@ -1003,39 +1112,49 @@
       ;; Tsumo decision
       ((string= title "TSUMO!")
        (when (string= result "TSUMO")
-         ;; Player wins by tsumo - store win info and show win dialog
+         ;; Player wins by tsumo - calculate score and show detailed win dialog
          (let* ((human-seat (ui-state-human-seat ui-state))
                 (human-player (get-player game human-seat))
-                (winning-tile (nth 13 (player-hand human-player))))  ; Drawn tile is last
+                (winning-tile (nth 13 (player-hand human-player)))  ; Drawn tile is last
+                (hand (player-hand human-player))
+                (melds (player-melds human-player))
+                (context (build-winning-context game human-seat winning-tile t nil))
+                (score-result (calculate-score hand melds winning-tile context)))
            ;; Store win info for scoring
            (setf (ui-state-pending-win ui-state)
                  (list :type :tsumo
                        :winning-tile winning-tile
-                       :loser-seat nil))
+                       :loser-seat nil
+                       :score-result score-result))
            (setf (ui-state-active-modal ui-state)
-                 (make-win-modal (player-name human-player)))
+                 (make-win-modal (player-name human-player) score-result game human-seat t))
            (setf (game-phase game) :hand-ended))))
       
       ;; Ron decision
       ((string= title "RON!")
        (when (string= result "RON")
-         ;; Player wins by ron - store win info and show win dialog
+         ;; Player wins by ron - calculate score and show detailed win dialog
          (let* ((human-seat (ui-state-human-seat ui-state))
                 (human-player (get-player game human-seat))
                 (turn-state (game-turn-state game))
                 (winning-tile (turn-last-discard turn-state))
-                (loser-seat (turn-last-discard-player turn-state)))
+                (loser-seat (turn-last-discard-player turn-state))
+                (hand (cons winning-tile (player-hand human-player)))  ; Add winning tile
+                (melds (player-melds human-player))
+                (context (build-winning-context game human-seat winning-tile nil loser-seat))
+                (score-result (calculate-score hand melds winning-tile context)))
            ;; Store win info for scoring
            (setf (ui-state-pending-win ui-state)
                  (list :type :ron
                        :winning-tile winning-tile
-                       :loser-seat loser-seat))
+                       :loser-seat loser-seat
+                       :score-result score-result))
            (setf (ui-state-active-modal ui-state)
-                 (make-win-modal (player-name human-player)))
+                 (make-win-modal (player-name human-player) score-result game human-seat nil))
            (setf (game-phase game) :hand-ended))))
       
       ;; Win acknowledgment - calculate score and start new round
-      ((string= title "WIN!")
+      ((or (string= title "RON") (string= title "TSUMO"))
        (process-win-and-start-new-round game ui-state)))))
 
 ;;; ============================================================================
@@ -1047,38 +1166,36 @@
    If the winner was dealer, dealer stays. Otherwise rotate dealer."
   (let* ((pending-win (ui-state-pending-win ui-state))
          (win-type (getf pending-win :type))
-         (winning-tile (getf pending-win :winning-tile))
          (loser-seat (getf pending-win :loser-seat))
+         (score (getf pending-win :score-result))
          (winner-seat (ui-state-human-seat ui-state))
          (winner (get-player game winner-seat))
-         (hand (player-hand winner))
-         (melds (player-melds winner))
          (config (game-config game))
          (dealer-seat (game-dealer-seat game)))
     
-    ;; Build winning context and calculate score
-    (let* ((context (build-winning-context game winner-seat winning-tile (eq win-type :tsumo) loser-seat))
-           (score (calculate-score hand melds winning-tile context)))
-      
-      (when score
-        ;; Apply payments
-        (let ((payment (score-result-payment score)))
-          (apply-payment-to-players game winner-seat payment context)))
-      
-      ;; Award riichi sticks to winner
-      (when (> (game-riichi-sticks game) 0)
-        (incf (player-score winner) (* 1000 (game-riichi-sticks game)))
-        (setf (game-riichi-sticks game) 0))
-      
-      ;; Handle dealer rotation
-      (let ((dealer-won (eq winner-seat dealer-seat)))
-        (if dealer-won
-            ;; Dealer stays, increment honba
-            (incf (game-honba game))
-            ;; Dealer rotates to next seat
-            (progn
-              (setf (game-dealer-seat game) (next-seat dealer-seat config))
-              (setf (game-honba game) 0)))))
+    ;; Apply payments from pre-calculated score
+    (when score
+      (let* ((payment (score-result-payment score))
+             (context (make-winning-context
+                       :tsumo-p (eq win-type :tsumo)
+                       :winner-seat winner-seat
+                       :loser-seat loser-seat)))
+        (apply-payment-to-players game winner-seat payment context)))
+    
+    ;; Award riichi sticks to winner
+    (when (> (game-riichi-sticks game) 0)
+      (incf (player-score winner) (* 1000 (game-riichi-sticks game)))
+      (setf (game-riichi-sticks game) 0))
+    
+    ;; Handle dealer rotation
+    (let ((dealer-won (eq winner-seat dealer-seat)))
+      (if dealer-won
+          ;; Dealer stays, increment honba
+          (incf (game-honba game))
+          ;; Dealer rotates to next seat
+          (progn
+            (setf (game-dealer-seat game) (next-seat dealer-seat config))
+            (setf (game-honba game) 0))))
     
     ;; Clear pending win
     (setf (ui-state-pending-win ui-state) nil)
