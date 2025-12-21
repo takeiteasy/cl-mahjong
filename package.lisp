@@ -111,6 +111,8 @@
    #:payment-split-dealer-pays
    #:payment-split-non-dealer-pays
    #:payment-split-winner-receives
+   #:payment-split-winner-seat
+   #:payment-split-loser-seat
    #:score-result
    #:score-result-yaku-list
    #:score-result-han-from-yaku

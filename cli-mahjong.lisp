@@ -26,7 +26,7 @@
   (valid-riichi-discards nil)  ; List of tiles that maintain tempai for riichi
   (pending-win nil))  ; Plist with win info: (:type :tsumo/:ron :winning-tile TILE :loser-seat SEAT)
 
-(defparameter *debug-ui* nil)
+(defparameter *debug-ui* t)
 
 (defparameter *game* nil
   "The current game state.")
@@ -992,7 +992,7 @@
          (when drawn-tile
            (player-add-tile current drawn-tile)
            (auto-extract-north-if-needed game current)
-           (player-sort-hand current)
+           (player-sort-hand-keep-drawn current)  ; Keep drawn tile at end for debug visibility
            
            ;; Check if human can ron on AI's discard (after AI discards)
            ;; Transition to discard phase, but don't discard yet
@@ -1001,21 +1001,29 @@
       ;; AI auto-discard (separate phase to allow rendering of 14 tiles)
       ((and (eq phase :turn-discard)
             (not (eq current-seat human-seat)))
-       ;; Discard first tile (simple AI)
-       (let ((first-tile (first (player-hand current))))
-         (when first-tile
-           (player-discard-tile current first-tile)
+       ;; Discard the drawn tile (14th tile) for easier debugging
+       (let ((discard-tile (nth 13 (player-hand current))))
+         (when discard-tile
+           (player-discard-tile current discard-tile)
+           
+           ;; Store the discard info in turn state before checking ron
+           (let ((turn-state (game-turn-state game)))
+             (setf (turn-last-discard turn-state) discard-tile
+                   (turn-last-discard-player turn-state) current-seat))
            
            ;; Check if human can ron on this discard
-           (when (and ui-state 
-                      (check-ron-opportunity human-player first-tile)
-                      (not (player-furiten human-player)))
-             (setf (ui-state-active-modal ui-state) (make-ron-modal)))
-           
-           ;; Skip call window and advance turn
-           (setf (game-phase game) :call-window)
-           (advance-turn game)
-           (setf (game-phase game) :turn-draw)))))))
+           (if (and ui-state 
+                    (check-ron-opportunity human-player discard-tile)
+                    (not (player-furiten human-player)))
+               ;; Show RON modal - don't advance turn yet, let modal handle it
+               (progn
+                 (setf (ui-state-active-modal ui-state) (make-ron-modal))
+                 (setf (game-phase game) :call-window))
+               ;; No ron opportunity - advance turn normally
+               (progn
+                 (setf (game-phase game) :call-window)
+                 (advance-turn game)
+                 (setf (game-phase game) :turn-draw)))))))))
 
 (defun handle-mouse-click (game ui-state event click-type)
   "Handle mouse click on tiles. CLICK-TYPE is :single or :double."
@@ -1132,26 +1140,30 @@
       
       ;; Ron decision
       ((string= title "RON!")
-       (when (string= result "RON")
-         ;; Player wins by ron - calculate score and show detailed win dialog
-         (let* ((human-seat (ui-state-human-seat ui-state))
-                (human-player (get-player game human-seat))
-                (turn-state (game-turn-state game))
-                (winning-tile (turn-last-discard turn-state))
-                (loser-seat (turn-last-discard-player turn-state))
-                (hand (cons winning-tile (player-hand human-player)))  ; Add winning tile
-                (melds (player-melds human-player))
-                (context (build-winning-context game human-seat winning-tile nil loser-seat))
-                (score-result (calculate-score hand melds winning-tile context)))
-           ;; Store win info for scoring
-           (setf (ui-state-pending-win ui-state)
-                 (list :type :ron
-                       :winning-tile winning-tile
-                       :loser-seat loser-seat
-                       :score-result score-result))
-           (setf (ui-state-active-modal ui-state)
-                 (make-win-modal (player-name human-player) score-result game human-seat nil))
-           (setf (game-phase game) :hand-ended))))
+       (if (string= result "RON")
+           ;; Player wins by ron - calculate score and show detailed win dialog
+           (let* ((human-seat (ui-state-human-seat ui-state))
+                  (human-player (get-player game human-seat))
+                  (turn-state (game-turn-state game))
+                  (winning-tile (turn-last-discard turn-state))
+                  (loser-seat (turn-last-discard-player turn-state))
+                  (hand (cons winning-tile (player-hand human-player)))  ; Add winning tile
+                  (melds (player-melds human-player))
+                  (context (build-winning-context game human-seat winning-tile nil loser-seat))
+                  (score-result (calculate-score hand melds winning-tile context)))
+             ;; Store win info for scoring
+             (setf (ui-state-pending-win ui-state)
+                   (list :type :ron
+                         :winning-tile winning-tile
+                         :loser-seat loser-seat
+                         :score-result score-result))
+             (setf (ui-state-active-modal ui-state)
+                   (make-win-modal (player-name human-player) score-result game human-seat nil))
+             (setf (game-phase game) :hand-ended))
+           ;; Player chose to skip - advance turn normally
+           (progn
+             (advance-turn game)
+             (setf (game-phase game) :turn-draw))))
       
       ;; Win acknowledgment - calculate score and start new round
       ((or (string= title "RON") (string= title "TSUMO"))
@@ -1166,6 +1178,7 @@
    If the winner was dealer, dealer stays. Otherwise rotate dealer."
   (let* ((pending-win (ui-state-pending-win ui-state))
          (win-type (getf pending-win :type))
+         (winning-tile (getf pending-win :winning-tile))
          (loser-seat (getf pending-win :loser-seat))
          (score (getf pending-win :score-result))
          (winner-seat (ui-state-human-seat ui-state))
@@ -1177,6 +1190,7 @@
     (when score
       (let* ((payment (score-result-payment score))
              (context (make-winning-context
+                       :winning-tile winning-tile
                        :tsumo-p (eq win-type :tsumo)
                        :winner-seat winner-seat
                        :loser-seat loser-seat)))
@@ -1419,19 +1433,12 @@
                 (right-col (max 0 (- screen-width 5)))  ; Right edge - 5 chars for tile width
                 (left-col 0))  ; Left edge
 
-           ;; Top player - hidden
            (when top-player
-             (draw-hand-horizontal scr top-player 1 top-col t))
-
-           ;; Left player - hidden
+             (draw-hand-horizontal scr top-player 1 top-col (not *debug-ui*)))
            (when left-player
-             (draw-hand-vertical scr left-player left-row left-col t nil))  ; Left-aligned
-
-           ;; Right player - hidden
+             (draw-hand-vertical scr left-player left-row left-col (not *debug-ui*) nil))  ; Left-aligned
            (when right-player
-             (draw-hand-vertical scr right-player right-row right-col t t))  ; Right-aligned
-
-           ;; Bottom player (human) - visible
+             (draw-hand-vertical scr right-player right-row right-col (not *debug-ui*) t))  ; Right-aligned
            (when bottom-player
              (let ((hand-row (max 0 (- screen-height 4)))
                    (valid-tiles (when ui-state (ui-state-valid-riichi-discards ui-state))))
@@ -1542,11 +1549,16 @@
 
        ;; Handle input (non-blocking, 100ms timeout from screen init)
        (let* ((event (croatoan:get-event scr))
-              (ch (when event (slot-value event 'croatoan::key))))
+              (ch (when event 
+                    (handler-case
+                        (slot-value event 'croatoan::key)
+                      (error () nil)))))
          (cond
            ;; Handle resize events
            ((eq ch :resize)
             nil)
+           ;; Skip nil keys
+           ((null ch) nil)
 
            ;; Handle all other input
            ((and ch (not (eq ch :resize)))

@@ -374,7 +374,9 @@
               (total (+ direct-payment honba-bonus riichi-bonus)))
 
          (setf (payment-split-direct-payment payment) direct-payment)
-         (setf (payment-split-winner-receives payment) total)))
+         (setf (payment-split-winner-receives payment) total)
+         (setf (payment-split-winner-seat payment) (winning-context-winner-seat context))
+         (setf (payment-split-loser-seat payment) (winning-context-loser-seat context))))
       ;; Tsumo
       (t
        (cond
