@@ -47,6 +47,7 @@
    #:game-wall
    #:game-phase
    #:game-dealer-seat
+   #:game-round-number
    #:game-round-wind
    #:game-turn-state
    #:game-honba

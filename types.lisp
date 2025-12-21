@@ -311,6 +311,11 @@
     :initform :east
     :type (member :east :south :west :north)
     :documentation "Current dealer seat")
+   (round-number
+    :accessor game-round-number
+    :initform 1
+    :type integer
+    :documentation "Current round number within wind (1-4)")
    (honba
     :accessor game-honba
     :initform 0
