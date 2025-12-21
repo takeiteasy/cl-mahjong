@@ -24,9 +24,10 @@
   (hand-position nil)  ; (row col) of where human hand is drawn
   (active-modal nil)   ; Current modal dialog (modal-state or nil)
   (riichi-pending nil) ; T if player confirmed riichi and is choosing tile to discard
-  (valid-riichi-discards nil))  ; List of tiles that maintain tempai for riichi
+  (valid-riichi-discards nil)  ; List of tiles that maintain tempai for riichi
+  (pending-win nil))  ; Plist with win info: (:type :tsumo/:ron :winning-tile TILE :loser-seat SEAT)
 
-(defparameter *debug-ui* t)
+(defparameter *debug-ui* nil)
 
 (defparameter *game* nil
   "The current game state.")
@@ -71,7 +72,7 @@
    HIGHLIGHTED makes the tile reverse video (selected).
    IS-VALID highlights the tile border in green (valid for riichi discard)."
   (let ((tile-str (if hidden
-                      "XX"
+                      "  "
                       (tile-to-string tile)))
         (start-col (if first-in-row col (1+ col)))
         (border-attrs (if is-valid '(:altcharset :bold) '(:altcharset))))
@@ -120,7 +121,7 @@
    │XX│
    └──┘  <- last"
   (let ((tile-str (if hidden
-                      "XX"
+                      "  "
                       (tile-to-string tile))))
     ;; Top border (only for first tile, others share from previous tile's bottom)
     (when first-in-column
@@ -799,9 +800,15 @@
       ;; Tsumo decision
       ((string= title "TSUMO!")
        (when (string= result "TSUMO")
-         ;; Player wins by tsumo - show win dialog
+         ;; Player wins by tsumo - store win info and show win dialog
          (let* ((human-seat (ui-state-human-seat ui-state))
-                (human-player (get-player game human-seat)))
+                (human-player (get-player game human-seat))
+                (winning-tile (nth 13 (player-hand human-player))))  ; Drawn tile is last
+           ;; Store win info for scoring
+           (setf (ui-state-pending-win ui-state)
+                 (list :type :tsumo
+                       :winning-tile winning-tile
+                       :loser-seat nil))
            (setf (ui-state-active-modal ui-state)
                  (make-win-modal (player-name human-player)))
            (setf (game-phase game) :hand-ended))))
@@ -809,18 +816,94 @@
       ;; Ron decision
       ((string= title "RON!")
        (when (string= result "RON")
-         ;; Player wins by ron - show win dialog
+         ;; Player wins by ron - store win info and show win dialog
          (let* ((human-seat (ui-state-human-seat ui-state))
-                (human-player (get-player game human-seat)))
+                (human-player (get-player game human-seat))
+                (turn-state (game-turn-state game))
+                (winning-tile (turn-last-discard turn-state))
+                (loser-seat (turn-last-discard-player turn-state)))
+           ;; Store win info for scoring
+           (setf (ui-state-pending-win ui-state)
+                 (list :type :ron
+                       :winning-tile winning-tile
+                       :loser-seat loser-seat))
            (setf (ui-state-active-modal ui-state)
                  (make-win-modal (player-name human-player)))
            (setf (game-phase game) :hand-ended))))
       
-      ;; Win acknowledgment
+      ;; Win acknowledgment - calculate score and start new round
       ((string= title "WIN!")
-       ;; For now, just start a new round (placeholder)
-       ;; TODO: implement proper round transition
-       nil))))
+       (process-win-and-start-new-round game ui-state)))))
+
+;;; ============================================================================
+;;; Round Transition
+;;; ============================================================================
+
+(defun process-win-and-start-new-round (game ui-state)
+  "Process the winning hand, distribute points, and start a new round.
+   If the winner was dealer, dealer stays. Otherwise rotate dealer."
+  (let* ((pending-win (ui-state-pending-win ui-state))
+         (win-type (getf pending-win :type))
+         (winning-tile (getf pending-win :winning-tile))
+         (loser-seat (getf pending-win :loser-seat))
+         (winner-seat (ui-state-human-seat ui-state))
+         (winner (get-player game winner-seat))
+         (hand (player-hand winner))
+         (melds (player-melds winner))
+         (config (game-config game))
+         (dealer-seat (game-dealer-seat game)))
+    
+    ;; Build winning context and calculate score
+    (let* ((context (build-winning-context game winner-seat winning-tile (eq win-type :tsumo) loser-seat))
+           (score (calculate-score hand melds winning-tile context)))
+      
+      (when score
+        ;; Apply payments
+        (let ((payment (score-result-payment score)))
+          (apply-payment-to-players game winner-seat payment context)))
+      
+      ;; Award riichi sticks to winner
+      (when (> (game-riichi-sticks game) 0)
+        (incf (player-score winner) (* 1000 (game-riichi-sticks game)))
+        (setf (game-riichi-sticks game) 0))
+      
+      ;; Handle dealer rotation
+      (let ((dealer-won (eq winner-seat dealer-seat)))
+        (if dealer-won
+            ;; Dealer stays, increment honba
+            (incf (game-honba game))
+            ;; Dealer rotates to next seat
+            (progn
+              (setf (game-dealer-seat game) (next-seat dealer-seat config))
+              (setf (game-honba game) 0)))))
+    
+    ;; Clear pending win
+    (setf (ui-state-pending-win ui-state) nil)
+    
+    ;; Reset all players for new hand
+    (dolist (seat (game-config-seats config))
+      (let ((player (get-player game seat)))
+        (when player
+          (player-reset-for-new-hand player))))
+    
+    ;; Create new wall and deal new hands
+    (setf (game-wall game) (create-wall config))
+    (deal-initial-hands game)
+    
+    ;; Reset turn state
+    (let ((turn-state (game-turn-state game)))
+      (setf (turn-current-player turn-state) (game-dealer-seat game)
+            (turn-turn-number turn-state) 1
+            (turn-last-discard turn-state) nil
+            (turn-last-discard-player turn-state) nil))
+    
+    ;; Reset UI state
+    (setf (ui-state-selected-tile-index ui-state) 0
+          (ui-state-riichi-pending ui-state) nil
+          (ui-state-valid-riichi-discards ui-state) nil)
+    
+    ;; Start new round in discard phase (dealer has 14 tiles)
+    (setf (game-phase game) :turn-discard)))
 
 ;;; ============================================================================
 ;;; Win Detection
