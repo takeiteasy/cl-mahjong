@@ -14,6 +14,10 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+(defpackage #:cli-mahjong
+  (:use #:cl #:cl-mahjong #:croatoan)
+  (:export #:main))
+
 (in-package #:cli-mahjong)
 
 (defstruct ui-state
@@ -201,8 +205,8 @@
 (defun draw-modal (scr modal)
   "Draw a modal dialog centered on screen using ACS box-drawing characters."
   (multiple-value-bind (width height) (calculate-modal-dimensions modal)
-    (let* ((screen-height (croatoan:height scr))
-           (screen-width (croatoan:width scr))
+    (let* ((screen-height (height scr))
+           (screen-width (width scr))
            (start-row (max 0 (- (floor screen-height 2) (floor height 2))))
            (start-col (max 0 (- (floor screen-width 2) (floor width 2))))
            (inner-width (- width 2))  ; Width inside borders
@@ -212,36 +216,36 @@
            (selected (modal-state-selected-index modal)))
       
       ;; Top border: ┌────────────┐
-      (croatoan:move scr start-row start-col)
-      (croatoan:add-char scr #\l :attributes '(:altcharset))  ; ┌
+      (move scr start-row start-col)
+      (add-char scr #\l :attributes '(:altcharset))  ; ┌
       (loop repeat inner-width do
-        (croatoan:add-char scr #\q :attributes '(:altcharset)))  ; ─
-      (croatoan:add-char scr #\k :attributes '(:altcharset))  ; ┐
+        (add-char scr #\q :attributes '(:altcharset)))  ; ─
+      (add-char scr #\k :attributes '(:altcharset))  ; ┐
       
       ;; Title row: │   TITLE    │
-      (croatoan:move scr (+ start-row 1) start-col)
-      (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
+      (move scr (+ start-row 1) start-col)
+      (add-char scr #\x :attributes '(:altcharset))  ; │
       (let* ((title-padding (floor (- inner-width (length title)) 2))
              (title-str (format nil "~A~A~A"
                                (make-string title-padding :initial-element #\Space)
                                title
                                (make-string (- inner-width title-padding (length title))
                                            :initial-element #\Space))))
-        (croatoan:add-string scr title-str :attributes '(:bold)))
-      (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
+        (add-string scr title-str :attributes '(:bold)))
+      (add-char scr #\x :attributes '(:altcharset))  ; │
       
       ;; Separator: ├────────────┤
-      (croatoan:move scr (+ start-row 2) start-col)
-      (croatoan:add-char scr #\t :attributes '(:altcharset))  ; ├
+      (move scr (+ start-row 2) start-col)
+      (add-char scr #\t :attributes '(:altcharset))  ; ├
       (loop repeat inner-width do
-        (croatoan:add-char scr #\q :attributes '(:altcharset)))  ; ─
-      (croatoan:add-char scr #\u :attributes '(:altcharset))  ; ┤
+        (add-char scr #\q :attributes '(:altcharset)))  ; ─
+      (add-char scr #\u :attributes '(:altcharset))  ; ┤
       
       ;; Message lines
       (loop for line in message-lines
             for row from (+ start-row 3)
-            do (croatoan:move scr row start-col)
-               (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
+            do (move scr row start-col)
+               (add-char scr #\x :attributes '(:altcharset))  ; │
                (let* ((text (get-line-text line))
                       (color (get-line-color line))
                       (padding (floor (- inner-width (length text)) 2))
@@ -250,25 +254,25 @@
                                (:red '(:bold))
                                (t nil))))
                  ;; Left padding
-                 (croatoan:add-string scr (make-string padding :initial-element #\Space))
+                 (add-string scr (make-string padding :initial-element #\Space))
                  ;; Text with optional color
                  (case color
                    (:green 
-                    (croatoan:add-string scr text :fgcolor :green :attributes attrs))
+                    (add-string scr text :fgcolor :green :attributes attrs))
                    (:red 
-                    (croatoan:add-string scr text :fgcolor :red :attributes attrs))
+                    (add-string scr text :fgcolor :red :attributes attrs))
                    (t
-                    (croatoan:add-string scr text :attributes attrs)))
+                    (add-string scr text :attributes attrs)))
                  ;; Right padding
                  (let ((remaining (- inner-width padding (length text))))
                    (when (> remaining 0)
-                     (croatoan:add-string scr (make-string remaining :initial-element #\Space)))))
-               (croatoan:add-char scr #\x :attributes '(:altcharset)))  ; │
+                     (add-string scr (make-string remaining :initial-element #\Space)))))
+               (add-char scr #\x :attributes '(:altcharset)))  ; │
       
       ;; Button row
       (let ((button-row (+ start-row 3 (length message-lines))))
-        (croatoan:move scr button-row start-col)
-        (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
+        (move scr button-row start-col)
+        (add-char scr #\x :attributes '(:altcharset))  ; │
         
         ;; Build button string with highlighting
         (let* ((button-strs (loop for btn in buttons
@@ -279,34 +283,34 @@
                (buttons-combined (format nil "~{~A~^  ~}" button-strs))
                (btn-padding (floor (- inner-width (length buttons-combined)) 2)))
           ;; Left padding
-          (croatoan:add-string scr (make-string btn-padding :initial-element #\Space))
+          (add-string scr (make-string btn-padding :initial-element #\Space))
           ;; Draw each button with appropriate highlighting
           (loop for btn in buttons
                 for i from 0
                 do (if (= i selected)
                        (progn
-                         (croatoan:add-string scr "[ ")
-                         (croatoan:add-string scr btn :attributes '(:reverse :bold))
-                         (croatoan:add-string scr " ]"))
+                         (add-string scr "[ ")
+                         (add-string scr btn :attributes '(:reverse :bold))
+                         (add-string scr " ]"))
                        (progn
-                         (croatoan:add-string scr "  ")
-                         (croatoan:add-string scr btn)
-                         (croatoan:add-string scr "  ")))
+                         (add-string scr "  ")
+                         (add-string scr btn)
+                         (add-string scr "  ")))
                    (when (< i (1- (length buttons)))
-                     (croatoan:add-string scr "  ")))  ; Spacing between buttons
+                     (add-string scr "  ")))  ; Spacing between buttons
           ;; Right padding
           (let ((remaining (- inner-width btn-padding (length buttons-combined))))
             (when (> remaining 0)
-              (croatoan:add-string scr (make-string remaining :initial-element #\Space)))))
+              (add-string scr (make-string remaining :initial-element #\Space)))))
         
-        (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
+        (add-char scr #\x :attributes '(:altcharset))  ; │
         
         ;; Bottom border: └────────────┘
-        (croatoan:move scr (+ button-row 1) start-col)
-        (croatoan:add-char scr #\m :attributes '(:altcharset))  ; └
+        (move scr (+ button-row 1) start-col)
+        (add-char scr #\m :attributes '(:altcharset))  ; └
         (loop repeat inner-width do
-          (croatoan:add-char scr #\q :attributes '(:altcharset)))  ; ─
-        (croatoan:add-char scr #\j :attributes '(:altcharset))))))  ; ┘
+          (add-char scr #\q :attributes '(:altcharset)))  ; ─
+        (add-char scr #\j :attributes '(:altcharset))))))  ; ┘
 
 ;;; ============================================================================
 ;;; Modal Input Handling
@@ -389,38 +393,38 @@
         (start-col (if first-in-row col (1+ col)))
         (border-attrs (if is-valid '(:altcharset :bold) '(:altcharset))))
     ;; Top border
-    (croatoan:move scr row start-col)
+    (move scr row start-col)
     (when first-in-row
-      (croatoan:add-char scr #\l :attributes border-attrs))  ; upper-left corner ┌
-    (croatoan:add-char scr #\q :attributes border-attrs)  ; horizontal ─
-    (croatoan:add-char scr #\q :attributes border-attrs)  ; horizontal ─
+      (add-char scr #\l :attributes border-attrs))  ; upper-left corner ┌
+    (add-char scr #\q :attributes border-attrs)  ; horizontal ─
+    (add-char scr #\q :attributes border-attrs)  ; horizontal ─
     (if last-in-row
-        (croatoan:add-char scr #\k :attributes border-attrs)  ; upper-right corner ┐
-        (croatoan:add-char scr #\w :attributes border-attrs))  ; top tee ┬
+        (add-char scr #\k :attributes border-attrs)  ; upper-right corner ┐
+        (add-char scr #\w :attributes border-attrs))  ; top tee ┬
 
     ;; Middle with tile content
-    (croatoan:move scr (+ row 1) start-col)
+    (move scr (+ row 1) start-col)
     (when first-in-row
-      (croatoan:add-char scr #\x :attributes border-attrs))  ; vertical │
+      (add-char scr #\x :attributes border-attrs))  ; vertical │
     (let ((attrs (cond
                    ((and highlighted is-valid) '(:reverse :bold))
                    (highlighted '(:reverse))
                    (is-valid '(:bold))
                    (t nil))))
       (if hidden
-          (croatoan:add-string scr tile-str :attributes attrs)
-          (croatoan:add-string scr tile-str :color-pair (if is-valid '(:green :black) (get-tile-color-pair tile)) :attributes attrs)))
-    (croatoan:add-char scr #\x :attributes border-attrs)  ; vertical │
+          (add-string scr tile-str :attributes attrs)
+          (add-string scr tile-str :color-pair (if is-valid '(:green :black) (get-tile-color-pair tile)) :attributes attrs)))
+    (add-char scr #\x :attributes border-attrs)  ; vertical │
 
     ;; Bottom border
-    (croatoan:move scr (+ row 2) start-col)
+    (move scr (+ row 2) start-col)
     (when first-in-row
-      (croatoan:add-char scr #\m :attributes border-attrs))  ; lower-left corner └
-    (croatoan:add-char scr #\q :attributes border-attrs)  ; horizontal ─
-    (croatoan:add-char scr #\q :attributes border-attrs)  ; horizontal ─
+      (add-char scr #\m :attributes border-attrs))  ; lower-left corner └
+    (add-char scr #\q :attributes border-attrs)  ; horizontal ─
+    (add-char scr #\q :attributes border-attrs)  ; horizontal ─
     (if last-in-row
-        (croatoan:add-char scr #\j :attributes border-attrs)  ; lower-right corner ┘
-        (croatoan:add-char scr #\v :attributes border-attrs))))  ; bottom tee ┴
+        (add-char scr #\j :attributes border-attrs)  ; lower-right corner ┘
+        (add-char scr #\v :attributes border-attrs))))  ; bottom tee ┴
 
 (defun draw-tile-block-vertical (scr tile row col &optional (hidden nil) (first-in-column nil) (last-in-column nil))
   "Draw a single tile as a block using ACS box-drawing characters with shared borders (vertical stacking).
@@ -437,35 +441,35 @@
                       (tile-to-string tile))))
     ;; Top border (only for first tile, others share from previous tile's bottom)
     (when first-in-column
-      (croatoan:move scr row col)
-      (croatoan:add-char scr #\l :attributes '(:altcharset))  ; upper-left corner ┌
-      (croatoan:add-char scr #\q :attributes '(:altcharset))  ; horizontal ─
-      (croatoan:add-char scr #\q :attributes '(:altcharset))  ; horizontal ─
-      (croatoan:add-char scr #\k :attributes '(:altcharset))) ; upper-right corner ┐
+      (move scr row col)
+      (add-char scr #\l :attributes '(:altcharset))  ; upper-left corner ┌
+      (add-char scr #\q :attributes '(:altcharset))  ; horizontal ─
+      (add-char scr #\q :attributes '(:altcharset))  ; horizontal ─
+      (add-char scr #\k :attributes '(:altcharset))) ; upper-right corner ┐
 
     ;; Middle with tile content
-    (croatoan:move scr (+ row 1) col)
-    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; vertical │
+    (move scr (+ row 1) col)
+    (add-char scr #\x :attributes '(:altcharset))  ; vertical │
     (if hidden
-        (croatoan:add-string scr tile-str)
-        (croatoan:add-string scr tile-str :color-pair (get-tile-color-pair tile)))
-    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; vertical │
+        (add-string scr tile-str)
+        (add-string scr tile-str :color-pair (get-tile-color-pair tile)))
+    (add-char scr #\x :attributes '(:altcharset))  ; vertical │
 
     ;; Bottom border
-    (croatoan:move scr (+ row 2) col)
+    (move scr (+ row 2) col)
     (if last-in-column
         (progn
           ;; Last tile: use corners └──┘
-          (croatoan:add-char scr #\m :attributes '(:altcharset))  ; lower-left corner └
-          (croatoan:add-char scr #\q :attributes '(:altcharset))  ; horizontal ─
-          (croatoan:add-char scr #\q :attributes '(:altcharset))  ; horizontal ─
-          (croatoan:add-char scr #\j :attributes '(:altcharset))) ; lower-right corner ┘
+          (add-char scr #\m :attributes '(:altcharset))  ; lower-left corner └
+          (add-char scr #\q :attributes '(:altcharset))  ; horizontal ─
+          (add-char scr #\q :attributes '(:altcharset))  ; horizontal ─
+          (add-char scr #\j :attributes '(:altcharset))) ; lower-right corner ┘
         (progn
           ;; Not last: use left/right tees ├──┤
-          (croatoan:add-char scr #\t :attributes '(:altcharset))  ; left tee ├
-          (croatoan:add-char scr #\q :attributes '(:altcharset))  ; horizontal ─
-          (croatoan:add-char scr #\q :attributes '(:altcharset))  ; horizontal ─
-          (croatoan:add-char scr #\u :attributes '(:altcharset))))))  ; right tee ┤
+          (add-char scr #\t :attributes '(:altcharset))  ; left tee ├
+          (add-char scr #\q :attributes '(:altcharset))  ; horizontal ─
+          (add-char scr #\q :attributes '(:altcharset))  ; horizontal ─
+          (add-char scr #\u :attributes '(:altcharset))))))  ; right tee ┤
 
 ;;; ============================================================================
 ;;; Grid-Based Tile Drawing (Proper Box-Character Junctions)
@@ -515,7 +519,7 @@
           for prev-num-tiles = (if prev-row (length prev-row) 0)
           do
              ;; Draw top border line
-             (croatoan:move scr screen-y col)
+             (move scr screen-y col)
              (loop for tile-idx from 0 below num-tiles
                    for is-first-tile = (= tile-idx 0)
                    for is-last-tile = (= tile-idx (1- num-tiles))
@@ -526,7 +530,7 @@
                    for at-prev-edge = (and prev-row (= tile-idx prev-num-tiles))
                    do
                       ;; Left junction of tile
-                      (croatoan:add-char scr
+                      (add-char scr
                                          (cond
                                            ((and is-first-tile is-first-row) #\l)       ; ┌
                                            ((and is-first-tile has-above) #\t)          ; ├
@@ -537,12 +541,12 @@
                                            (t #\w))                                     ; ┬
                                          :attributes border-attrs)
                       ;; Horizontal line
-                      (croatoan:add-char scr #\q :attributes border-attrs)
-                      (croatoan:add-char scr #\q :attributes border-attrs))
+                      (add-char scr #\q :attributes border-attrs)
+                      (add-char scr #\q :attributes border-attrs))
              ;; Right edge of row
              (let* ((has-above-at-end (and prev-row (>= prev-num-tiles num-tiles)))
                     (prev-row-longer (and prev-row (> prev-num-tiles num-tiles))))
-               (croatoan:add-char scr
+               (add-char scr
                                   (cond
                                     (is-first-row #\k)                              ; ┐
                                     (prev-row-longer #\v)                           ; ┴ (no content below, connects to trailing border)
@@ -554,31 +558,31 @@
              (when (and prev-row (> prev-num-tiles num-tiles))
                (loop for extra-idx from num-tiles below prev-num-tiles
                      for is-last-extra = (= extra-idx (1- prev-num-tiles))
-                     do (croatoan:add-char scr #\q :attributes border-attrs)   ; ─
-                        (croatoan:add-char scr #\q :attributes border-attrs)   ; ─
-                        (croatoan:add-char scr (if is-last-extra #\j #\v)      ; ┘ or ┴
+                     do (add-char scr #\q :attributes border-attrs)   ; ─
+                        (add-char scr #\q :attributes border-attrs)   ; ─
+                        (add-char scr (if is-last-extra #\j #\v)      ; ┘ or ┴
                                            :attributes border-attrs)))
              
              ;; Draw content line
-             (croatoan:move scr (1+ screen-y) col)
-             (croatoan:add-char scr #\x :attributes border-attrs)  ; │
+             (move scr (1+ screen-y) col)
+             (add-char scr #\x :attributes border-attrs)  ; │
              (loop for tile in tile-row
-                   do (croatoan:add-string scr (tile-to-string tile) 
+                   do (add-string scr (tile-to-string tile) 
                                            :color-pair (get-tile-color-pair tile))
-                      (croatoan:add-char scr #\x :attributes border-attrs)))  ; │
+                      (add-char scr #\x :attributes border-attrs)))  ; │
     
     ;; Draw bottom border after last row
     (let* ((last-row (nth (1- num-rows) rows))
            (num-tiles (length last-row))
            (screen-y (+ row (* num-rows 2))))
-      (croatoan:move scr screen-y col)
-      (croatoan:add-char scr #\m :attributes border-attrs)  ; └
+      (move scr screen-y col)
+      (add-char scr #\m :attributes border-attrs)  ; └
       (loop for tile-idx from 0 below num-tiles
-            do (croatoan:add-char scr #\q :attributes border-attrs)
-               (croatoan:add-char scr #\q :attributes border-attrs)
+            do (add-char scr #\q :attributes border-attrs)
+               (add-char scr #\q :attributes border-attrs)
                (when (< tile-idx (1- num-tiles))
-                 (croatoan:add-char scr #\v :attributes border-attrs)))  ; ┴
-      (croatoan:add-char scr #\j :attributes border-attrs))))
+                 (add-char scr #\v :attributes border-attrs)))  ; ┴
+      (add-char scr #\j :attributes border-attrs))))
 
 (defun get-junction-char-vertical (grid-row grid-col num-rows num-cols)
   "Determine the correct ACS box-drawing character for a junction point
@@ -629,18 +633,18 @@
                                                (t :ended)))))
                ;; Draw border row if any column is active or ending
                (when (some (lambda (s) (member s '(:active :ending))) col-states)
-                 (croatoan:move scr screen-y col)
+                 (move scr screen-y col)
                  ;; Draw left junction (or space if first column ended)
                  (let ((first-state (first col-states)))
                    (if (member first-state '(:active :ending))
-                       (croatoan:add-char scr
+                       (add-char scr
                                           (cond
                                             ((and is-first-tile-row (eq first-state :active)) #\l)
                                             ((eq first-state :ending) #\m)
                                             ((eq first-state :active) #\t)
                                             (t #\Space))
                                           :attributes border-attrs)
-                       (croatoan:add-char scr #\Space)))
+                       (add-char scr #\Space)))
                  ;; Draw each column: 2 horizontal chars + 1 junction
                  (loop for col-idx from 0 below num-cols
                        for state = (nth col-idx col-states)
@@ -650,13 +654,13 @@
                           ;; Horizontal line (or spaces if ended)
                           (if (member state '(:active :ending))
                               (progn
-                                (croatoan:add-char scr #\q :attributes border-attrs)
-                                (croatoan:add-char scr #\q :attributes border-attrs))
+                                (add-char scr #\q :attributes border-attrs)
+                                (add-char scr #\q :attributes border-attrs))
                               (progn
-                                (croatoan:add-char scr #\Space)
-                                (croatoan:add-char scr #\Space)))
+                                (add-char scr #\Space)
+                                (add-char scr #\Space)))
                           ;; Right junction/separator
-                          (croatoan:add-char scr
+                          (add-char scr
                                              (cond
                                                ;; Both current and next are ended - space
                                                ((and (eq state :ended) (or (null next-state) (eq next-state :ended)))
@@ -694,11 +698,11 @@
                (unless is-bottom-border
                  ;; Check if any column has a tile at this row
                  (when (some (lambda (c) (< tile-row (length c))) columns)
-                   (croatoan:move scr (1+ screen-y) col)
+                   (move scr (1+ screen-y) col)
                    ;; Draw left border (│ if first column has tile, space if not)
                    (if (< tile-row (length (first columns)))
-                       (croatoan:add-char scr #\x :attributes border-attrs)
-                       (croatoan:add-char scr #\Space))
+                       (add-char scr #\x :attributes border-attrs)
+                       (add-char scr #\Space))
                    ;; Draw each column: 2 chars content + separator
                    (loop for col-idx from 0 below num-cols
                          for this-col = (nth col-idx columns)
@@ -709,15 +713,15 @@
                          do
                             (if has-tile
                                 (let ((tile (nth tile-row this-col)))
-                                  (croatoan:add-string scr (tile-to-string tile)
+                                  (add-string scr (tile-to-string tile)
                                                        :color-pair (get-tile-color-pair tile)))
                                 (progn
-                                  (croatoan:add-char scr #\Space)
-                                  (croatoan:add-char scr #\Space)))
+                                  (add-char scr #\Space)
+                                  (add-char scr #\Space)))
                             ;; Draw separator only if current or next has content
                             (if (or has-tile next-has-tile)
-                                (croatoan:add-char scr #\x :attributes border-attrs)
-                                (croatoan:add-char scr #\Space)))))))))
+                                (add-char scr #\x :attributes border-attrs)
+                                (add-char scr #\Space)))))))))
 
 (defun draw-hand-horizontal (scr player row col &optional (hidden nil) (selected-index nil) (valid-tiles nil))
   "Draw a player's hand horizontally (for top/bottom positions).
@@ -731,8 +735,8 @@
          (main-hand (if has-14th (subseq hand 0 13) hand))
          (drawn-tile (when has-14th (nth 13 hand))))
     ;; Draw player info: name, seat, score
-    (croatoan:move scr row col)
-    (croatoan:add-string scr (format nil "~A [~A] ~D pts"
+    (move scr row col)
+    (add-string scr (format nil "~A [~A] ~D pts"
                                      (player-name player)
                                      (player-seat player)
                                      (player-score player)))
@@ -780,8 +784,8 @@
                        (max 0 (- (+ col 4) (length player-info)))  ; Right-align to end at tile right edge
                        col)))
     ;; Draw player info: name, seat, score
-    (croatoan:move scr row name-col)
-    (croatoan:add-string scr player-info)
+    (move scr row name-col)
+    (add-string scr player-info)
 
     ;; Draw main hand (13 tiles or fewer) - first tile is 3 rows, subsequent tiles are 2 rows (shared border)
     (loop for tile in main-hand
@@ -1031,8 +1035,8 @@
       (let* ((human-seat (ui-state-human-seat ui-state))
              (human-player (get-player game human-seat))
              (hand-size (length (player-hand human-player)))
-             (mouse-y (croatoan:position-y event))
-             (mouse-x (croatoan:position-x event)))
+             (mouse-y (position-y event))
+             (mouse-x (position-x event)))
         ;; Only proceed if we have valid mouse coordinates and hand position
         (when (and mouse-y mouse-x (ui-state-hand-position ui-state))
           (destructuring-bind (hand-row hand-col) (ui-state-hand-position ui-state)
@@ -1340,58 +1344,58 @@
          (riichi-sticks (game-riichi-sticks game)))
     ;; Draw box with info
     ;; Top border
-    (croatoan:move scr row col)
-    (croatoan:add-char scr #\l :attributes '(:altcharset))  ; ┌
-    (loop repeat 28 do (croatoan:add-char scr #\q :attributes '(:altcharset)))  ; ─
-    (croatoan:add-char scr #\k :attributes '(:altcharset))  ; ┐
+    (move scr row col)
+    (add-char scr #\l :attributes '(:altcharset))  ; ┌
+    (loop repeat 28 do (add-char scr #\q :attributes '(:altcharset)))  ; ─
+    (add-char scr #\k :attributes '(:altcharset))  ; ┐
 
     ;; Round wind
-    (croatoan:move scr (+ row 1) col)
-    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
-    (croatoan:add-string scr (format nil " Round: ~12A        " round-wind))
-    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
+    (move scr (+ row 1) col)
+    (add-char scr #\x :attributes '(:altcharset))  ; │
+    (add-string scr (format nil " Round: ~12A        " round-wind))
+    (add-char scr #\x :attributes '(:altcharset))  ; │
 
     ;; Dealer
-    (croatoan:move scr (+ row 2) col)
-    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
-    (croatoan:add-string scr (format nil " Dealer: ~11A        " dealer-seat))
-    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
+    (move scr (+ row 2) col)
+    (add-char scr #\x :attributes '(:altcharset))  ; │
+    (add-string scr (format nil " Dealer: ~11A        " dealer-seat))
+    (add-char scr #\x :attributes '(:altcharset))  ; │
 
     ;; Tiles remaining
-    (croatoan:move scr (+ row 3) col)
-    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
-    (croatoan:add-string scr (format nil " Tiles left: ~7D        " tiles-remaining))
-    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
+    (move scr (+ row 3) col)
+    (add-char scr #\x :attributes '(:altcharset))  ; │
+    (add-string scr (format nil " Tiles left: ~7D        " tiles-remaining))
+    (add-char scr #\x :attributes '(:altcharset))  ; │
 
     ;; Honba counter
-    (croatoan:move scr (+ row 4) col)
-    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
-    (croatoan:add-string scr (format nil " Honba: ~12D        " honba))
-    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
+    (move scr (+ row 4) col)
+    (add-char scr #\x :attributes '(:altcharset))  ; │
+    (add-string scr (format nil " Honba: ~12D        " honba))
+    (add-char scr #\x :attributes '(:altcharset))  ; │
 
     ;; Riichi sticks
-    (croatoan:move scr (+ row 5) col)
-    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
-    (croatoan:add-string scr (format nil " Riichi: ~11D        " riichi-sticks))
-    (croatoan:add-char scr #\x :attributes '(:altcharset))  ; │
+    (move scr (+ row 5) col)
+    (add-char scr #\x :attributes '(:altcharset))  ; │
+    (add-string scr (format nil " Riichi: ~11D        " riichi-sticks))
+    (add-char scr #\x :attributes '(:altcharset))  ; │
 
     ;; Bottom border
-    (croatoan:move scr (+ row 6) col)
-    (croatoan:add-char scr #\m :attributes '(:altcharset))  ; └
-    (loop repeat 28 do (croatoan:add-char scr #\q :attributes '(:altcharset)))  ; ─
-    (croatoan:add-char scr #\j :attributes '(:altcharset))))  ; ┘
+    (move scr (+ row 6) col)
+    (add-char scr #\m :attributes '(:altcharset))  ; └
+    (loop repeat 28 do (add-char scr #\q :attributes '(:altcharset)))  ; ─
+    (add-char scr #\j :attributes '(:altcharset))))  ; ┘
 
 (defun draw-game (scr game &optional ui-state)
   "Draw the entire game screen with mahjong table layout.
    Human player is always drawn at bottom, others arranged around them."
-  (croatoan:clear scr)
+  (clear scr)
 
   (when game
     (let* ((config (game-config game))
            (seats (game-config-seats config))
            (num-players (length seats))
-           (screen-height (croatoan:height scr))
-           (screen-width (croatoan:width scr))
+           (screen-height (height scr))
+           (screen-width (width scr))
            (selected-index (when ui-state (ui-state-selected-tile-index ui-state)))
            (human-seat (when ui-state (ui-state-human-seat ui-state)))
            (current-seat (player-seat (current-player game)))
@@ -1404,8 +1408,8 @@
 
       ;; Draw current turn indicator at top
       (when *debug-ui*
-        (croatoan:move scr 0 0)
-        (croatoan:add-string scr (format nil "Turn: ~A | Phase: ~A | Selected: ~A | Last key: ~S"
+        (move scr 0 0)
+        (add-string scr (format nil "Turn: ~A | Phase: ~A | Selected: ~A | Last key: ~S"
                                          current-seat
                                          phase
                                          (when ui-state (ui-state-selected-tile-index ui-state))
@@ -1519,7 +1523,7 @@
     (when (and ui-state (ui-state-active-modal ui-state))
       (draw-modal scr (ui-state-active-modal ui-state))))
 
-  (croatoan:refresh scr)))
+  (refresh scr)))
 
 (defun main-loop (scr &key (sanma nil))
   "Main event loop with optional game configuration."
@@ -1545,13 +1549,13 @@
 
        ;; Render game state
        (draw-game scr *game* ui-state)
-       (croatoan:refresh scr)
+       (refresh scr)
 
        ;; Handle input (non-blocking, 100ms timeout from screen init)
        (let* ((event (croatoan:get-event scr))
               (ch (when event 
                     (handler-case
-                        (slot-value event 'croatoan::key)
+                        (croatoan:event-key event)
                       (error () nil)))))
          (cond
            ;; Handle resize events
@@ -1583,12 +1587,12 @@
    (main)            ; Start 4-player yonma game
    (main :sanma t)   ; Start 3-player sanma game"
   (handler-case
-      (croatoan:with-screen (scr :input-echoing nil
+      (with-screen (scr :input-echoing nil
                                  :input-blocking 100
                                  :enable-colors t
                                  :cursor-visible nil)
         ;; Enable mouse events
-        (croatoan:set-mouse-event '(:button-1-click :button-1-double-click))
+        (set-mouse-event '(:button-1-click :button-1-double-click))
         (main-loop scr :sanma sanma))
     (sb-sys:interactive-interrupt ()
       ;; Handle Ctrl-C gracefully

@@ -239,7 +239,3 @@
    #:payment-split-dealer-pays
    #:payment-split-non-dealer-pays
    #:player-set-ready))
-
-(defpackage #:cli-mahjong
-  (:use #:cl #:cl-mahjong)
-  (:export #:main))
