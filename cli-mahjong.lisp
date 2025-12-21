@@ -154,6 +154,258 @@
           (croatoan:add-char scr #\q :attributes '(:altcharset))  ; horizontal ─
           (croatoan:add-char scr #\u :attributes '(:altcharset))))))  ; right tee ┤
 
+;;; ============================================================================
+;;; Grid-Based Tile Drawing (Proper Box-Character Junctions)
+;;; ============================================================================
+
+(defun get-junction-char-horizontal (grid-row grid-col num-rows num-cols)
+  "Determine the correct ACS box-drawing character for a junction point
+   in a horizontal grid layout.
+   GRID-ROW and GRID-COL are 0-indexed row/column in the grid.
+   NUM-ROWS and NUM-COLS are the total grid dimensions.
+   Returns the character for the junction at the top-left of tile (grid-row, grid-col),
+   or bottom-right corner/edge for last row/col."
+  (let ((is-top (= grid-row 0))
+        (is-bottom (= grid-row num-rows))
+        (is-left (= grid-col 0))
+        (is-right (= grid-col num-cols)))
+    (cond
+      ;; Corners
+      ((and is-top is-left) #\l)       ; ┌ top-left
+      ((and is-top is-right) #\k)      ; ┐ top-right
+      ((and is-bottom is-left) #\m)    ; └ bottom-left
+      ((and is-bottom is-right) #\j)   ; ┘ bottom-right
+      ;; Edges
+      (is-top #\w)                     ; ┬ top tee
+      (is-bottom #\v)                  ; ┴ bottom tee
+      (is-left #\t)                    ; ├ left tee
+      (is-right #\u)                   ; ┤ right tee
+      ;; Interior
+      (t #\n))))                       ; ┼ cross
+
+(defun draw-tile-grid-horizontal (scr rows row col)
+  "Draw a 2D grid of tiles with proper box-drawing junctions.
+   ROWS is a list of rows (each row is a list of tiles).
+   ROW/COL is the screen position of the top-left corner."
+  (when (null rows)
+    (return-from draw-tile-grid-horizontal))
+  (let ((border-attrs '(:altcharset))
+        (num-rows (length rows)))
+    ;; For each row, draw: top border, content, then bottom border after last row
+    (loop for row-idx from 0 below num-rows
+          for tile-row = (nth row-idx rows)
+          for num-tiles = (length tile-row)
+          for screen-y = (+ row (* row-idx 2))
+          for is-first-row = (= row-idx 0)
+          for is-last-row = (= row-idx (1- num-rows))
+          for prev-row = (when (> row-idx 0) (nth (1- row-idx) rows))
+          for prev-num-tiles = (if prev-row (length prev-row) 0)
+          do
+             ;; Draw top border line
+             (croatoan:move scr screen-y col)
+             (loop for tile-idx from 0 below num-tiles
+                   for is-first-tile = (= tile-idx 0)
+                   for is-last-tile = (= tile-idx (1- num-tiles))
+                   ;; has-above: true if there's a tile above OR at prev-row's right edge
+                   ;; (tile-idx <= prev-num-tiles catches the right edge of shorter prev-row)
+                   for has-above = (and prev-row (<= tile-idx prev-num-tiles))
+                   ;; at-prev-edge: true if we're exactly at the right edge of prev-row
+                   for at-prev-edge = (and prev-row (= tile-idx prev-num-tiles))
+                   do
+                      ;; Left junction of tile
+                      (croatoan:add-char scr
+                                         (cond
+                                           ((and is-first-tile is-first-row) #\l)       ; ┌
+                                           ((and is-first-tile has-above) #\t)          ; ├
+                                           ((and is-first-tile (not has-above)) #\l)    ; ┌
+                                           ;; At the right edge of prev-row, need special handling
+                                           (at-prev-edge #\n)                           ; ┼ (connects to prev-row's right edge)
+                                           ((and has-above (not is-first-tile)) #\n)    ; ┼
+                                           (t #\w))                                     ; ┬
+                                         :attributes border-attrs)
+                      ;; Horizontal line
+                      (croatoan:add-char scr #\q :attributes border-attrs)
+                      (croatoan:add-char scr #\q :attributes border-attrs))
+             ;; Right edge of row
+             (let* ((has-above-at-end (and prev-row (>= prev-num-tiles num-tiles)))
+                    (prev-row-longer (and prev-row (> prev-num-tiles num-tiles))))
+               (croatoan:add-char scr
+                                  (cond
+                                    (is-first-row #\k)                              ; ┐
+                                    (prev-row-longer #\v)                           ; ┴ (no content below, connects to trailing border)
+                                    (has-above-at-end #\u)                          ; ┤ (prev-row ends exactly here or extends)
+                                    (t #\k))                                        ; ┐ (prev-row is shorter)
+                                  :attributes border-attrs))
+             ;; Draw trailing borders for previous row (if it was longer)
+             ;; Each phantom tile position needs: ── (horizontal) then ┴ or ┘ (junction)
+             (when (and prev-row (> prev-num-tiles num-tiles))
+               (loop for extra-idx from num-tiles below prev-num-tiles
+                     for is-last-extra = (= extra-idx (1- prev-num-tiles))
+                     do (croatoan:add-char scr #\q :attributes border-attrs)   ; ─
+                        (croatoan:add-char scr #\q :attributes border-attrs)   ; ─
+                        (croatoan:add-char scr (if is-last-extra #\j #\v)      ; ┘ or ┴
+                                           :attributes border-attrs)))
+             
+             ;; Draw content line
+             (croatoan:move scr (1+ screen-y) col)
+             (croatoan:add-char scr #\x :attributes border-attrs)  ; │
+             (loop for tile in tile-row
+                   do (croatoan:add-string scr (tile-to-string tile) 
+                                           :color-pair (get-tile-color-pair tile))
+                      (croatoan:add-char scr #\x :attributes border-attrs)))  ; │
+    
+    ;; Draw bottom border after last row
+    (let* ((last-row (nth (1- num-rows) rows))
+           (num-tiles (length last-row))
+           (screen-y (+ row (* num-rows 2))))
+      (croatoan:move scr screen-y col)
+      (croatoan:add-char scr #\m :attributes border-attrs)  ; └
+      (loop for tile-idx from 0 below num-tiles
+            do (croatoan:add-char scr #\q :attributes border-attrs)
+               (croatoan:add-char scr #\q :attributes border-attrs)
+               (when (< tile-idx (1- num-tiles))
+                 (croatoan:add-char scr #\v :attributes border-attrs)))  ; ┴
+      (croatoan:add-char scr #\j :attributes border-attrs))))
+
+(defun get-junction-char-vertical (grid-row grid-col num-rows num-cols)
+  "Determine the correct ACS box-drawing character for a junction point
+   in a vertical grid layout (columns share vertical borders).
+   GRID-ROW is which row within a column (0-indexed).
+   GRID-COL is which column (0-indexed).
+   NUM-ROWS is tiles per column, NUM-COLS is number of columns."
+  (let ((is-top (= grid-row 0))
+        (is-bottom (= grid-row num-rows))
+        (is-left (= grid-col 0))
+        (is-right (= grid-col num-cols)))
+    (cond
+      ;; Corners
+      ((and is-top is-left) #\l)       ; ┌
+      ((and is-top is-right) #\k)      ; ┐
+      ((and is-bottom is-left) #\m)    ; └
+      ((and is-bottom is-right) #\j)   ; ┘
+      ;; Edges
+      (is-top #\w)                     ; ┬
+      (is-bottom #\v)                  ; ┴
+      (is-left #\t)                    ; ├
+      (is-right #\u)                   ; ┤
+      ;; Interior
+      (t #\n))))                       ; ┼
+
+(defun draw-tile-grid-vertical (scr columns row col)
+  "Draw a 2D grid of tiles arranged in columns with proper box-drawing junctions.
+   COLUMNS is a list of columns (each column is a list of tiles, top to bottom).
+   ROW/COL is the screen position of the top-left corner."
+  (when (null columns)
+    (return-from draw-tile-grid-vertical))
+  (let ((border-attrs '(:altcharset))
+        (num-cols (length columns))
+        (max-col-len (loop for c in columns maximize (length c))))
+    ;; For each tile row from 0 to max-col-len (inclusive for bottom border)
+    (loop for tile-row from 0 to max-col-len
+          for screen-y = (+ row (* tile-row 2))
+          for is-first-tile-row = (= tile-row 0)
+          for is-bottom-border = (= tile-row max-col-len)
+          do
+             ;; Build column states: :active, :ending, or :ended
+             (let ((col-states (loop for col-idx from 0 below num-cols
+                                     for this-col = (nth col-idx columns)
+                                     for col-len = (length this-col)
+                                     collect (cond
+                                               ((< tile-row col-len) :active)
+                                               ((= tile-row col-len) :ending)
+                                               (t :ended)))))
+               ;; Draw border row if any column is active or ending
+               (when (some (lambda (s) (member s '(:active :ending))) col-states)
+                 (croatoan:move scr screen-y col)
+                 ;; Draw left junction (or space if first column ended)
+                 (let ((first-state (first col-states)))
+                   (if (member first-state '(:active :ending))
+                       (croatoan:add-char scr
+                                          (cond
+                                            ((and is-first-tile-row (eq first-state :active)) #\l)
+                                            ((eq first-state :ending) #\m)
+                                            ((eq first-state :active) #\t)
+                                            (t #\Space))
+                                          :attributes border-attrs)
+                       (croatoan:add-char scr #\Space)))
+                 ;; Draw each column: 2 horizontal chars + 1 junction
+                 (loop for col-idx from 0 below num-cols
+                       for state = (nth col-idx col-states)
+                       for is-last-col = (= col-idx (1- num-cols))
+                       for next-state = (if is-last-col nil (nth (1+ col-idx) col-states))
+                       do
+                          ;; Horizontal line (or spaces if ended)
+                          (if (member state '(:active :ending))
+                              (progn
+                                (croatoan:add-char scr #\q :attributes border-attrs)
+                                (croatoan:add-char scr #\q :attributes border-attrs))
+                              (progn
+                                (croatoan:add-char scr #\Space)
+                                (croatoan:add-char scr #\Space)))
+                          ;; Right junction/separator
+                          (croatoan:add-char scr
+                                             (cond
+                                               ;; Both current and next are ended - space
+                                               ((and (eq state :ended) (or (null next-state) (eq next-state :ended)))
+                                                #\Space)
+                                               ;; Current ended, next active/ending - need left junction for next
+                                               ((and (eq state :ended) (member next-state '(:active :ending)))
+                                                (cond
+                                                  (is-first-tile-row #\l)
+                                                  ((eq next-state :ending) #\m)
+                                                  (t #\t)))
+                                               ;; Current active/ending, next is ended - this is right edge
+                                               ((and (member state '(:active :ending)) (eq next-state :ended))
+                                                (cond
+                                                  ((and is-first-tile-row (eq state :active)) #\k)
+                                                  ((eq state :ending) #\j)
+                                                  (t #\u)))
+                                               ;; Last column
+                                               (is-last-col
+                                                (cond
+                                                  ((and is-first-tile-row (eq state :active)) #\k)
+                                                  ((eq state :ending) #\j)
+                                                  ((eq state :active) #\u)
+                                                  (t #\Space)))
+                                               ;; Both active/ending - normal junction
+                                               ((and (member state '(:active :ending)) (member next-state '(:active :ending)))
+                                                (cond
+                                                  ((and (eq state :ending) (eq next-state :ending)) #\v)
+                                                  ((eq state :ending) #\v)
+                                                  ((eq next-state :ending) #\n)
+                                                  (is-first-tile-row #\w)
+                                                  (t #\n)))
+                                               (t #\Space))
+                                             :attributes border-attrs)))
+               ;; Draw content row (not for bottom border)
+               (unless is-bottom-border
+                 ;; Check if any column has a tile at this row
+                 (when (some (lambda (c) (< tile-row (length c))) columns)
+                   (croatoan:move scr (1+ screen-y) col)
+                   ;; Draw left border (│ if first column has tile, space if not)
+                   (if (< tile-row (length (first columns)))
+                       (croatoan:add-char scr #\x :attributes border-attrs)
+                       (croatoan:add-char scr #\Space))
+                   ;; Draw each column: 2 chars content + separator
+                   (loop for col-idx from 0 below num-cols
+                         for this-col = (nth col-idx columns)
+                         for has-tile = (< tile-row (length this-col))
+                         for is-last-col = (= col-idx (1- num-cols))
+                         for next-col = (unless is-last-col (nth (1+ col-idx) columns))
+                         for next-has-tile = (and next-col (< tile-row (length next-col)))
+                         do
+                            (if has-tile
+                                (let ((tile (nth tile-row this-col)))
+                                  (croatoan:add-string scr (tile-to-string tile)
+                                                       :color-pair (get-tile-color-pair tile)))
+                                (progn
+                                  (croatoan:add-char scr #\Space)
+                                  (croatoan:add-char scr #\Space)))
+                            ;; Draw separator only if current or next has content
+                            (if (or has-tile next-has-tile)
+                                (croatoan:add-char scr #\x :attributes border-attrs)
+                                (croatoan:add-char scr #\Space)))))))))
+
 (defun draw-hand-horizontal (scr player row col &optional (hidden nil) (selected-index nil) (valid-tiles nil))
   "Draw a player's hand horizontally (for top/bottom positions).
    If hand has 14 tiles, draw first 13 together and 14th tile separate.
@@ -609,66 +861,57 @@
     valid-tiles))
 
 (defun draw-discards-horizontal (scr discards row col &optional (tiles-per-row 10) (reverse-horizontal nil) (stack-upward nil))
-  "Draw discards in horizontal rows (for top/bottom players).
-   Discards are arranged in rows of TILES-PER-ROW tiles.
-   If REVERSE-HORIZONTAL is T, arranges right-to-left (for opposite player).
-   If STACK-UPWARD is T, newer rows appear above older rows."
+  "Draw discards in horizontal rows (for top/bottom players) using grid-based rendering.
+   Discards are arranged in rows of TILES-PER-ROW tiles with proper box-character junctions.
+   If REVERSE-HORIZONTAL is T, mirrors tiles within each row (right-to-left).
+   If STACK-UPWARD is T, newer rows appear above older rows (and grid is positioned accordingly)."
   (when discards
-    (loop for tile in discards
-          for i from 0
-          for row-num = (floor i tiles-per-row)
-          for col-num-base = (mod i tiles-per-row)
-          for col-num = (if reverse-horizontal
-                            (- (1- tiles-per-row) col-num-base)
-                            col-num-base)
-          for is-first = (if reverse-horizontal
-                             (or (= col-num-base (1- tiles-per-row))  ; last logical = first visual
-                                 (= i (1- (length discards))))
-                             (= col-num-base 0))  ; first logical = first visual
-          for is-last = (if reverse-horizontal
-                            (= col-num-base 0)  ; first logical = last visual
-                            (or (= col-num-base (1- tiles-per-row))  ; last logical = last visual
-                                (= i (1- (length discards)))))
-          for actual-row = (if stack-upward
-                               (- row (* row-num 2)) ;; was 3
-                               (+ row (* row-num 2))) ;; was 3 (gapped)
-          do (draw-tile-block scr tile
-                              actual-row
-                              (+ col (* col-num 3))
-                              nil  ; not hidden
-                              is-first
-                              is-last))))  ; or last tile overall
+    (let* ((num-tiles (length discards))
+           (num-rows (ceiling num-tiles tiles-per-row)))
+      ;; Build rows as a 2D list
+      (let ((rows (loop for row-idx from 0 below num-rows
+                        for row-start = (* row-idx tiles-per-row)
+                        for row-end = (min (+ row-start tiles-per-row) num-tiles)
+                        collect (subseq discards row-start row-end))))
+        ;; Apply reverse-horizontal: mirror tiles within each row
+        (when reverse-horizontal
+          (setf rows (mapcar #'reverse rows)))
+        ;; Apply stack-upward: reverse row order
+        (when stack-upward
+          (setf rows (reverse rows)))
+        ;; Calculate starting row for upward stacking (grid top is at start-row)
+        (let ((start-row (if stack-upward
+                             (- row (* (1- num-rows) 2))
+                             row)))
+          ;; Pass 2D row structure directly to grid function
+          (draw-tile-grid-horizontal scr rows start-row col))))))
 
-(defun draw-discards-vertical (scr discards row col &optional (tiles-per-column 6) (reverse-vertical nil) (stack-leftward nil))
-  "Draw discards in vertical columns (for left/right players).
-   Discards are arranged in columns of TILES-PER-COLUMN tiles.
-   If REVERSE-VERTICAL is T, arranges bottom-to-top (for right player).
-   If STACK-LEFTWARD is T, newer columns appear to the left of older columns."
+(defun draw-discards-vertical (scr discards row col &optional (tiles-per-column 6) (reverse-vertical nil) (stack-rightward nil))
+  "Draw discards in vertical columns (for left/right players) using grid-based rendering.
+   Discards are arranged in columns of TILES-PER-COLUMN tiles with proper box-character junctions.
+   If REVERSE-VERTICAL is T, mirrors tiles within each column (bottom-to-top).
+   If STACK-RIGHTWARD is T, newer columns appear to the right of older columns."
   (when discards
-    (loop for tile in discards
-          for i from 0
-          for col-num = (floor i tiles-per-column)
-          for row-num-base = (mod i tiles-per-column)
-          for row-num = (if reverse-vertical
-                            (- (1- tiles-per-column) row-num-base)
-                            row-num-base)
-          for is-first = (if reverse-vertical
-                             (or (= row-num-base (1- tiles-per-column))  ; last logical = first visual
-                                 (= i (1- (length discards))))
-                             (= row-num-base 0))  ; first logical = first visual
-          for is-last = (if reverse-vertical
-                            (= row-num-base 0)  ; first logical = last visual
-                            (or (= row-num-base (1- tiles-per-column))  ; last logical = last visual
-                                (= i (1- (length discards)))))
-          for actual-col = (if stack-leftward
-                               (- col (* col-num 3)) ;; was 4
-                               (+ col (* col-num 3))) ;; was 4 (gapped)
-          do (draw-tile-block-vertical scr tile
-                                       (+ row (* row-num 2))
-                                       actual-col
-                                       nil  ; not hidden
-                                       is-first
-                                       is-last))))  ; or last tile overall
+    (let* ((num-tiles (length discards))
+           (num-cols (ceiling num-tiles tiles-per-column)))
+      ;; Build columns as a 2D list
+      (let ((columns (loop for col-idx from 0 below num-cols
+                           for col-start = (* col-idx tiles-per-column)
+                           for col-end = (min (+ col-start tiles-per-column) num-tiles)
+                           collect (subseq discards col-start col-end))))
+        ;; Apply reverse-vertical: mirror tiles within each column
+        (when reverse-vertical
+          (setf columns (mapcar #'reverse columns)))
+        ;; Apply stack-rightward: reverse column order so older is on left, newer on right
+        (when stack-rightward
+          (setf columns (reverse columns)))
+        ;; Calculate starting column for leftward stacking (grid left is at start-col)
+        (let ((start-col (if (not stack-rightward)
+                             ;; Stack leftward: newer on left, so rightmost col is first
+                             (- col (* (1- num-cols) 3))
+                             col)))
+          ;; Pass 2D column structure directly to grid function
+          (draw-tile-grid-vertical scr columns row start-col))))))
 
 (defun draw-center-info (scr game row col)
   "Draw a centered info box with game information."
@@ -810,36 +1053,57 @@
         (draw-center-info scr game center-row center-col)
 
         ;; Draw discards around center box
-        ;; Bottom player discards: below center box (closer to their hand)
+        ;; 
+        ;; From each player's perspective, discards appear the same way:
+        ;; oldest on their left, newest on their right, rows/columns expand toward their hand.
+        ;;
+        ;; Bottom player discards: oldest at left, newest at right. Rows stack down.
         (when bottom-player
-          (let ((discards (reverse (player-discards bottom-player)))  ; Reverse list for correct order
-                (discard-row (+ center-row center-box-height))  ; 1 row below center box
-                (discard-col center-col ))  ; Closer to center
-            (draw-discards-horizontal scr discards discard-row discard-col 10 nil)))
+          (let* ((discards (reverse (player-discards bottom-player)))  ; oldest to newest
+                 (discard-row (+ center-row center-box-height))
+                 (discard-col center-col))
+            (draw-discards-horizontal scr discards discard-row discard-col 10 nil nil)))
 
-        ;; Top player discards: above center box (closer to their hand)
-        ;; From their perspective: oldest on left (our right), newest on right (our left)
-        ;; Stack upward (away from center)
+        ;; Top player discards: rotated 180° from bottom.
+        ;; Oldest at our right, newest at our left. Rows stack up (toward their hand).
         (when top-player
-          (let ((discards (reverse (player-discards top-player)))  ; Reverse list AND use horizontal reverse
-                (discard-row (max 0 (- center-row 3)))  ; 4 rows above center box
-                (discard-col (- center-col 1)))  ; More to the right
-            (draw-discards-horizontal scr discards discard-row discard-col 10 t t)))  ; reversed horizontal, stack upward
+          (let* ((discards (reverse (player-discards top-player)))  ; oldest to newest
+                 (num-discards (length discards))
+                 (tiles-per-row 10)
+                 ;; Grid bottom row should be at center-row - 2 (leave 1 line gap above center box)
+                 ;; draw-discards-horizontal will calculate actual start from this
+                 (discard-row (- center-row 3))
+                 ;; Align right edge with center-box
+                 (grid-width (+ 1 (* (min num-discards tiles-per-row) 3)))
+                 (discard-col (max 0 (- (+ center-col center-box-width) grid-width))))
+            (draw-discards-horizontal scr discards discard-row discard-col 10 t t)))
 
-        ;; Right player discards: to the right of center box
+        ;; Right player discards: rotated 90° CW from bottom.
+        ;; Oldest at our bottom (their left), newest at our top (their right).
+        ;; Columns expand rightward toward their hand.
         (when right-player
-          (let ((discards (reverse (player-discards right-player)))  ; Reverse list for correct order
-                (discard-row (- center-row 6))  ; Closer to center
-                (discard-col (+ center-col center-box-width)))  ; Closer to center
-            (draw-discards-vertical scr discards discard-row discard-col 6 t)))  ; reversed vertical
+          (let* ((discards (reverse (player-discards right-player)))  ; oldest to newest
+                 (tiles-per-column 6)
+                 (num-cols (ceiling (length discards) tiles-per-column))
+                 ;; Position grid just to the right of center box
+                 ;; Since stack-rightward=nil causes leftward offset, add compensation
+                 (discard-row center-row)
+                 (discard-col (+ center-col center-box-width 1 (* (1- num-cols) 3))))
+            (draw-discards-vertical scr discards discard-row discard-col 6 t nil)))  ; reverse-vert, stack-right (newer on RIGHT)
 
-        ;; Left player discards (4-player only): to the left of center box
-        ;; Stack leftward (away from center)
+        ;; Left player discards: rotated 90° CCW from bottom.
+        ;; Oldest at our top (their left), newest at our bottom (their right).
+        ;; Columns expand leftward toward their hand.
         (when left-player
-          (let ((discards (reverse (player-discards left-player)))  ; Reverse list for correct order
-                (discard-row (- center-row 0))  ; Closer to center
-                (discard-col (max 0 (- center-col 5))))  ; More to the right
-            (draw-discards-vertical scr discards discard-row discard-col 6 nil t))))
+          (let* ((discards (reverse (player-discards left-player)))  ; oldest to newest
+                 (tiles-per-column 6)
+                 (num-cols (ceiling (length discards) tiles-per-column))
+                 ;; Grid right edge should be at center-col - 1
+                 ;; Calculate left edge position: right-edge - width + 1
+                 (grid-width (1+ (* num-cols 3)))
+                 (discard-row center-row)
+                 (discard-col (max 0 (- center-col grid-width))))
+            (draw-discards-vertical scr discards discard-row discard-col 6 nil t))))  ; stack-right (newer on LEFT)
     
     ;; Draw modal overlay if active
     (when (and ui-state (ui-state-active-modal ui-state))
