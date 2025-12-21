@@ -76,6 +76,73 @@
    :buttons '("RON" "SKIP")
    :selected-index 0))
 
+(defun make-exhaustive-draw-modal (game)
+  "Create a modal for exhaustive draw (ryuukyoku) showing tenpai status.
+   Players in tenpai receive points from those not in tenpai.
+   3-player: tenpai player(s) receive 2000 per noten player, noten pay 2000 per tenpai
+   If all tenpai or all noten: no payment."
+  (let* ((config (game-config game))
+         (seats (game-config-seats config))
+         (tenpai-seats nil)
+         (noten-seats nil)
+         (lines nil))
+    ;; Check tenpai status for each player
+    (dolist (seat seats)
+      (let* ((player (get-player game seat))
+             (hand (player-hand player))
+             (melds (player-melds player))
+             ;; Check if in tenpai (shanten = 0)
+             (shanten (calculate-shanten hand melds)))
+        (if (zerop shanten)
+            (push seat tenpai-seats)
+            (push seat noten-seats))))
+    (setf tenpai-seats (nreverse tenpai-seats))
+    (setf noten-seats (nreverse noten-seats))
+    
+    (push "Wall exhausted - no winner" lines)
+    (push "" lines)
+    
+    ;; Calculate and display payments
+    (cond
+      ;; All players tenpai or all noten - no payment
+      ((or (null tenpai-seats) (null noten-seats))
+       (push "No tenpai payment" lines)
+       (push "" lines)
+       (dolist (seat seats)
+         (let ((player (get-player game seat)))
+           (push (list :text (format nil "~A: ~A" 
+                                     (player-name player)
+                                     (if (member seat tenpai-seats) "Tenpai" "Noten"))
+                       :color (if (member seat tenpai-seats) :green :white))
+                 lines))))
+      ;; Some tenpai, some noten - calculate payments
+      (t
+       (let* ((num-tenpai (length tenpai-seats))
+              (num-noten (length noten-seats))
+              ;; Total pool is 2000 per noten player
+              (total-pool (* 2000 num-noten))
+              ;; Split among tenpai players
+              (receive-each (floor total-pool num-tenpai))
+              ;; Each noten pays their share
+              (pay-each (floor total-pool num-noten)))
+         (push (format nil "Tenpai: ~A  Noten: ~A" num-tenpai num-noten) lines)
+         (push "" lines)
+         (dolist (seat seats)
+           (let* ((player (get-player game seat))
+                  (is-tenpai (member seat tenpai-seats))
+                  (change (if is-tenpai receive-each (- pay-each))))
+             (push (list :text (format nil "~A: ~@D" (player-name player) change)
+                         :color (cond ((> change 0) :green)
+                                     ((< change 0) :red)
+                                     (t :white)))
+                   lines))))))
+    
+    (make-modal-state
+     :title "DRAW"
+     :message-lines (nreverse lines)
+     :buttons '("OK")
+     :selected-index 0)))
+
 (defun format-yaku-name (yaku-keyword)
   "Convert a yaku keyword to a readable name."
   (let ((name (symbol-name yaku-keyword)))
@@ -957,50 +1024,62 @@
       ((and (eq phase :turn-draw)
             (eq current-seat human-seat))
        (let ((drawn-tile (wall-draw-tile wall)))
-         (when drawn-tile
-           (player-add-tile human-player drawn-tile)
-           (auto-extract-north-if-needed game human-player)
-           (player-sort-hand-keep-drawn human-player)
-           
-           ;; Check for tsumo opportunity (player has complete hand)
-           (cond
-             ;; Winning hand - show tsumo modal
-             ((and ui-state (check-tsumo-opportunity human-player))
-              (setf (ui-state-active-modal ui-state) (make-tsumo-modal)))
-             
-             ;; Player is in riichi - must auto-discard (can't choose)
-             ((player-riichi-declared human-player)
-              ;; Auto-discard the drawn tile (last in sorted hand)
-              (let ((discard-tile (find-safe-riichi-discard human-player)))
-                (when discard-tile
-                  (player-discard-tile human-player discard-tile)
-                  (setf (game-phase game) :call-window)
-                  (advance-turn game)
-                  (setf (game-phase game) :turn-draw))))
-             
-             ;; Check if can declare riichi (closed hand and has valid discards that maintain tempai)
-             ((and ui-state 
-                   (player-can-declare-riichi human-player)
-                   (calculate-valid-riichi-discards human-player))  ; Non-nil means at least one valid discard
-              (setf (ui-state-active-modal ui-state) (make-riichi-modal))
-              (setf (game-phase game) :turn-discard))
-             
-             ;; Normal discard phase
-             (t
-              (setf (game-phase game) :turn-discard))))))
+         (if drawn-tile
+             ;; Got a tile - process normally
+             (progn
+               (player-add-tile human-player drawn-tile)
+               (auto-extract-north-if-needed game human-player)
+               (player-sort-hand-keep-drawn human-player)
+               
+               ;; Check for tsumo opportunity (player has complete hand)
+               (cond
+                 ;; Winning hand - show tsumo modal
+                 ((and ui-state (check-tsumo-opportunity human-player))
+                  (setf (ui-state-active-modal ui-state) (make-tsumo-modal)))
+                 
+                 ;; Player is in riichi - must auto-discard (can't choose)
+                 ((player-riichi-declared human-player)
+                  ;; Auto-discard the drawn tile (last in sorted hand)
+                  (let ((discard-tile (find-safe-riichi-discard human-player)))
+                    (when discard-tile
+                      (player-discard-tile human-player discard-tile)
+                      (setf (game-phase game) :call-window)
+                      (advance-turn game)
+                      (setf (game-phase game) :turn-draw))))
+                 
+                 ;; Check if can declare riichi (closed hand and has valid discards that maintain tempai)
+                 ((and ui-state 
+                       (player-can-declare-riichi human-player)
+                       (calculate-valid-riichi-discards human-player))  ; Non-nil means at least one valid discard
+                  (setf (ui-state-active-modal ui-state) (make-riichi-modal))
+                  (setf (game-phase game) :turn-discard))
+                 
+                 ;; Normal discard phase
+                 (t
+                  (setf (game-phase game) :turn-discard))))
+             ;; Wall is empty - exhaustive draw
+             (when ui-state
+               (setf (ui-state-active-modal ui-state) (make-exhaustive-draw-modal game))
+               (setf (game-phase game) :hand-ended)))))
+
 
       ;; AI auto-draw (just draw, don't discard yet)
       ((and (eq phase :turn-draw)
             (not (eq current-seat human-seat)))
        (let ((drawn-tile (wall-draw-tile wall)))
-         (when drawn-tile
-           (player-add-tile current drawn-tile)
-           (auto-extract-north-if-needed game current)
-           (player-sort-hand-keep-drawn current)  ; Keep drawn tile at end for debug visibility
-           
-           ;; Check if human can ron on AI's discard (after AI discards)
-           ;; Transition to discard phase, but don't discard yet
-           (setf (game-phase game) :turn-discard))))
+         (if drawn-tile
+             ;; Got a tile - process normally
+             (progn
+               (player-add-tile current drawn-tile)
+               (auto-extract-north-if-needed game current)
+               (player-sort-hand-keep-drawn current)  ; Keep drawn tile at end for debug visibility
+               
+               ;; Transition to discard phase, but don't discard yet
+               (setf (game-phase game) :turn-discard))
+             ;; Wall is empty - exhaustive draw
+             (when ui-state
+               (setf (ui-state-active-modal ui-state) (make-exhaustive-draw-modal game))
+               (setf (game-phase game) :hand-ended)))))
 
       ;; AI auto-discard (separate phase to allow rendering of 14 tiles)
       ((and (eq phase :turn-discard)
@@ -1171,7 +1250,11 @@
       
       ;; Win acknowledgment - calculate score and start new round
       ((or (string= title "RON") (string= title "TSUMO"))
-       (process-win-and-start-new-round game ui-state)))))
+       (process-win-and-start-new-round game ui-state))
+      
+      ;; Exhaustive draw acknowledgment - apply tenpai payments and start new round
+      ((string= title "DRAW")
+       (process-exhaustive-draw game ui-state)))))
 
 ;;; ============================================================================
 ;;; Round Transition
@@ -1220,6 +1303,81 @@
     
     ;; Reset all players for new hand
     (dolist (seat (game-config-seats config))
+      (let ((player (get-player game seat)))
+        (when player
+          (player-reset-for-new-hand player))))
+    
+    ;; Create new wall and deal new hands
+    (setf (game-wall game) (create-wall config))
+    (deal-initial-hands game)
+    
+    ;; Reset turn state
+    (let ((turn-state (game-turn-state game)))
+      (setf (turn-current-player turn-state) (game-dealer-seat game)
+            (turn-turn-number turn-state) 1
+            (turn-last-discard turn-state) nil
+            (turn-last-discard-player turn-state) nil))
+    
+    ;; Reset UI state
+    (setf (ui-state-selected-tile-index ui-state) 0
+          (ui-state-riichi-pending ui-state) nil
+          (ui-state-valid-riichi-discards ui-state) nil)
+    
+    ;; Start new round in discard phase (dealer has 14 tiles)
+    (setf (game-phase game) :turn-discard)))
+
+(defun process-exhaustive-draw (game ui-state)
+  "Process exhaustive draw (ryuukyoku): apply tenpai payments and start new round.
+   Tenpai players receive points from noten players.
+   Dealer rotates if dealer is noten (paid points)."
+  (let* ((config (game-config game))
+         (seats (game-config-seats config))
+         (dealer-seat (game-dealer-seat game))
+         (tenpai-seats nil)
+         (noten-seats nil))
+    
+    ;; Determine tenpai status for each player
+    (dolist (seat seats)
+      (let* ((player (get-player game seat))
+             (hand (player-hand player))
+             (melds (player-melds player))
+             (shanten (calculate-shanten hand melds)))
+        (if (zerop shanten)
+            (push seat tenpai-seats)
+            (push seat noten-seats))))
+    
+    ;; Apply tenpai payments if some tenpai and some noten
+    (when (and tenpai-seats noten-seats)
+      (let* ((num-tenpai (length tenpai-seats))
+             (num-noten (length noten-seats))
+             (total-pool (* 2000 num-noten))
+             (receive-each (floor total-pool num-tenpai))
+             (pay-each (floor total-pool num-noten)))
+        ;; Tenpai players receive
+        (dolist (seat tenpai-seats)
+          (let ((player (get-player game seat)))
+            (incf (player-score player) receive-each)))
+        ;; Noten players pay
+        (dolist (seat noten-seats)
+          (let ((player (get-player game seat)))
+            (decf (player-score player) pay-each)))))
+    
+    ;; Handle dealer rotation
+    ;; Dealer stays if tenpai, rotates if noten (or if nobody was noten - no payment case)
+    (let ((dealer-is-tenpai (member dealer-seat tenpai-seats)))
+      (if dealer-is-tenpai
+          ;; Dealer is tenpai - stays, increment honba
+          (incf (game-honba game))
+          ;; Dealer is noten - rotates, reset honba
+          (progn
+            (setf (game-dealer-seat game) (next-seat dealer-seat config))
+            (setf (game-honba game) 0))))
+    
+    ;; Clear pending data
+    (setf (ui-state-pending-win ui-state) nil)
+    
+    ;; Reset all players for new hand
+    (dolist (seat seats)
       (let ((player (get-player game seat)))
         (when player
           (player-reset-for-new-hand player))))
