@@ -476,34 +476,54 @@
       - Completed groups (pon/chi): worth 2 shanten reduction
       - Partial groups (taatsu): worth 1 shanten reduction
       - Pair: worth 1 shanten reduction (only one needed)
-   3. Shanten = 8 - (2 × completed) - (1 × taatsu) - (1 if has pair)"
+   3. Shanten = 8 - (2 × completed) - (1 × taatsu) - (1 if has pair)
+   
+   IMPORTANT: A pair is REQUIRED for a winning hand. If no pair exists,
+   the minimum shanten is 1 (need to acquire a pair)."
 
   (let* ((counts (hand-to-counts tiles))
          (num-melds (length melds))
          (groups-needed (- 4 num-melds))
-         (result (find-best-standard-decomposition counts groups-needed)))
-    ;; Shanten formula for standard
-    (- 8
-       (* 2 (getf result :completed-groups))
-       (getf result :taatsu)
-       (if (getf result :has-pair) 1 0))))
+         (result (find-best-standard-decomposition counts groups-needed))
+         (base-shanten (- 8
+                         (* 2 (getf result :completed-groups))
+                         (getf result :taatsu)
+                         (if (getf result :has-pair) 1 0))))
+    ;; If no pair, minimum shanten is 1 (can't be tempai without a pair)
+    (if (getf result :has-pair)
+        base-shanten
+        (max 1 base-shanten))))
 
 (defun find-best-standard-decomposition (counts groups-needed)
   "Find optimal decomposition to minimize shanten.
-   Returns plist: (:completed-groups N :taatsu N :has-pair BOOL)"
+   Returns plist: (:completed-groups N :taatsu N :has-pair BOOL)
+   
+   Ensures decomposition is valid: tiles used = 3*completed + 2*taatsu + 2*pair <= total tiles"
 
   (let ((best-completed 0)
         (best-taatsu 0)
         (best-has-pair nil)
-        (max-taatsu groups-needed))  ;; Can't have more taatsu than groups needed
-    (labels ((search-decomposition (temp-counts completed taatsu has-pair)
-               ;; Update best if this is better
-               (let ((current-value (+ (* 2 completed) taatsu (if has-pair 1 0))))
-                 (when (> current-value
-                         (+ (* 2 best-completed) best-taatsu (if best-has-pair 1 0)))
-                   (setf best-completed completed
-                         best-taatsu taatsu
-                         best-has-pair has-pair)))
+        (total-tiles 0))
+    ;; Count total tiles
+    (maphash (lambda (tile count) (declare (ignore tile)) (incf total-tiles count)) counts)
+    
+    (labels ((tiles-used (completed taatsu has-pair)
+               "Calculate tiles used by this decomposition"
+               (+ (* 3 completed) (* 2 taatsu) (if has-pair 2 0)))
+             
+             (valid-decomposition-p (completed taatsu has-pair)
+               "Check if decomposition is physically possible with available tiles"
+               (<= (tiles-used completed taatsu has-pair) total-tiles))
+             
+             (search-decomposition (temp-counts completed taatsu has-pair)
+               ;; Only update best if decomposition is valid
+               (when (valid-decomposition-p completed taatsu has-pair)
+                 (let ((current-value (+ (* 2 completed) taatsu (if has-pair 1 0))))
+                   (when (> current-value
+                            (+ (* 2 best-completed) best-taatsu (if best-has-pair 1 0)))
+                     (setf best-completed completed
+                           best-taatsu taatsu
+                           best-has-pair has-pair))))
                ;; Find next tile to process
                (let ((tile (find-if (lambda (tile-key) (> (gethash tile-key temp-counts 0) 0))
                                    +all-tiles+)))
@@ -530,13 +550,13 @@
                        (incf (gethash tile temp-counts))
                        (incf (gethash t2 temp-counts))
                        (incf (gethash t3 temp-counts))))
-                   ;; Try removing as pair
+                   ;; Try removing as pair (the hand's one pair)
                    (when (and (not has-pair) (>= count 2))
                      (decf (gethash tile temp-counts) 2)
                      (search-decomposition temp-counts completed taatsu t)
                      (incf (gethash tile temp-counts) 2))
                    ;; Try removing as protorun (2 sequential tiles - taatsu)
-                   (when (and (< (+ completed taatsu) max-taatsu)
+                   (when (and (< (+ completed taatsu) groups-needed)
                              (not (honor-tile-p tile))
                              (let ((t2 (next-sequential-tile tile)))
                                (and t2 (>= (gethash t2 temp-counts 0) 1))))
@@ -547,7 +567,7 @@
                        (incf (gethash tile temp-counts))
                        (incf (gethash t2 temp-counts))))
                    ;; Try removing as kanchan (gap sequence - taatsu)
-                   (when (and (< (+ completed taatsu) max-taatsu)
+                   (when (and (< (+ completed taatsu) groups-needed)
                              (not (honor-tile-p tile))
                              (let* ((t2 (next-sequential-tile tile))
                                     (t3 (when t2 (next-sequential-tile t2))))
@@ -559,9 +579,8 @@
                        (search-decomposition temp-counts completed (1+ taatsu) has-pair)
                        (incf (gethash tile temp-counts))
                        (incf (gethash t3 temp-counts))))
-                   ;; Try removing as pair (taatsu - can become pon)
-                   (when (and (< (+ completed taatsu) max-taatsu)
-                             (not has-pair)  ;; Only if no pair yet
+                   ;; Try removing 2 tiles as potential pon taatsu (only if no pair yet to avoid double counting)
+                   (when (and (< (+ completed taatsu) groups-needed)
                              (>= count 2))
                      (decf (gethash tile temp-counts) 2)
                      (search-decomposition temp-counts completed (1+ taatsu) has-pair)
