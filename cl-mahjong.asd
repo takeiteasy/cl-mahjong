@@ -40,8 +40,7 @@
   :version "0.1.0"
   :depends-on (#:cl-mahjong
                #:croatoan)
-  :components ((:file "modal")
-               (:file "cli-mahjong"))
+  :components ((:file "cli-mahjong"))
   :build-operation "program-op"
   :build-pathname "cli-mahjong"
   :entry-point "cli-mahjong:main")
