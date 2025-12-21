@@ -47,11 +47,18 @@
 
 (defun player-sort-hand-keep-drawn (player)
   "Sort the player's hand but keep the most recently added tile (drawn tile) separate.
-   When the hand has 14 tiles, sorts only the first 13 and keeps the 14th at the end."
-  (let ((hand (player-hand player)))
-    (if (= (length hand) 14)
-        ;; Hand has 14 tiles - the drawn tile is at the front (from push)
-        ;; Sort the remaining 13 and put drawn tile at the end
+   The drawn tile (at the front from push) is moved to the end after sorting.
+   Works for both closed and open hands."
+  (let* ((hand (player-hand player))
+         (num-tiles (length hand))
+         (num-melds (length (player-melds player)))
+         ;; Expected hand size without drawn tile = 13 - 3*melds
+         (expected-tiles (- 13 (* 3 num-melds)))
+         ;; Has drawn tile when we have one more than expected
+         (has-drawn-tile (> num-tiles expected-tiles)))
+    (if has-drawn-tile
+        ;; Hand has a drawn tile at the front (from push)
+        ;; Sort the rest and put drawn tile at the end
         (let ((drawn-tile (first hand))
               (rest-of-hand (rest hand)))
           (setf (player-hand player)

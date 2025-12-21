@@ -76,6 +76,30 @@
    :buttons '("RON" "SKIP")
    :selected-index 0))
 
+(defun make-pon-modal (tile)
+  "Create a modal for pon (triplet) call prompt."
+  (make-modal-state
+   :title "PON?"
+   :message-lines (list (format nil "Call pon on ~A?" (tile-to-string tile)))
+   :buttons '("PON" "SKIP")
+   :selected-index 0))
+
+(defun make-chi-modal (tile)
+  "Create a modal for chi (sequence) call prompt."
+  (make-modal-state
+   :title "CHI?"
+   :message-lines (list (format nil "Call chi with ~A?" (tile-to-string tile)))
+   :buttons '("CHI" "SKIP")
+   :selected-index 0))
+
+(defun make-kan-modal (tile)
+  "Create a modal for kan (quad) call prompt."
+  (make-modal-state
+   :title "KAN?"
+   :message-lines (list (format nil "Call kan on ~A?" (tile-to-string tile)))
+   :buttons '("KAN" "SKIP")
+   :selected-index 0))
+
 (defun make-exhaustive-draw-modal (game)
   "Create a modal for exhaustive draw (ryuukyoku) showing tenpai status.
    Players in tenpai receive points from those not in tenpai.
@@ -790,23 +814,33 @@
                                 (add-char scr #\x :attributes border-attrs)
                                 (add-char scr #\Space)))))))))
 
-(defun draw-hand-horizontal (scr player row col &optional (hidden nil) (selected-index nil) (valid-tiles nil))
+
+(defun draw-hand-horizontal (scr player row col &optional (hidden nil) (selected-index nil) (valid-tiles nil) (is-dealer nil))
   "Draw a player's hand horizontally (for top/bottom positions).
-   If hand has 14 tiles, draw first 13 together and 14th tile separate.
-   VALID-TILES is a list of tiles to highlight as valid for riichi discard."
+   If player has a drawn tile (one more than expected), draw it separately.
+   VALID-TILES is a list of tiles to highlight as valid for riichi discard.
+   IS-DEALER: if true, adds (DEALER) label."
   (let* ((hand (player-hand player))
          (num-tiles (length hand))
-         (has-14th (= num-tiles 14))
-         ;; Split into main hand (13 tiles) and drawn tile (14th) if applicable
-         ;; Hand is already sorted with drawn tile at position 14
-         (main-hand (if has-14th (subseq hand 0 13) hand))
-         (drawn-tile (when has-14th (nth 13 hand))))
+         (num-melds (length (player-melds player)))
+         ;; Expected hand size: 13 tiles minus 3 per meld (pon/chi take 2 from hand + 1 called)
+         ;; Kan takes 3 or 4, but let's use 3 as base
+         (expected-tiles (- 13 (* 3 num-melds)))
+         ;; Has drawn tile when we have one more than expected
+         (has-drawn-tile (> num-tiles expected-tiles))
+         ;; Split into main hand and drawn tile if applicable
+         (main-hand (if has-drawn-tile (butlast hand) hand))
+         (drawn-tile (when has-drawn-tile (car (last hand)))))
     ;; Draw player info: name, seat, score
     (move scr row col)
     (add-string scr (format nil "~A [~A] ~D pts"
                                      (player-name player)
                                      (player-seat player)
                                      (player-score player)))
+    (when is-dealer
+      (add-string scr " (DEALER)" :color-pair '(:yellow :black)))
+    (when (player-riichi-declared player)
+      (add-string scr " *RIICHI*" :color-pair '(:red :black)))
 
     ;; Draw main hand (13 tiles or fewer)
     (loop for tile in main-hand
@@ -823,36 +857,48 @@
     ;; Draw 14th tile separately with gap if present
     (when drawn-tile
       (let ((gap-offset 2)  ; 2 character gap
-            (is-valid (and valid-tiles (member drawn-tile valid-tiles :test #'eq))))
+            (is-valid (and valid-tiles (member drawn-tile valid-tiles :test #'eq)))
+             (main-hand-len (length main-hand)))
         (draw-tile-block scr drawn-tile (+ row 1)
-                        (+ col (* (length main-hand) 3) gap-offset)
+                        (+ col (* main-hand-len 3) gap-offset)
                         hidden
                         t    ; first-in-row (standalone)
                         t    ; last-in-row (standalone)
-                        (and selected-index (= selected-index 13))
+                        (and selected-index (= selected-index main-hand-len))
                         is-valid)))))
 
-(defun draw-hand-vertical (scr player row col &optional (hidden nil) (align-right nil))
+(defun draw-hand-vertical (scr player row col &optional (hidden nil) (align-right nil) (is-dealer nil))
   "Draw a player's hand vertically (for left/right positions).
    If align-right is true, name is right-aligned to fit on screen.
-   If hand has 14 tiles, draw first 13 together and 14th tile separate."
+   If player has a drawn tile (one more than expected), draw it separately.
+   IS-DEALER: if true, adds (DEALER) label."
   (let* ((hand (player-hand player))
          (num-tiles (length hand))
-         (has-14th (= num-tiles 14))
-         ;; Split into main hand (13 tiles) and drawn tile (14th) if applicable
-         ;; Hand is already sorted with drawn tile at position 14
-         (main-hand (if has-14th (subseq hand 0 13) hand))
-         (drawn-tile (when has-14th (nth 13 hand)))
-         (player-info (format nil "~A [~A] ~D"
+         (num-melds (length (player-melds player)))
+         ;; Expected hand size: 13 tiles minus 3 per meld
+         (expected-tiles (- 13 (* 3 num-melds)))
+         ;; Has drawn tile when we have one more than expected
+         (has-drawn-tile (> num-tiles expected-tiles))
+         ;; Split into main hand and drawn tile if applicable
+         (main-hand (if has-drawn-tile (butlast hand) hand))
+         (drawn-tile (when has-drawn-tile (car (last hand))))
+         (base-info (format nil "~A [~A] ~D"
                               (player-name player)
                               (player-seat player)
                               (player-score player)))
+         (dealer-str (if is-dealer " (DEALER)" ""))
+         (riichi-str (if (player-riichi-declared player) " *RIICHI*" ""))
+         (total-len (+ (length base-info) (length dealer-str) (length riichi-str)))
          (name-col (if align-right
-                       (max 0 (- (+ col 4) (length player-info)))  ; Right-align to end at tile right edge
+                       (max 0 (- (+ col 4) total-len))  ; Right-align to end at tile right edge
                        col)))
     ;; Draw player info: name, seat, score
     (move scr row name-col)
-    (add-string scr player-info)
+    (add-string scr base-info)
+    (when is-dealer
+      (add-string scr dealer-str :color-pair '(:yellow :black)))
+    (when (player-riichi-declared player)
+      (add-string scr riichi-str :color-pair '(:red :black)))
 
     ;; Draw main hand (13 tiles or fewer) - first tile is 3 rows, subsequent tiles are 2 rows (shared border)
     (loop for tile in main-hand
@@ -873,6 +919,54 @@
                                   hidden
                                   t    ; first-in-column (standalone)
                                   t)))))
+
+;;; ============================================================================
+;;; Called Meld Display
+;;; ============================================================================
+
+(defun meld-to-string (meld)
+  "Convert a meld to a display string like '5m pon' or '1p-2p-3p chi'.
+   TODO: Upgrade to box-drawing character version for visual consistency."
+  (let* ((type (meld-type meld))
+         (tiles (meld-tiles meld))
+         (type-str (case type
+                     (:pon "pon")
+                     (:chi "chi")
+                     (:kan-open "kan")
+                     (:kan-closed "[kan]")
+                     (:kan-added "kan+")
+                     (t "?"))))
+    (case type
+      (:chi
+       ;; Show sequence: 1p-2p-3p chi
+       (format nil "~{~A~^-~} ~A"
+               (mapcar #'tile-to-string tiles)
+               type-str))
+      (t
+       ;; Show first tile + type: 5m pon
+       (format nil "~A ~A" (tile-to-string (first tiles)) type-str)))))
+
+(defun draw-called-melds (scr player row col &optional (direction :horizontal))
+  "Draw a player's called melds as text (e.g., '5m pon', '1p-2p-3p chi').
+   DIRECTION can be :horizontal (melds side by side) or :vertical (stacked).
+   ROW/COL is the starting position."
+  (let ((melds (player-melds player)))
+    (when melds
+      (if (eq direction :horizontal)
+          ;; Draw horizontally (for top/bottom players)
+          (let ((x col))
+            (dolist (meld melds)
+              (let ((meld-str (meld-to-string meld)))
+                (move scr row x)
+                (add-string scr meld-str)
+                (incf x (+ (length meld-str) 2)))))  ; 2 space gap between melds
+          ;; Draw vertically (for left/right players)  
+          (let ((y row))
+            (dolist (meld melds)
+              (let ((meld-str (meld-to-string meld)))
+                (move scr y col)
+                (add-string scr meld-str)
+                (incf y))))))))
 
 (defun init-new-game (&key (sanma nil) (human-seat nil))
   "Initialize a new game.
@@ -898,30 +992,35 @@
     (start-game game)
     (values game actual-human-seat)))
 
-(defun get-clicked-tile-index (mouse-y mouse-x hand-row hand-col hand-size)
+(defun get-clicked-tile-index (mouse-y mouse-x hand-row hand-col hand-size &optional (num-melds 0))
   "Determine which tile was clicked based on mouse coordinates.
    Returns tile index or NIL if click was not on a tile.
-   Each tile is 3 chars wide (including shared border), 3 rows tall."
+   Each tile is 3 chars wide (including shared border), 3 rows tall.
+   NUM-MELDS is the number of open melds the player has."
   (when (and (>= mouse-y (+ hand-row 1))
              (<= mouse-y (+ hand-row 2)))  ; Middle row of tiles
-    (let* ((main-hand-size (if (= hand-size 14) 13 hand-size))
+    ;; Expected hand size without drawn tile = 13 - 3*melds
+    (let* ((expected-hand-size (- 13 (* 3 num-melds)))
+           ;; Has drawn tile when hand is larger than expected
+           (has-drawn-tile (> hand-size expected-hand-size))
+           (main-hand-size (if has-drawn-tile (1- hand-size) hand-size))
            (main-hand-width (* main-hand-size 3))
            (relative-x (- mouse-x hand-col)))
       (cond
-        ;; Click on main hand (first 13 tiles)
+        ;; Click on main hand tiles
         ((and (>= relative-x 0)
               (< relative-x main-hand-width))
          (let ((tile-index (floor relative-x 3)))
            (when (< tile-index main-hand-size)
              tile-index)))
-        ;; Click on 14th tile (if present)
-        ((= hand-size 14)
+        ;; Click on drawn tile (if present)
+        (has-drawn-tile
          (let* ((gap-offset 2)
-                (tile-14-start (+ main-hand-width gap-offset))
-                (tile-14-end (+ tile-14-start 4)))  ; 4 chars wide (standalone)
-           (when (and (>= relative-x tile-14-start)
-                      (< relative-x tile-14-end))
-             13)))))))
+                (drawn-tile-start (+ main-hand-width gap-offset))
+                (drawn-tile-end (+ drawn-tile-start 4)))  ; 4 chars wide (standalone)
+           (when (and (>= relative-x drawn-tile-start)
+                      (< relative-x drawn-tile-end))
+             main-hand-size)))))))
 
 (defun handle-input (game ui-state event)
   "Handle user input and return action result"
@@ -1089,24 +1188,45 @@
          (when discard-tile
            (player-discard-tile current discard-tile)
            
-           ;; Store the discard info in turn state before checking ron
+           ;; Store the discard info in turn state before checking calls
            (let ((turn-state (game-turn-state game)))
              (setf (turn-last-discard turn-state) discard-tile
                    (turn-last-discard-player turn-state) current-seat))
            
-           ;; Check if human can ron on this discard
-           (if (and ui-state 
-                    (check-ron-opportunity human-player discard-tile)
-                    (not (player-furiten human-player)))
-               ;; Show RON modal - don't advance turn yet, let modal handle it
-               (progn
-                 (setf (ui-state-active-modal ui-state) (make-ron-modal))
-                 (setf (game-phase game) :call-window))
-               ;; No ron opportunity - advance turn normally
-               (progn
-                 (setf (game-phase game) :call-window)
-                 (advance-turn game)
-                 (setf (game-phase game) :turn-draw)))))))))
+           ;; Check for call opportunities for human player (priority: ron > kan > pon > chi)
+           (let* ((config (game-config game))
+                  (can-ron (and ui-state 
+                                (check-ron-opportunity human-player discard-tile)
+                                (not (player-furiten human-player))))
+                  (can-kan (and (not (player-riichi-declared human-player)) (player-can-call-kan human-player discard-tile :open)))
+                  (can-pon (and (not (player-riichi-declared human-player)) (player-can-call-pon human-player discard-tile)))
+                  (can-chi (and (not (player-riichi-declared human-player)) (game-config-chi-enabled-p config)
+                                (eq current-seat (prev-seat human-seat config))  ; Only from left player
+                                (player-can-call-chi human-player discard-tile human-seat current-seat))))
+             (cond
+               ;; Ron opportunity - highest priority
+               (can-ron
+                (setf (ui-state-active-modal ui-state) (make-ron-modal))
+                (setf (game-phase game) :call-window))
+               
+               ;; Kan opportunity - TODO: For now, skip kan modal since pon modal covers most uses
+               ;; Can upgrade a pon to kan later. Just check pon for now.
+               
+               ;; Pon opportunity
+               ((and ui-state can-pon)
+                (setf (ui-state-active-modal ui-state) (make-pon-modal discard-tile))
+                (setf (game-phase game) :call-window))
+               
+               ;; Chi opportunity
+               ((and ui-state can-chi)
+                (setf (ui-state-active-modal ui-state) (make-chi-modal discard-tile))
+                (setf (game-phase game) :call-window))
+               
+               ;; No call opportunity - advance turn normally
+               (t
+                (setf (game-phase game) :call-window)
+                (advance-turn game)
+                (setf (game-phase game) :turn-draw))))))))))
 
 (defun handle-mouse-click (game ui-state event click-type)
   "Handle mouse click on tiles. CLICK-TYPE is :single or :double."
@@ -1114,12 +1234,13 @@
       (let* ((human-seat (ui-state-human-seat ui-state))
              (human-player (get-player game human-seat))
              (hand-size (length (player-hand human-player)))
+             (num-melds (length (player-melds human-player)))
              (mouse-y (position-y event))
              (mouse-x (position-x event)))
         ;; Only proceed if we have valid mouse coordinates and hand position
         (when (and mouse-y mouse-x (ui-state-hand-position ui-state))
           (destructuring-bind (hand-row hand-col) (ui-state-hand-position ui-state)
-            (let ((tile-index (get-clicked-tile-index mouse-y mouse-x hand-row hand-col hand-size)))
+            (let ((tile-index (get-clicked-tile-index mouse-y mouse-x hand-row hand-col hand-size num-melds)))
               (when tile-index
                 (case click-type
                   (:single
@@ -1129,6 +1250,7 @@
                    ;; Double click - select and discard
                    (setf (ui-state-selected-tile-index ui-state) tile-index)
                    (handle-discard game ui-state))))))))
+
     ;; Silently ignore errors in mouse handling
     (error () nil)))
 
@@ -1243,6 +1365,69 @@
              (setf (ui-state-active-modal ui-state)
                    (make-win-modal (player-name human-player) score-result game human-seat nil))
              (setf (game-phase game) :hand-ended))
+           ;; Player chose to skip - advance turn normally
+           (progn
+             (advance-turn game)
+             (setf (game-phase game) :turn-draw))))
+      
+      ;; Pon decision
+      ((string= title "PON?")
+       (if (string= result "PON")
+           ;; Player calls pon - use backend processing
+           (let* ((human-seat (ui-state-human-seat ui-state))
+                  (human-player (get-player game human-seat))
+                  (turn-state (game-turn-state game))
+                  (tile (turn-last-discard turn-state))
+                  (discarder-seat (turn-last-discard-player turn-state))
+                  (config (game-config game))
+                  (relation (seat-relation human-seat discarder-seat config)))
+             ;; Remove 2 tiles from hand
+             (player-remove-tile human-player tile)
+             (player-remove-tile human-player tile)
+             ;; Create pon meld
+             (let ((meld (make-meld :type :pon
+                                    :tiles (list tile tile tile)
+                                    :from relation
+                                    :called-tile tile)))
+               (player-add-meld human-player meld))
+             ;; Sort hand and give turn to caller for discard
+             (player-sort-hand human-player)
+             (setf (turn-current-player turn-state) human-seat)
+             (setf (game-phase game) :turn-discard))
+           ;; Player chose to skip - advance turn normally
+           (progn
+             (advance-turn game)
+             (setf (game-phase game) :turn-draw))))
+      
+      ;; Chi decision
+      ((string= title "CHI?")
+       (if (string= result "CHI")
+           ;; Player calls chi - use backend processing
+           ;; TODO: Multiple sequence choice - for now, use first valid sequence
+           (let* ((human-seat (ui-state-human-seat ui-state))
+                  (human-player (get-player game human-seat))
+                  (turn-state (game-turn-state game))
+                  (tile (turn-last-discard turn-state))
+                  (discarder-seat (turn-last-discard-player turn-state))
+                  (config (game-config game))
+                  (relation (seat-relation human-seat discarder-seat config))
+                  (sequences (player-can-call-chi human-player tile human-seat discarder-seat))
+                  (chosen-sequence (first sequences)))
+             (when chosen-sequence
+               ;; Remove tiles from hand (excluding the called tile)
+               (dolist (t1 chosen-sequence)
+                 (unless (eq t1 tile)
+                   (player-remove-tile human-player t1)))
+               ;; Create chi meld
+               (let ((meld (make-meld :type :chi
+                                      :tiles chosen-sequence
+                                      :from relation
+                                      :called-tile tile)))
+                 (player-add-meld human-player meld))
+               ;; Sort hand and give turn to caller for discard
+               (player-sort-hand human-player)
+               (setf (turn-current-player turn-state) human-seat)
+               (setf (game-phase game) :turn-discard)))
            ;; Player chose to skip - advance turn normally
            (progn
              (advance-turn game)
@@ -1557,6 +1742,7 @@
            (selected-index (when ui-state (ui-state-selected-tile-index ui-state)))
            (human-seat (when ui-state (ui-state-human-seat ui-state)))
            (current-seat (player-seat (current-player game)))
+           (dealer-seat (game-dealer-seat game))
            (phase (game-phase game))
            ;; Calculate relative positions
            (bottom-seat human-seat)
@@ -1564,7 +1750,9 @@
            (top-seat (next-seat right-seat config))
            (left-seat (when (= num-players 4) (next-seat top-seat config))))
 
+
       ;; Draw current turn indicator at top
+
       (when *debug-ui*
         (move scr 0 0)
         (add-string scr (format nil "Turn: ~A | Phase: ~A | Selected: ~A | Last key: ~S"
@@ -1596,18 +1784,27 @@
                 (left-col 0))  ; Left edge
 
            (when top-player
-             (draw-hand-horizontal scr top-player 1 top-col (not *debug-ui*)))
+             (draw-hand-horizontal scr top-player 1 top-col (not *debug-ui*) nil nil (eq (player-seat top-player) dealer-seat))
+             ;; Draw top player's melds in top-left corner
+             (draw-called-melds scr top-player 4 0 :horizontal))
            (when left-player
-             (draw-hand-vertical scr left-player left-row left-col (not *debug-ui*) nil))  ; Left-aligned
+             (draw-hand-vertical scr left-player left-row left-col (not *debug-ui*) nil (eq (player-seat left-player) dealer-seat))  ; Left-aligned
+             ;; Draw left player's melds in bottom-left corner (below their hand)
+             (let ((meld-row (min (- screen-height 5) (+ left-row left-height 1))))
+               (draw-called-melds scr left-player meld-row 0 :vertical)))
            (when right-player
-             (draw-hand-vertical scr right-player right-row right-col (not *debug-ui*) t))  ; Right-aligned
+             (draw-hand-vertical scr right-player right-row right-col (not *debug-ui*) t (eq (player-seat right-player) dealer-seat))  ; Right-aligned
+             ;; Draw right player's melds in top-right corner (above their hand)
+             (draw-called-melds scr right-player (max 4 (- right-row 2)) (- screen-width 15) :vertical))
            (when bottom-player
              (let ((hand-row (max 0 (- screen-height 4)))
                    (valid-tiles (when ui-state (ui-state-valid-riichi-discards ui-state))))
-               (draw-hand-horizontal scr bottom-player hand-row bottom-col nil selected-index valid-tiles)
+               (draw-hand-horizontal scr bottom-player hand-row bottom-col nil selected-index valid-tiles (eq (player-seat bottom-player) dealer-seat))
                ;; Store hand position for mouse click handling
                (when ui-state
-                 (setf (ui-state-hand-position ui-state) (list hand-row bottom-col))))))
+                 (setf (ui-state-hand-position ui-state) (list hand-row bottom-col)))
+               ;; Draw bottom player's melds in bottom-right corner
+               (draw-called-melds scr bottom-player hand-row (- screen-width 20) :horizontal))))
 
       ;; Draw center info box and discards around it
       (let* ((center-row (max 0 (- (floor screen-height 2) 3)))
@@ -1734,6 +1931,7 @@
                          ui-state (make-ui-state :human-seat new-human-seat))))
                 (:refresh nil)
                 (t nil))))))))))
+
 
 (defun main (&key (sanma nil))
   "Entry point for the TUI client.

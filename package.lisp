@@ -42,6 +42,7 @@
    #:game-id
    #:game-config
    #:game-config-seats
+   #:game-config-chi-enabled-p
    #:game-players
    #:game-wall
    #:game-phase
@@ -143,6 +144,7 @@
    #:sort-tiles
    #:next-seat
    #:prev-seat
+   #:seat-relation
 
    ;; Wall operations
    #:create-wall
@@ -163,9 +165,9 @@
    #:player-discard-tile
    #:player-sort-hand
    #:player-sort-hand-keep-drawn
-   #:player-can-pon
-   #:player-can-chi
-   #:player-can-kan
+   #:player-can-call-pon
+   #:player-can-call-chi
+   #:player-can-call-kan
    #:player-can-declare-riichi
    #:player-declare-riichi
    #:player-check-furiten
