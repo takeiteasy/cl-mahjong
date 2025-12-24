@@ -46,6 +46,7 @@
   (message-lines nil :type list) ; List of message lines (strings or colored plists)
   (buttons nil :type list) ; List of button label strings
   (selected-index 0 :type integer) ; Currently selected button
+  (escape nil) ; Button label to auto-select on Escape key (e.g., "SKIP")
   (result nil)) ; Set when user confirms selection
 
 ;;; ============================================================================
@@ -58,23 +59,23 @@
    :title "RIICHI?"
    :message-lines '("You are in tempai. Declare riichi?")
    :buttons '("RIICHI" "SKIP")
-   :selected-index 0))
+   :escape "SKIP"))
 
-(defun make-tsumo-modal ()
+(defun make-tsumo-modal (tile)
   "Create a modal for tsumo (self-draw win) prompt."
   (make-modal-state
    :title "TSUMO!"
-   :message-lines '("You have completed your hand!")
+   :message-lines (list (format nil "You can call tsumo on ~A?" (tile-to-string tile)))
    :buttons '("TSUMO" "SKIP")
-   :selected-index 0))
+   :escape "SKIP"))
 
-(defun make-ron-modal ()
+(defun make-ron-modal (tile)
   "Create a modal for ron (win on discard) prompt."
   (make-modal-state
    :title "RON!"
-   :message-lines '("You can win on this discard!")
+   :message-lines (list (format nil "You can call ron on ~A?" (tile-to-string tile)))
    :buttons '("RON" "SKIP")
-   :selected-index 0))
+   :escape "SKIP"))
 
 (defun make-pon-modal (tile)
   "Create a modal for pon (triplet) call prompt."
@@ -82,7 +83,7 @@
    :title "PON?"
    :message-lines (list (format nil "Call pon on ~A?" (tile-to-string tile)))
    :buttons '("PON" "SKIP")
-   :selected-index 0))
+   :escape "SKIP"))
 
 (defun make-chi-modal (tile)
   "Create a modal for chi (sequence) call prompt."
@@ -90,7 +91,7 @@
    :title "CHI?"
    :message-lines (list (format nil "Call chi with ~A?" (tile-to-string tile)))
    :buttons '("CHI" "SKIP")
-   :selected-index 0))
+   :escape "SKIP"))
 
 (defun make-kan-modal (tile)
   "Create a modal for kan (quad) call prompt."
@@ -98,7 +99,46 @@
    :title "KAN?"
    :message-lines (list (format nil "Call kan on ~A?" (tile-to-string tile)))
    :buttons '("KAN" "SKIP")
-   :selected-index 0))
+   :escape "SKIP"))
+
+(defun make-closed-kan-modal (tile)
+  "Create a modal for closed kan (ankan) prompt - when player has 4 of same tile."
+  (make-modal-state
+   :title "CLOSED KAN?"
+   :message-lines (list (format nil "Declare closed kan with ~A?" (tile-to-string tile)))
+   :buttons '("KAN" "SKIP")
+   :escape "SKIP"))
+
+(defun make-added-kan-modal (tile)
+  "Create a modal for added kan (kakan) prompt - upgrading a pon to kan."
+  (make-modal-state
+   :title "ADDED KAN?"
+   :message-lines (list (format nil "Upgrade pon to kan with ~A?" (tile-to-string tile)))
+   :buttons '("KAN" "SKIP")
+   :escape "SKIP"))
+
+(defun find-closed-kan-tiles (player)
+  "Find all tiles for which player can declare closed kan (has 4 of same tile).
+   Returns list of tiles or NIL."
+  (let ((hand (player-hand player))
+        (kan-tiles nil))
+    (dolist (tile (remove-duplicates hand :test #'eq))
+      (when (>= (count tile hand :test #'eq) 4)
+            (push tile kan-tiles)))
+    kan-tiles))
+
+(defun find-added-kan-tiles (player)
+  "Find all tiles for which player can declare added kan (has tile matching existing pon).
+   Returns list of tiles or NIL."
+  (let ((hand (player-hand player))
+        (melds (player-melds player))
+        (kan-tiles nil))
+    (dolist (meld melds)
+      (when (eq (meld-type meld) :pon)
+            (let ((pon-tile (first (meld-tiles meld))))
+              (when (member pon-tile hand :test #'eq)
+                    (push pon-tile kan-tiles)))))
+    kan-tiles))
 
 (defun make-exhaustive-draw-modal (game)
   "Create a modal for exhaustive draw (ryuukyoku) showing tenpai status.
@@ -430,6 +470,15 @@
                                    (modal-state-buttons modal))))
          (setf (modal-state-result modal) selected-button)
          selected-button))
+
+     ;; Escape - auto-select escape button if defined
+     ((or (eq key-name :escape) (eql key-name #\Esc))
+       (let ((escape-button (modal-state-escape modal)))
+         (if escape-button
+             (progn
+              (setf (modal-state-result modal) escape-button)
+              escape-button)
+             :continue)))
 
      ;; Any other key - ignore
      (t :continue))))
@@ -1134,17 +1183,46 @@
               (cond
                ;; Winning hand - show tsumo modal
                ((and ui-state (check-tsumo-opportunity human-player))
-                 (setf (ui-state-active-modal ui-state) (make-tsumo-modal)))
+                 (setf (ui-state-active-modal ui-state) (make-tsumo-modal drawn-tile)))
 
-               ;; Player is in riichi - must auto-discard (can't choose)
+               ;; Check for closed kan opportunity (has 4 of same tile)
+               ;; Skip for riichi players for now (could add wait-preserving kan later)
+               ((and ui-state
+                     (not (player-riichi-declared human-player))
+                     (find-closed-kan-tiles human-player))
+                 (let ((kan-tile (first (find-closed-kan-tiles human-player))))
+                   (setf (ui-state-active-modal ui-state) (make-closed-kan-modal kan-tile))
+                   (setf (game-phase game) :turn-discard)))
+
+               ;; Check for added kan opportunity (has tile matching existing pon)
+               ;; Skip for riichi players for now
+               ((and ui-state
+                     (not (player-riichi-declared human-player))
+                     (find-added-kan-tiles human-player))
+                 (let ((kan-tile (first (find-added-kan-tiles human-player))))
+                   (setf (ui-state-active-modal ui-state) (make-added-kan-modal kan-tile))
+                   (setf (game-phase game) :turn-discard)))
+
+               ;; Player is in riichi - check for wait-preserving closed kan, then auto-discard
                ((player-riichi-declared human-player)
-                 ;; Auto-discard the drawn tile (last in sorted hand)
-                 (let ((discard-tile (find-safe-riichi-discard human-player)))
-                   (when discard-tile
-                         (player-discard-tile human-player discard-tile)
-                         (setf (game-phase game) :call-window)
-                         (advance-turn game)
-                         (setf (game-phase game) :turn-draw))))
+                 ;; Check if drawn tile can complete a closed kan WITHOUT changing the wait
+                 ;; In riichi, only closed kan is allowed, and only if wait is preserved
+                 (let* ((drawn (car (last (player-hand human-player))))
+                        (count-in-hand (count drawn (player-hand human-player) :test #'eq))
+                        (can-kan (and (= count-in-hand 4)
+                                     (kan-preserves-wait-p human-player drawn))))
+                   (if (and ui-state can-kan)
+                       ;; Can declare closed kan on drawn tile (wait is preserved)
+                       (progn
+                        (setf (ui-state-active-modal ui-state) (make-closed-kan-modal drawn))
+                        (setf (game-phase game) :turn-discard))
+                       ;; No valid kan opportunity - auto-discard the drawn tile
+                       (let ((discard-tile (find-safe-riichi-discard human-player)))
+                         (when discard-tile
+                               (player-discard-tile human-player discard-tile)
+                               (setf (game-phase game) :call-window)
+                               (advance-turn game)
+                               (setf (game-phase game) :turn-draw))))))
 
                ;; Check if can declare riichi (closed hand and has valid discards that maintain tempai)
                ((and ui-state
@@ -1205,11 +1283,13 @@
                  (cond
                   ;; Ron opportunity - highest priority
                   (can-ron
-                    (setf (ui-state-active-modal ui-state) (make-ron-modal))
+                    (setf (ui-state-active-modal ui-state) (make-ron-modal discard-tile))
                     (setf (game-phase game) :call-window))
 
-                  ;; Kan opportunity - TODO: For now, skip kan modal since pon modal covers most uses
-                  ;; Can upgrade a pon to kan later. Just check pon for now.
+                  ;; Kan opportunity (higher priority than pon)
+                  ((and ui-state can-kan)
+                    (setf (ui-state-active-modal ui-state) (make-kan-modal discard-tile))
+                    (setf (game-phase game) :call-window))
 
                   ;; Pon opportunity
                   ((and ui-state can-pon)
@@ -1398,6 +1478,42 @@
             (advance-turn game)
             (setf (game-phase game) :turn-draw))))
 
+     ;; Kan decision
+     ((string= title "KAN?")
+       (if (string= result "KAN")
+           ;; Player calls kan (daiminkan - open kan on discard)
+           (let* ((human-seat (ui-state-human-seat ui-state))
+                  (human-player (get-player game human-seat))
+                  (turn-state (game-turn-state game))
+                  (tile (turn-last-discard turn-state))
+                  (discarder-seat (turn-last-discard-player turn-state))
+                  (config (game-config game))
+                  (relation (seat-relation human-seat discarder-seat config)))
+             ;; Remove 3 tiles from hand
+             (player-remove-tile human-player tile)
+             (player-remove-tile human-player tile)
+             (player-remove-tile human-player tile)
+             ;; Create kan meld
+             (let ((meld (make-meld :type :kan-open
+                                    :tiles (list tile tile tile tile)
+                                  :from relation
+                                    :called-tile tile)))
+               (player-add-meld human-player meld))
+             ;; Sort hand, draw replacement tile, then discard
+             (player-sort-hand human-player)
+             ;; Draw replacement tile from dead wall
+             (let ((replacement-tile (wall-draw-kan-replacement (game-wall game))))
+               (when replacement-tile
+                     (player-add-tile human-player replacement-tile)
+                     (player-sort-hand-keep-drawn human-player)))
+             (setf (turn-current-player turn-state) human-seat)
+             (wall-reveal-next-dora (game-wall game))
+             (setf (game-phase game) :turn-discard))
+           ;; Player chose to skip - advance turn normally
+           (progn
+            (advance-turn game)
+            (setf (game-phase game) :turn-draw))))
+
      ;; Chi decision
      ((string= title "CHI?")
        (if (string= result "CHI")
@@ -1431,6 +1547,68 @@
            (progn
             (advance-turn game)
             (setf (game-phase game) :turn-draw))))
+
+     ;; Closed Kan decision (ankan - 4 tiles from hand)
+     ((string= title "CLOSED KAN?")
+       (if (string= result "KAN")
+           ;; Player declares closed kan
+           (let* ((human-seat (ui-state-human-seat ui-state))
+                  (human-player (get-player game human-seat))
+                  (kan-tiles (find-closed-kan-tiles human-player))
+                  (tile (first kan-tiles)))
+             (when tile
+                   ;; Remove 4 tiles from hand
+                   (player-remove-tile human-player tile)
+                   (player-remove-tile human-player tile)
+                   (player-remove-tile human-player tile)
+                   (player-remove-tile human-player tile)
+                   ;; Create closed kan meld (from :self means closed)
+                   (let ((meld (make-meld :type :kan-closed
+                                          :tiles (list tile tile tile tile)
+                                        :from nil
+                                          :called-tile nil)))
+                     (player-add-meld human-player meld))
+                   ;; Draw replacement tile from dead wall
+                   (let ((replacement-tile (wall-draw-kan-replacement (game-wall game))))
+                     (when replacement-tile
+                           (player-add-tile human-player replacement-tile)
+                           (player-sort-hand-keep-drawn human-player)))
+                   ;; Reveal next dora indicator
+                   (wall-reveal-next-dora (game-wall game))
+                   (setf (game-phase game) :turn-discard)))
+           ;; Player chose to skip - continue to normal discard
+           (setf (game-phase game) :turn-discard)))
+
+     ;; Added Kan decision (kakan - upgrade pon to kan)
+     ((string= title "ADDED KAN?")
+       (if (string= result "KAN")
+           ;; Player upgrades pon to kan
+           (let* ((human-seat (ui-state-human-seat ui-state))
+                  (human-player (get-player game human-seat))
+                  (kan-tiles (find-added-kan-tiles human-player))
+                  (tile (first kan-tiles)))
+             (when tile
+                   ;; Remove 1 tile from hand
+                   (player-remove-tile human-player tile)
+                   ;; Find and upgrade the pon meld to kan
+                   (let ((pon-meld (find-if (lambda (meld)
+                                              (and (eq (meld-type meld) :pon)
+                                                   (member tile (meld-tiles meld) :test #'eq)))
+                                       (player-melds human-player))))
+                     (when pon-meld
+                           ;; Upgrade meld type to kan and add 4th tile
+                           (setf (meld-type pon-meld) :kan-added)
+                           (push tile (meld-tiles pon-meld))))
+                   ;; Draw replacement tile from dead wall
+                   (let ((replacement-tile (wall-draw-kan-replacement (game-wall game))))
+                     (when replacement-tile
+                           (player-add-tile human-player replacement-tile)
+                           (player-sort-hand-keep-drawn human-player)))
+                   ;; Reveal next dora indicator
+                   (wall-reveal-next-dora (game-wall game))
+                   (setf (game-phase game) :turn-discard)))
+           ;; Player chose to skip - continue to normal discard
+           (setf (game-phase game) :turn-discard)))
 
      ;; Win acknowledgment - calculate score and start new round
      ((or (string= title "RON") (string= title "TSUMO"))
@@ -1919,48 +2097,48 @@
                   (let* ((discards (reverse (player-discards bottom-player))) ; oldest to newest
                                                                              (discard-row (+ center-row center-box-height))
                                                                              (discard-col center-col))
-                    (draw-discards-horizontal scr discards discard-row discard-col 8 nil nil)))
+                    (draw-discards-horizontal scr discards discard-row discard-col 10 nil nil)))
 
             ;; Top player discards: rotated 180° from bottom.
             ;; Oldest at our right, newest at our left. Rows stack up (toward their hand).
             (when top-player
                   (let* ((discards (reverse (player-discards top-player))) ; oldest to newest
                                                                           (num-discards (length discards))
-                                                                          (tiles-per-row 8)
+                                                                          (tiles-per-row 10)
                                                                           ;; Grid bottom row should be at center-row - 2 (leave 1 line gap above center box)
                                                                           ;; draw-discards-horizontal will calculate actual start from this
                                                                           (discard-row (- center-row 3))
                                                                           ;; Align right edge with center-box
                                                                           (grid-width (+ 1 (* (min num-discards tiles-per-row) 3)))
                                                                           (discard-col (max 0 (- (+ center-col center-box-width) grid-width))))
-                    (draw-discards-horizontal scr discards discard-row discard-col 8 t t)))
+                    (draw-discards-horizontal scr discards discard-row discard-col tiles-per-row t t)))
 
             ;; Right player discards: rotated 90° CW from bottom.
             ;; Oldest at our bottom (their left), newest at our top (their right).
             ;; Columns expand rightward toward their hand.
             (when right-player
                   (let* ((discards (reverse (player-discards right-player))) ; oldest to newest
-                                                                            (tiles-per-column 8)
+                                                                            (tiles-per-column 6)
                                                                             (num-cols (ceiling (length discards) tiles-per-column))
                                                                             ;; Position grid just to the right of center box
                                                                             ;; Since stack-rightward=nil causes leftward offset, add compensation
                                                                             (discard-row center-row)
                                                                             (discard-col (+ center-col center-box-width 1 (* (1- num-cols) 3))))
-                    (draw-discards-vertical scr discards discard-row discard-col 8 t nil))) ; reverse-vert, stack-right (newer on RIGHT)
+                    (draw-discards-vertical scr discards discard-row discard-col tiles-per-column t nil))) ; reverse-vert, stack-right (newer on RIGHT)
 
             ;; Left player discards: rotated 90° CCW from bottom.
             ;; Oldest at our top (their left), newest at our bottom (their right).
             ;; Columns expand leftward toward their hand.
             (when left-player
                   (let* ((discards (reverse (player-discards left-player))) ; oldest to newest
-                                                                           (tiles-per-column 8)
+                                                                           (tiles-per-column 6)
                                                                            (num-cols (ceiling (length discards) tiles-per-column))
                                                                            ;; Grid right edge should be at center-col - 1
                                                                            ;; Calculate left edge position: right-edge - width + 1
                                                                            (grid-width (1+ (* num-cols 3)))
                                                                            (discard-row center-row)
                                                                            (discard-col (max 0 (- center-col grid-width))))
-                    (draw-discards-vertical scr discards discard-row discard-col 8 nil t)))) ; stack-right (newer on LEFT)
+                    (draw-discards-vertical scr discards discard-row discard-col tiles-per-column nil t)))) ; stack-right (newer on LEFT)
 
           ;; Draw modal overlay if active
           (when (and ui-state (ui-state-active-modal ui-state))

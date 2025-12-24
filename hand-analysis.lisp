@@ -695,3 +695,42 @@
                           (and (= sha shb)
                                (> (length (getf a :waits))
                                   (length (getf b :waits))))))))))
+
+(defun calculate-waiting-tiles (hand melds)
+  "Calculate which tiles would complete the hand (bring shanten from 0 to -1).
+   Returns list of waiting tiles or NIL if not in tenpai."
+  (let ((current-shanten (calculate-shanten hand melds))
+        (waits nil))
+    (when (zerop current-shanten)
+      (dolist (tile +all-tiles+)
+        (let* ((test-hand (cons tile hand))
+               (pattern (validate-hand test-hand melds)))
+          (when pattern
+            (pushnew tile waits :test #'eq)))))
+    (sort waits #'tile<)))
+
+(defun kan-preserves-wait-p (player tile)
+  "Check if declaring closed kan on TILE would preserve the wait pattern.
+   Returns T if the waiting tiles before and after kan are identical.
+   
+   In riichi, a player can only declare closed kan if:
+   1. They have 4 of the same tile in hand
+   2. The kan doesn't change their waiting tiles (machi)"
+  (let* ((hand (player-hand player))
+         (melds (player-melds player))
+         ;; Calculate current waiting tiles
+         (current-waits (calculate-waiting-tiles hand melds)))
+    ;; If not in tenpai, can't kan during riichi anyway
+    (unless current-waits
+      (return-from kan-preserves-wait-p nil))
+    ;; Simulate the kan: remove 4 tiles, add kan meld
+    (let* ((hand-after-kan (remove tile hand :test #'eq :count 4))
+           (kan-meld (make-meld :type :kan-closed
+                               :tiles (list tile tile tile tile)
+                               :from nil
+                               :called-tile nil))
+           (melds-after-kan (cons kan-meld melds))
+           ;; Calculate new waiting tiles
+           (new-waits (calculate-waiting-tiles hand-after-kan melds-after-kan)))
+      ;; Waits must be identical
+      (equal current-waits new-waits))))

@@ -150,9 +150,11 @@
    ;; Wall operations
    #:create-wall
    #:wall-draw-tile
-   #:wall-draw-replacement-tile
+   #:wall-draw-kan-replacement
+   #:wall-reveal-next-dora
    #:wall-is-empty
    #:wall-tiles-remaining
+   #:wall-can-call-kan
    #:wall-dora-indicators
    #:wall-ura-dora-indicators
    #:wall-get-dora-tiles
@@ -203,6 +205,8 @@
    #:decompose-hand
    #:calculate-shanten
    #:calculate-ukeire
+   #:calculate-waiting-tiles
+   #:kan-preserves-wait-p
    #:get-visible-tiles
 
    ;; Winning context
