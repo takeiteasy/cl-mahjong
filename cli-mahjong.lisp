@@ -16,7 +16,16 @@
 
 (defpackage #:cli-mahjong
   (:use #:cl #:cl-mahjong #:croatoan)
-  (:export #:main))
+  (:export #:main
+           ;; Debug/SLIME exports
+           #:*game*
+           #:*game-paused*
+           #:*step-requested*
+           #:*debug-ui*
+           #:pause-game
+           #:resume-game
+           #:step-game
+           #:refresh-screen))
 
 (in-package #:cli-mahjong)
 
@@ -34,6 +43,38 @@
 
 (defparameter *game* nil
               "The current game state.")
+
+(defparameter *game-paused* nil
+              "When T, the game loop pauses AI turns. Set via SLIME to pause.")
+
+(defparameter *step-requested* nil
+              "When T, advance one AI turn then pause again. Set via (step-game).")
+
+(defun pause-game ()
+  "Pause the game loop. AI turns will not advance until resumed or stepped."
+  (setf *game-paused* t)
+  (format t "Game paused. Use (resume-game) or (step-game) to continue.~%")
+  :paused)
+
+(defun resume-game ()
+  "Resume the game loop after pausing."
+  (setf *game-paused* nil
+        *step-requested* nil)
+  (format t "Game resumed.~%")
+  :resumed)
+
+(defun step-game ()
+  "Advance exactly one AI turn, then pause again."
+  (setf *step-requested* t)
+  :stepping)
+
+(defparameter *refresh-requested* nil
+              "When T, the main loop will clear and redraw the screen.")
+
+(defun refresh-screen ()
+  "Request a full screen refresh/redraw."
+  (setf *refresh-requested* t)
+  :refreshing)
 
 ;;; ============================================================================
 ;;; Modal State Structure
@@ -121,6 +162,19 @@
               (when (member pon-tile hand :test #'eq)
                     (push pon-tile kan-tiles)))))
     kan-tiles))
+
+(defun has-yaku-for-any-wait (hand melds waits game player-seat)
+  "Check if winning on any waiting tile would give at least 1 yaku.
+   Returns T if at least one wait would have yaku, NIL if no yaku possible."
+  (when (and waits game)
+    (dolist (wait waits)
+      (let* ((test-hand (cons wait hand))
+             ;; Build a simple ron context 
+             (context (build-winning-context game player-seat wait nil nil))
+             (score-result (calculate-score test-hand melds wait context)))
+        (when score-result
+          (return-from has-yaku-for-any-wait t))))
+    nil))
 
 (defun make-exhaustive-draw-modal (game)
   "Create a modal for exhaustive draw (ryuukyoku) showing tenpai status.
@@ -862,11 +916,12 @@
                                   (add-char scr #\Space)))))))))
 
 
-(defun draw-hand-horizontal (scr player row col &optional (hidden nil) (selected-index nil) (valid-tiles nil) (is-dealer nil))
+(defun draw-hand-horizontal (scr player row col &optional (hidden nil) (selected-index nil) (valid-tiles nil) (is-dealer nil) (game nil))
   "Draw a player's hand horizontally (for top/bottom positions).
    If player has a drawn tile (one more than expected), draw it separately.
    VALID-TILES is a list of tiles to highlight as valid for riichi discard.
-   IS-DEALER: if true, adds (DEALER) label."
+   IS-DEALER: if true, adds (DEALER) label.
+   GAME: if provided, enables no-yaku warning display."
   (let* ((hand (player-hand player))
          (num-tiles (length hand))
          (num-melds (length (player-melds player)))
@@ -919,15 +974,24 @@
              (when waits
                (add-string scr (format nil " TENPAI(~{~A~^,~})"
                                        (mapcar #'tile-to-string waits))
-                           :color-pair '(:cyan :black)))))  ; Cyan for hypothetical
+                           :color-pair '(:cyan :black))
+               ;; Check for no yaku if game context available
+               (when (and game
+                          (not (has-yaku-for-any-wait hypo-hand melds waits game (player-seat player))))
+                 (add-string scr " (No Yaku!)" :color-pair '(:magenta :black))))))
           ;; Otherwise if already in tenpai (has drawn tile), show current waits
           ((and has-drawn
                 (zerop (calculate-shanten (butlast full-hand) melds)))
-           (let ((waits (calculate-waiting-tiles (butlast full-hand) melds)))
+           (let* ((tenpai-hand (butlast full-hand))
+                  (waits (calculate-waiting-tiles tenpai-hand melds)))
              (when waits
                (add-string scr (format nil " TENPAI(~{~A~^,~})"
                                        (mapcar #'tile-to-string waits))
-                           :color-pair '(:green :black))))))))
+                           :color-pair '(:green :black))
+               ;; Check for no yaku if game context available
+               (when (and game
+                          (not (has-yaku-for-any-wait tenpai-hand melds waits game (player-seat player))))
+                 (add-string scr " (No Yaku!)" :color-pair '(:magenta :black)))))))))
 
     ;; Draw main hand (13 tiles or fewer)
     (loop for tile in main-hand
@@ -2067,7 +2131,7 @@
             (when bottom-player
                   (let ((hand-row (max 0 (- screen-height 4)))
                         (valid-tiles (when ui-state (ui-state-valid-riichi-discards ui-state))))
-                    (draw-hand-horizontal scr bottom-player hand-row bottom-col nil selected-index valid-tiles (eq (player-seat bottom-player) dealer-seat))
+                    (draw-hand-horizontal scr bottom-player hand-row bottom-col nil selected-index valid-tiles (eq (player-seat bottom-player) dealer-seat) game)
                     ;; Store hand position for mouse click handling
                     (when ui-state
                           (setf (ui-state-hand-position ui-state) (list hand-row bottom-col)))
@@ -2162,13 +2226,26 @@
              (current-time (get-internal-real-time)))
          (when (not (eq current-seat human-seat))
                ;; AI player turn - add 1000ms delay between turns
-               (when (> (- current-time last-ai-turn-time)
-                        (* 1.0 internal-time-units-per-second))
+               ;; Check pause state: skip if paused unless step requested
+               (when (and (or (not *game-paused*) *step-requested*)
+                          (> (- current-time last-ai-turn-time)
+                             (* 1.0 internal-time-units-per-second)))
                      (process-turn-phase *game* human-seat ui-state)
-                     (setf last-ai-turn-time current-time)))
+                     (setf last-ai-turn-time current-time)
+                     ;; After stepping, clear the step request and stay paused
+                     (when *step-requested*
+                       (setf *step-requested* nil))))
          (when (eq current-seat human-seat)
                ;; Human player turn - process immediately
                (process-turn-phase *game* human-seat ui-state)))
+
+       ;; Check for refresh request (from SLIME)
+       ;; Use endwin/refresh cycle to force full terminal redraw
+       (when *refresh-requested*
+         (croatoan:end-screen)
+         (croatoan:refresh scr)
+         (clear scr)
+         (setf *refresh-requested* nil))
 
        ;; Render game state
        (draw-game scr *game* ui-state)
@@ -2204,15 +2281,72 @@
                 (t nil))))))))))
 
 
-(defun main (&key (sanma nil))
+(defun start-swank-server (&key (port 4005) (interface "127.0.0.1"))
+  "Start a Swank server for SLIME integration (silently).
+   Returns T if server started successfully, NIL otherwise.
+   
+   Connect from Emacs with: M-x slime-connect RET <interface> RET <port> RET
+   
+   Useful runtime commands:
+   - (setf *game* ...) to modify game state
+   - (player-hand (get-player *game* :south)) to inspect hands
+   - (setf (player-hand ...) ...) to modify hands
+   - Access *debug-ui* to toggle debug mode"
+  (handler-case
+      (progn
+        ;; Load swank silently (suppress warnings that corrupt TUI)
+        (unless (find-package :swank)
+          (with-open-file (null-stream "/dev/null" :direction :output :if-exists :supersede)
+            (let ((*standard-output* null-stream)
+                  (*error-output* null-stream)
+                  (*trace-output* null-stream))
+              (asdf:load-system :swank))))
+        ;; Create the server silently
+        (let ((swank-package (find-package :swank)))
+          (with-open-file (null-stream "/dev/null" :direction :output :if-exists :supersede)
+            (let ((*standard-output* null-stream)
+                  (*error-output* null-stream)
+                  (*trace-output* null-stream))
+              (funcall (intern "CREATE-SERVER" swank-package)
+                       :port port
+                       :interface interface
+                       :dont-close t)))
+          t))
+    (error (e)
+      (declare (ignore e))
+      nil)))
+
+(defun main (&key (sanma nil) (swank nil) (swank-port 4005) (swank-interface "127.0.0.1"))
   "Entry point for the TUI client.
 
    Optional arguments:
    - SANMA: If T, start 3-player sanma game. Default: NIL (4-player yonma)
+   - SWANK: If T, start a Swank server for SLIME integration. Default: NIL
+   - SWANK-PORT: Port for Swank server. Default: 4005
+   - SWANK-INTERFACE: Interface to bind Swank server. Default: 127.0.0.1
 
    Examples:
-   (main)            ; Start 4-player yonma game
-   (main :sanma t)   ; Start 3-player sanma game"
+   (main)                        ; Start 4-player yonma game
+   (main :sanma t)               ; Start 3-player sanma game
+   (main :swank t)               ; Start with Swank on default port 4005
+   (main :swank t :swank-port 4006) ; Start with Swank on port 4006
+
+   With Swank enabled, connect from Emacs:
+   M-x slime-connect RET 127.0.0.1 RET 4005 RET
+
+   Runtime debugging:
+   - *game* holds the current game state
+   - (player-hand (get-player *game* :south)) to view hands
+   - (setf (player-hand ...) '(...)) to modify hands
+   - *debug-ui* toggles debug overlay
+
+   Pause/Step controls (via SLIME):
+   - (pause-game) - Pause AI turns
+   - (resume-game) - Resume normal play
+   - (step-game) - Advance one AI turn then pause"
+  ;; Start Swank server if requested
+  (when swank
+    (start-swank-server :port swank-port :interface swank-interface))
   (handler-case
       (with-screen (scr :input-echoing nil
                         :input-blocking 100
