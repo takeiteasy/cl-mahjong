@@ -47,6 +47,7 @@
   (buttons nil :type list) ; List of button label strings
   (selected-index 0 :type integer) ; Currently selected button
   (escape nil) ; Button label to auto-select on Escape key (e.g., "SKIP")
+  (call-options nil) ; List of call-option structs when this is a call modal
   (result nil)) ; Set when user confirms selection
 
 ;;; ============================================================================
@@ -69,38 +70,6 @@
    :buttons '("TSUMO" "SKIP")
    :escape "SKIP"))
 
-(defun make-ron-modal (tile)
-  "Create a modal for ron (win on discard) prompt."
-  (make-modal-state
-   :title "RON!"
-   :message-lines (list (format nil "You can call ron on ~A?" (tile-to-string tile)))
-   :buttons '("RON" "SKIP")
-   :escape "SKIP"))
-
-(defun make-pon-modal (tile)
-  "Create a modal for pon (triplet) call prompt."
-  (make-modal-state
-   :title "PON?"
-   :message-lines (list (format nil "Call pon on ~A?" (tile-to-string tile)))
-   :buttons '("PON" "SKIP")
-   :escape "SKIP"))
-
-(defun make-chi-modal (tile)
-  "Create a modal for chi (sequence) call prompt."
-  (make-modal-state
-   :title "CHI?"
-   :message-lines (list (format nil "Call chi with ~A?" (tile-to-string tile)))
-   :buttons '("CHI" "SKIP")
-   :escape "SKIP"))
-
-(defun make-kan-modal (tile)
-  "Create a modal for kan (quad) call prompt."
-  (make-modal-state
-   :title "KAN?"
-   :message-lines (list (format nil "Call kan on ~A?" (tile-to-string tile)))
-   :buttons '("KAN" "SKIP")
-   :escape "SKIP"))
-
 (defun make-closed-kan-modal (tile)
   "Create a modal for closed kan (ankan) prompt - when player has 4 of same tile."
   (make-modal-state
@@ -116,6 +85,19 @@
    :message-lines (list (format nil "Upgrade pon to kan with ~A?" (tile-to-string tile)))
    :buttons '("KAN" "SKIP")
    :escape "SKIP"))
+
+(defun make-call-options-modal (call-options tile)
+  "Create a modal for selecting from multiple call options.
+   CALL-OPTIONS is a list of call-option structs.
+   Returns a modal with buttons for each option plus SKIP."
+  (let ((buttons (append (mapcar #'call-option-label call-options)
+                   '("SKIP"))))
+    (make-modal-state
+     :title "CALL?"
+     :message-lines (list (format nil "Call on ~A?" (tile-to-string tile)))
+     :buttons buttons
+     :escape "SKIP"
+     :call-options call-options)))
 
 (defun find-closed-kan-tiles (player)
   "Find all tiles for which player can declare closed kan (has 4 of same tile).
@@ -143,69 +125,85 @@
 (defun make-exhaustive-draw-modal (game)
   "Create a modal for exhaustive draw (ryuukyoku) showing tenpai status.
    Players in tenpai receive points from those not in tenpai.
-   3-player: tenpai player(s) receive 2000 per noten player, noten pay 2000 per tenpai
+   Yonma: Total pool is 3000 (1000 per noten or split among tenpai)
+   Sanma: Total pool is 4000 (2000 per noten or split among tenpai)
    If all tenpai or all noten: no payment."
   (let* ((config (game-config game))
          (seats (game-config-seats config))
-         (tenpai-seats nil)
+         (num-players (game-config-num-players config))
+         ;; Determine pool based on variant (yonma: 3000, sanma: 4000)
+         (total-pool (if (= num-players 3) 4000 3000))
+         (tenpai-data nil)  ; List of (seat . wait-tiles)
          (noten-seats nil)
          (lines nil))
-    ;; Check tenpai status for each player
+    ;; Check tenpai status for each player and collect waits
     (dolist (seat seats)
       (let* ((player (get-player game seat))
              (hand (player-hand player))
              (melds (player-melds player))
-             ;; Check if in tenpai (shanten = 0)
              (shanten (calculate-shanten hand melds)))
         (if (zerop shanten)
-            (push seat tenpai-seats)
+            (let ((waits (calculate-waiting-tiles hand melds)))
+              (push (cons seat waits) tenpai-data))
             (push seat noten-seats))))
-    (setf tenpai-seats (nreverse tenpai-seats))
+    (setf tenpai-data (nreverse tenpai-data))
     (setf noten-seats (nreverse noten-seats))
+    (let ((tenpai-seats (mapcar #'car tenpai-data)))
 
-    (push "Wall exhausted - no winner" lines)
-    (push "" lines)
+      (push "Wall exhausted - no winner" lines)
+      (push "" lines)
 
-    ;; Calculate and display payments
-    (cond
-     ;; All players tenpai or all noten - no payment
-     ((or (null tenpai-seats) (null noten-seats))
-       (push "No tenpai payment" lines)
-       (push "" lines)
-       (dolist (seat seats)
-         (let ((player (get-player game seat)))
-           (push (list :text (format nil "~A: ~A"
-                               (player-name player)
-                               (if (member seat tenpai-seats) "Tenpai" "Noten"))
-                       :color (if (member seat tenpai-seats) :green :white))
-                 lines))))
-     ;; Some tenpai, some noten - calculate payments
-     (t
-       (let* ((num-tenpai (length tenpai-seats))
-              (num-noten (length noten-seats))
-              ;; Total pool is 2000 per noten player
-              (total-pool (* 2000 num-noten))
-              ;; Split among tenpai players
-              (receive-each (floor total-pool num-tenpai))
-              ;; Each noten pays their share
-              (pay-each (floor total-pool num-noten)))
-         (push (format nil "Tenpai: ~A  Noten: ~A" num-tenpai num-noten) lines)
+      ;; Calculate and display payments
+      (cond
+       ;; All players tenpai or all noten - no payment
+       ((or (null tenpai-seats) (null noten-seats))
+         (push "No tenpai payment" lines)
          (push "" lines)
          (dolist (seat seats)
            (let* ((player (get-player game seat))
                   (is-tenpai (member seat tenpai-seats))
-                  (change (if is-tenpai receive-each (- pay-each))))
-             (push (list :text (format nil "~A: ~@D" (player-name player) change)
-                         :color (cond ((> change 0) :green)
-                                      ((< change 0) :red)
-                                      (t :white)))
-                   lines))))))
+                  (tenpai-entry (assoc seat tenpai-data))
+                  (waits (cdr tenpai-entry)))
+             (if is-tenpai
+                 (push (list :text (format nil "~A: Tenpai (~{~A~^,~})"
+                                           (player-name player)
+                                           (mapcar #'tile-to-string waits))
+                             :color :green)
+                       lines)
+                 (push (list :text (format nil "~A: Noten" (player-name player))
+                             :color :white)
+                       lines)))))
+       ;; Some tenpai, some noten - calculate payments
+       (t
+         (let* ((num-tenpai (length tenpai-seats))
+                (num-noten (length noten-seats))
+                ;; Split pool among tenpai players
+                (receive-each (floor total-pool num-tenpai))
+                ;; Each noten pays their share
+                (pay-each (floor total-pool num-noten)))
+           (push (format nil "Tenpai: ~A  Noten: ~A" num-tenpai num-noten) lines)
+           (push "" lines)
+           (dolist (seat seats)
+             (let* ((player (get-player game seat))
+                    (is-tenpai (member seat tenpai-seats))
+                    (tenpai-entry (assoc seat tenpai-data))
+                    (waits (cdr tenpai-entry))
+                    (change (if is-tenpai receive-each (- pay-each))))
+               (if is-tenpai
+                   (push (list :text (format nil "~A: ~@D (~{~A~^,~})"
+                                             (player-name player) change
+                                             (mapcar #'tile-to-string waits))
+                               :color :green)
+                         lines)
+                   (push (list :text (format nil "~A: ~@D" (player-name player) change)
+                               :color :red)
+                         lines))))))))
 
-    (make-modal-state
-     :title "DRAW"
-     :message-lines (nreverse lines)
-     :buttons '("OK")
-     :selected-index 0)))
+      (make-modal-state
+       :title "DRAW"
+       :message-lines (nreverse lines)
+       :buttons '("OK")
+       :selected-index 0)))
 
 (defun format-yaku-name (yaku-keyword)
   "Convert a yaku keyword to a readable name."
@@ -290,7 +288,7 @@
       (make-score-result-modal score-result game winner-seat is-tsumo)
       (make-modal-state
        :title (if is-tsumo "TSUMO" "RON")
-       :message-lines (list (format nil "~A wins the hand!" winner-name))
+       :message-lines nil
        :buttons '("OK")
        :selected-index 0)))
 
@@ -890,6 +888,46 @@
           (add-string scr " (DEALER)" :color-pair '(:yellow :black)))
     (when (player-riichi-declared player)
           (add-string scr " *RIICHI*" :color-pair '(:red :black)))
+    ;; Display furiten or tenpai status
+    ;; If a tile is selected, show hypothetical waits after discarding it
+    (let* ((full-hand (player-hand player))
+           (melds (player-melds player))
+           (num-melds (length melds))
+           ;; Expected hand size = 13 - 3*melds (e.g., 7 tiles with 2 melds)
+           (expected-tiles (- 13 (* 3 num-melds)))
+           ;; Has drawn tile when we have more than expected
+           (has-drawn (> (length full-hand) expected-tiles))
+           ;; If tile selected, calculate waits for hand AFTER discarding selected
+           (selected-tile (when (and selected-index (< selected-index (length full-hand)))
+                           (nth selected-index full-hand)))
+           ;; Hypothetical hand without the selected tile
+           (hypo-hand (if selected-tile
+                          (remove selected-tile full-hand :test #'eq :count 1)
+                          full-hand))
+           (hypo-shanten (calculate-shanten hypo-hand melds)))
+      ;; Check for furiten first (on current full hand waits)
+      (let ((furiten-tiles (find-furiten-tiles player)))
+        (cond
+          ;; Furiten takes precedence
+          (furiten-tiles
+           (add-string scr (format nil " FURITEN(~{~A~^,~})"
+                                   (mapcar #'tile-to-string furiten-tiles))
+                       :color-pair '(:red :black)))
+          ;; If tile selected and would be tenpai after discard, show hypothetical waits
+          ((and selected-tile (zerop hypo-shanten))
+           (let ((waits (calculate-waiting-tiles hypo-hand melds)))
+             (when waits
+               (add-string scr (format nil " TENPAI(~{~A~^,~})"
+                                       (mapcar #'tile-to-string waits))
+                           :color-pair '(:cyan :black)))))  ; Cyan for hypothetical
+          ;; Otherwise if already in tenpai (has drawn tile), show current waits
+          ((and has-drawn
+                (zerop (calculate-shanten (butlast full-hand) melds)))
+           (let ((waits (calculate-waiting-tiles (butlast full-hand) melds)))
+             (when waits
+               (add-string scr (format nil " TENPAI(~{~A~^,~})"
+                                       (mapcar #'tile-to-string waits))
+                           :color-pair '(:green :black))))))))
 
     ;; Draw main hand (13 tiles or fewer)
     (loop for tile in main-hand
@@ -1210,7 +1248,7 @@
                  (let* ((drawn (car (last (player-hand human-player))))
                         (count-in-hand (count drawn (player-hand human-player) :test #'eq))
                         (can-kan (and (= count-in-hand 4)
-                                     (kan-preserves-wait-p human-player drawn))))
+                                      (kan-preserves-wait-p human-player drawn))))
                    (if (and ui-state can-kan)
                        ;; Can declare closed kan on drawn tile (wait is preserved)
                        (progn
@@ -1270,42 +1308,37 @@
                  (setf (turn-last-discard turn-state) discard-tile
                    (turn-last-discard-player turn-state) current-seat))
 
-               ;; Check for call opportunities for human player (priority: ron > kan > pon > chi)
+               ;; Check for call opportunities for human player
                (let* ((config (game-config game))
                       (can-ron (and ui-state
-                                    (check-ron-opportunity human-player discard-tile)
+                                    (check-ron-opportunity human-player discard-tile
+                                                           game human-seat current-seat)
                                     (not (player-furiten human-player))))
-                      (can-kan (and (not (player-riichi-declared human-player)) (player-can-call-kan human-player discard-tile :open)))
-                      (can-pon (and (not (player-riichi-declared human-player)) (player-can-call-pon human-player discard-tile)))
-                      (can-chi (and (not (player-riichi-declared human-player)) (game-config-chi-enabled-p config)
-                                    (eq current-seat (prev-seat human-seat config)) ; Only from left player
-                                    (player-can-call-chi human-player discard-tile human-seat current-seat))))
-                 (cond
-                  ;; Ron opportunity - highest priority
-                  (can-ron
-                    (setf (ui-state-active-modal ui-state) (make-ron-modal discard-tile))
-                    (setf (game-phase game) :call-window))
-
-                  ;; Kan opportunity (higher priority than pon)
-                  ((and ui-state can-kan)
-                    (setf (ui-state-active-modal ui-state) (make-kan-modal discard-tile))
-                    (setf (game-phase game) :call-window))
-
-                  ;; Pon opportunity
-                  ((and ui-state can-pon)
-                    (setf (ui-state-active-modal ui-state) (make-pon-modal discard-tile))
-                    (setf (game-phase game) :call-window))
-
-                  ;; Chi opportunity
-                  ((and ui-state can-chi)
-                    (setf (ui-state-active-modal ui-state) (make-chi-modal discard-tile))
-                    (setf (game-phase game) :call-window))
-
-                  ;; No call opportunity - advance turn normally
-                  (t
-                    (setf (game-phase game) :call-window)
-                    (advance-turn game)
-                    (setf (game-phase game) :turn-draw))))))))))
+                      (can-kan (and (not (player-riichi-declared human-player))
+                                    (player-can-call-kan human-player discard-tile :open)))
+                      (can-pon (and (not (player-riichi-declared human-player))
+                                    (player-can-call-pon human-player discard-tile)))
+                      (chi-sequences (and (not (player-riichi-declared human-player))
+                                          (game-config-chi-enabled-p config)
+                                          (eq current-seat (prev-seat human-seat config))
+                                          (player-can-call-chi human-player discard-tile human-seat current-seat)))
+                      ;; Collect all available call options
+                      (call-options (collect-call-options human-player discard-tile human-seat current-seat config
+                                                          :can-ron-p can-ron
+                                                          :can-kan-p can-kan
+                                                          :can-pon-p can-pon
+                                                          :chi-sequences chi-sequences)))
+                 (if call-options
+                     ;; Show multi-option modal with all available calls
+                     (progn
+                      (setf (ui-state-active-modal ui-state)
+                        (make-call-options-modal call-options discard-tile))
+                      (setf (game-phase game) :call-window))
+                     ;; No call opportunity - advance turn normally
+                     (progn
+                      (setf (game-phase game) :call-window)
+                      (advance-turn game)
+                      (setf (game-phase game) :turn-draw))))))))))
 
 (defun handle-mouse-click (game ui-state event click-type)
   "Handle mouse click on tiles. CLICK-TYPE is :single or :double."
@@ -1422,132 +1455,6 @@
                  (make-win-modal (player-name human-player) score-result game human-seat t))
                (setf (game-phase game) :hand-ended))))
 
-     ;; Ron decision
-     ((string= title "RON!")
-       (if (string= result "RON")
-           ;; Player wins by ron - calculate score and show detailed win dialog
-           (let* ((human-seat (ui-state-human-seat ui-state))
-                  (human-player (get-player game human-seat))
-                  (turn-state (game-turn-state game))
-                  (winning-tile (turn-last-discard turn-state))
-                  (loser-seat (turn-last-discard-player turn-state))
-                  (hand (cons winning-tile (player-hand human-player))) ; Add winning tile
-                  (melds (player-melds human-player))
-                  (context (build-winning-context game human-seat winning-tile nil loser-seat))
-                  (score-result (calculate-score hand melds winning-tile context)))
-             ;; Store win info for scoring
-             (setf (ui-state-pending-win ui-state)
-               (list :type :ron
-                     :winning-tile winning-tile
-                     :loser-seat loser-seat
-                     :score-result score-result))
-             (setf (ui-state-active-modal ui-state)
-               (make-win-modal (player-name human-player) score-result game human-seat nil))
-             (setf (game-phase game) :hand-ended))
-           ;; Player chose to skip - advance turn normally
-           (progn
-            (advance-turn game)
-            (setf (game-phase game) :turn-draw))))
-
-     ;; Pon decision
-     ((string= title "PON?")
-       (if (string= result "PON")
-           ;; Player calls pon - use backend processing
-           (let* ((human-seat (ui-state-human-seat ui-state))
-                  (human-player (get-player game human-seat))
-                  (turn-state (game-turn-state game))
-                  (tile (turn-last-discard turn-state))
-                  (discarder-seat (turn-last-discard-player turn-state))
-                  (config (game-config game))
-                  (relation (seat-relation human-seat discarder-seat config)))
-             ;; Remove 2 tiles from hand
-             (player-remove-tile human-player tile)
-             (player-remove-tile human-player tile)
-             ;; Create pon meld
-             (let ((meld (make-meld :type :pon
-                                    :tiles (list tile tile tile)
-                                  :from relation
-                                    :called-tile tile)))
-               (player-add-meld human-player meld))
-             ;; Sort hand and give turn to caller for discard
-             (player-sort-hand human-player)
-             (setf (turn-current-player turn-state) human-seat)
-             (setf (game-phase game) :turn-discard))
-           ;; Player chose to skip - advance turn normally
-           (progn
-            (advance-turn game)
-            (setf (game-phase game) :turn-draw))))
-
-     ;; Kan decision
-     ((string= title "KAN?")
-       (if (string= result "KAN")
-           ;; Player calls kan (daiminkan - open kan on discard)
-           (let* ((human-seat (ui-state-human-seat ui-state))
-                  (human-player (get-player game human-seat))
-                  (turn-state (game-turn-state game))
-                  (tile (turn-last-discard turn-state))
-                  (discarder-seat (turn-last-discard-player turn-state))
-                  (config (game-config game))
-                  (relation (seat-relation human-seat discarder-seat config)))
-             ;; Remove 3 tiles from hand
-             (player-remove-tile human-player tile)
-             (player-remove-tile human-player tile)
-             (player-remove-tile human-player tile)
-             ;; Create kan meld
-             (let ((meld (make-meld :type :kan-open
-                                    :tiles (list tile tile tile tile)
-                                  :from relation
-                                    :called-tile tile)))
-               (player-add-meld human-player meld))
-             ;; Sort hand, draw replacement tile, then discard
-             (player-sort-hand human-player)
-             ;; Draw replacement tile from dead wall
-             (let ((replacement-tile (wall-draw-kan-replacement (game-wall game))))
-               (when replacement-tile
-                     (player-add-tile human-player replacement-tile)
-                     (player-sort-hand-keep-drawn human-player)))
-             (setf (turn-current-player turn-state) human-seat)
-             (wall-reveal-next-dora (game-wall game))
-             (setf (game-phase game) :turn-discard))
-           ;; Player chose to skip - advance turn normally
-           (progn
-            (advance-turn game)
-            (setf (game-phase game) :turn-draw))))
-
-     ;; Chi decision
-     ((string= title "CHI?")
-       (if (string= result "CHI")
-           ;; Player calls chi - use backend processing
-           ;; TODO: Multiple sequence choice - for now, use first valid sequence
-           (let* ((human-seat (ui-state-human-seat ui-state))
-                  (human-player (get-player game human-seat))
-                  (turn-state (game-turn-state game))
-                  (tile (turn-last-discard turn-state))
-                  (discarder-seat (turn-last-discard-player turn-state))
-                  (config (game-config game))
-                  (relation (seat-relation human-seat discarder-seat config))
-                  (sequences (player-can-call-chi human-player tile human-seat discarder-seat))
-                  (chosen-sequence (first sequences)))
-             (when chosen-sequence
-                   ;; Remove tiles from hand (excluding the called tile)
-                   (dolist (t1 chosen-sequence)
-                     (unless (eq t1 tile)
-                       (player-remove-tile human-player t1)))
-                   ;; Create chi meld
-                   (let ((meld (make-meld :type :chi
-                                          :tiles chosen-sequence
-                                        :from relation
-                                          :called-tile tile)))
-                     (player-add-meld human-player meld))
-                   ;; Sort hand and give turn to caller for discard
-                   (player-sort-hand human-player)
-                   (setf (turn-current-player turn-state) human-seat)
-                   (setf (game-phase game) :turn-discard)))
-           ;; Player chose to skip - advance turn normally
-           (progn
-            (advance-turn game)
-            (setf (game-phase game) :turn-draw))))
-
      ;; Closed Kan decision (ankan - 4 tiles from hand)
      ((string= title "CLOSED KAN?")
        (if (string= result "KAN")
@@ -1609,6 +1516,91 @@
                    (setf (game-phase game) :turn-discard)))
            ;; Player chose to skip - continue to normal discard
            (setf (game-phase game) :turn-discard)))
+
+     ;; Multi-option call modal
+     ((string= title "CALL?")
+       (if (string= result "SKIP")
+           ;; Player chose to skip - advance turn normally
+           (progn
+            (advance-turn game)
+            (setf (game-phase game) :turn-draw))
+           ;; Find the selected call option and process it
+           (let* ((call-options (modal-state-call-options modal))
+                  (selected-option (find result call-options
+                                     :key #'call-option-label
+                                     :test #'string=)))
+             (when selected-option
+                   (let* ((call-type (call-option-type selected-option))
+                          (human-seat (ui-state-human-seat ui-state))
+                          (human-player (get-player game human-seat))
+                          (turn-state (game-turn-state game))
+                          (tile (turn-last-discard turn-state))
+                          (discarder-seat (turn-last-discard-player turn-state))
+                          (config (game-config game))
+                          (relation (seat-relation human-seat discarder-seat config)))
+                     (case call-type
+                       ;; Ron
+                       (:ron
+                        (let* ((winning-tile tile)
+                               (hand (cons winning-tile (player-hand human-player)))
+                               (melds (player-melds human-player))
+                               (context (build-winning-context game human-seat winning-tile nil discarder-seat))
+                               (score-result (calculate-score hand melds winning-tile context)))
+                          (setf (ui-state-pending-win ui-state)
+                            (list :type :ron
+                                  :winning-tile winning-tile
+                                  :loser-seat discarder-seat
+                                  :score-result score-result))
+                          (setf (ui-state-active-modal ui-state)
+                            (make-win-modal (player-name human-player) score-result game human-seat nil))
+                          (setf (game-phase game) :hand-ended)))
+
+                       ;; Kan
+                       (:kan
+                        (player-remove-tile human-player tile)
+                        (player-remove-tile human-player tile)
+                        (player-remove-tile human-player tile)
+                        (let ((meld (make-meld :type :kan-open
+                                               :tiles (list tile tile tile tile)
+                                             :from relation
+                                               :called-tile tile)))
+                          (player-add-meld human-player meld))
+                        (player-sort-hand human-player)
+                        (let ((replacement-tile (wall-draw-kan-replacement (game-wall game))))
+                          (when replacement-tile
+                                (player-add-tile human-player replacement-tile)
+                                (player-sort-hand-keep-drawn human-player)))
+                        (setf (turn-current-player turn-state) human-seat)
+                        (wall-reveal-next-dora (game-wall game))
+                        (setf (game-phase game) :turn-discard))
+
+                       ;; Pon
+                       (:pon
+                        (player-remove-tile human-player tile)
+                        (player-remove-tile human-player tile)
+                        (let ((meld (make-meld :type :pon
+                                               :tiles (list tile tile tile)
+                                             :from relation
+                                               :called-tile tile)))
+                          (player-add-meld human-player meld))
+                        (player-sort-hand human-player)
+                        (setf (turn-current-player turn-state) human-seat)
+                        (setf (game-phase game) :turn-discard))
+
+                       ;; Chi (with specific sequence from call-option-tiles)
+                       (:chi
+                        (let ((chosen-sequence (call-option-tiles selected-option)))
+                          (dolist (t1 chosen-sequence)
+                            (unless (eq t1 tile)
+                              (player-remove-tile human-player t1)))
+                          (let ((meld (make-meld :type :chi
+                                                 :tiles chosen-sequence
+                                               :from relation
+                                                 :called-tile tile)))
+                            (player-add-meld human-player meld))
+                          (player-sort-hand human-player)
+                          (setf (turn-current-player turn-state) human-seat)
+                          (setf (game-phase game) :turn-discard)))))))))
 
      ;; Win acknowledgment - calculate score and start new round
      ((or (string= title "RON") (string= title "TSUMO"))
@@ -1773,12 +1765,22 @@
   (and (= (length (player-hand player)) 14)
        (player-has-winning-hand player)))
 
-(defun check-ron-opportunity (player tile)
-  "Check if adding TILE to player's hand would create a winning hand.
-   Also checks that player is not in furiten."
-  (let ((test-hand (cons tile (player-hand player))))
-    (and (validate-hand test-hand (player-melds player))
-         (not (player-check-furiten player tile)))))
+(defun check-ron-opportunity (player tile &optional game player-seat loser-seat)
+  "Check if adding TILE to player's hand would create a winning hand with yaku.
+   Also checks that player is not in furiten.
+   When GAME is provided, also verifies the hand has at least 1 valid yaku."
+  (let* ((test-hand (cons tile (player-hand player)))
+         (melds (player-melds player)))
+    ;; First check structural validity and furiten
+    (when (and (validate-hand test-hand melds)
+               (not (player-check-furiten player tile)))
+      ;; If game context provided, verify yaku existence
+      (if game
+          (let* ((context (build-winning-context game player-seat tile nil loser-seat))
+                 (score-result (calculate-score test-hand melds tile context)))
+            (not (null score-result)))  ; Has yaku if score-result is non-nil
+          ;; No game context - just structural check (backwards compat)
+          t))))
 
 (defun find-safe-riichi-discard (player)
   "Find the drawn tile for auto-discard during riichi.
@@ -2069,8 +2071,8 @@
                     ;; Store hand position for mouse click handling
                     (when ui-state
                           (setf (ui-state-hand-position ui-state) (list hand-row bottom-col)))
-                    ;; Draw bottom player's melds in bottom-right corner
-                    (draw-called-melds scr bottom-player hand-row (- screen-width 20) :horizontal))))
+                    ;; Draw bottom player's melds stacked vertically on right side
+                    (draw-called-melds scr bottom-player hand-row (- screen-width 20) :vertical))))
 
           ;; Draw center info box and discards around it
           (let* ((center-row (max 0 (- (floor screen-height 2) 6))) ; Adjust for taller box
@@ -2173,7 +2175,10 @@
        (refresh scr)
 
        ;; Handle input (non-blocking, 100ms timeout from screen init)
-       (let* ((event (croatoan:get-event scr))
+       ;; Wrap in handler-case to catch edge case terminal events
+       (let* ((event (handler-case
+                         (croatoan:get-event scr)
+                       (error () nil)))
               (ch (when event
                         (handler-case
                             (croatoan:event-key event)

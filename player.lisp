@@ -129,6 +129,31 @@
   "Set the player's furiten status"
   (setf (player-furiten player) furiten))
 
+(defun find-furiten-tiles (player)
+  "Find all tiles causing furiten for PLAYER.
+   Returns list of discarded tiles that are also in player's wait.
+   Works by cross-referencing waiting tiles with discards.
+   Handles both 13-tile (waiting for draw) and 14-tile (waiting to discard) hands."
+  (let* ((full-hand (player-hand player))
+         (melds (player-melds player))
+         (num-melds (length melds))
+         ;; Expected hand size without drawn tile = 13 - 3*melds
+         (expected-tiles (- 13 (* 3 num-melds)))
+         ;; Check if we have a 14-tile hand (has drawn tile)
+         (has-drawn (> (length full-hand) expected-tiles))
+         ;; Use 13-tile hand for tenpai check
+         (check-hand (if has-drawn (butlast full-hand) full-hand))
+         (shanten (calculate-shanten check-hand melds)))
+    ;; Only check if in tenpai (13-tile hand with shanten 0)
+    (when (zerop shanten)
+      (let* ((waits (calculate-waiting-tiles check-hand melds))
+             (discards (player-discards player))
+             (furiten-tiles nil))
+        (dolist (wait waits)
+          (when (member wait discards :test #'eq)
+            (push wait furiten-tiles)))
+        furiten-tiles))))
+
 
 (defun player-adjust-score (player delta)
   "Adjust the player's score by DELTA (positive or negative)"

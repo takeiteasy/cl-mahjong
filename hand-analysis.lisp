@@ -485,8 +485,10 @@
          (num-melds (length melds))
          (groups-needed (- 4 num-melds))
          (result (find-best-standard-decomposition counts groups-needed))
+         ;; Include melds in completed groups count - melds ARE completed groups!
+         (total-completed (+ num-melds (getf result :completed-groups)))
          (base-shanten (- 8
-                         (* 2 (getf result :completed-groups))
+                         (* 2 total-completed)
                          (getf result :taatsu)
                          (if (getf result :has-pair) 1 0))))
     ;; If no pair, minimum shanten is 1 (can't be tempai without a pair)

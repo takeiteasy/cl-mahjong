@@ -222,3 +222,75 @@
             ((= distance 2) (if (= (length seats) 4) :across :right))
             ((= distance 3) :right)
             (t nil)))))))
+
+
+;;; ============================================================================
+;;; Call Options (for multi-option modal support)
+;;; ============================================================================
+
+(defstruct call-option
+  "Represents a single call option for a discarded tile."
+  (type nil)        ; :ron, :pon, :kan, :chi
+  (label "")        ; Display label (e.g., "PON", "CHI 2m-3m-4m")
+  (tiles nil))      ; For chi: the sequence tiles. For pon/kan: tile. For ron: nil
+
+(defun format-tile-short (tile)
+  "Format a tile for display in call option label."
+  (let ((suit (tile-suit tile))
+        (val (tile-value tile)))
+    (cond
+      ((and suit val (member suit '(:man :pin :sou)))
+       (format nil "~D~A" val (case suit (:man "m") (:pin "p") (:sou "s"))))
+      (t (symbol-name tile)))))
+
+(defun format-chi-label (sequence)
+  "Format a chi sequence for display (e.g., '2m-3m-4m')."
+  (format nil "CHI ~{~A~^-~}" (mapcar #'format-tile-short (sort-tiles sequence))))
+
+(defun collect-call-options (player tile player-seat discarder-seat config
+                                    &key can-ron-p can-kan-p can-pon-p chi-sequences)
+  "Collect all available call options for PLAYER on TILE.
+   Returns list of call-option structs, or NIL if no calls available.
+   
+   Arguments:
+     PLAYER - The player who may call
+     TILE - The discarded tile
+     PLAYER-SEAT - Seat of the calling player  
+     DISCARDER-SEAT - Seat of the player who discarded
+     CONFIG - Game configuration
+     :CAN-RON-P - T if player can call ron on this tile
+     :CAN-KAN-P - T if player can call open kan on this tile
+     :CAN-PON-P - T if player can call pon on this tile
+     :CHI-SEQUENCES - List of possible chi sequences (from find-sequence-chi)"
+  (declare (ignore player player-seat discarder-seat config))
+  (let ((options nil))
+    ;; Ron - highest priority, add first
+    (when can-ron-p
+      (push (make-call-option :type :ron
+                              :label "RON"
+                              :tiles nil)
+            options))
+    
+    ;; Kan - higher than pon
+    (when can-kan-p
+      (push (make-call-option :type :kan
+                              :label "KAN"
+                              :tiles (list tile))
+            options))
+    
+    ;; Pon
+    (when can-pon-p
+      (push (make-call-option :type :pon
+                              :label "PON"
+                              :tiles (list tile))
+            options))
+    
+    ;; Chi - each sequence is a separate option
+    (dolist (seq chi-sequences)
+      (push (make-call-option :type :chi
+                              :label (format-chi-label seq)
+                              :tiles seq)
+            options))
+    
+    ;; Return in priority order (ron first)
+    (nreverse options)))

@@ -42,6 +42,7 @@
    #:game-id
    #:game-config
    #:game-config-seats
+   #:game-config-num-players
    #:game-config-chi-enabled-p
    #:game-players
    #:game-wall
@@ -146,6 +147,15 @@
    #:next-seat
    #:prev-seat
    #:seat-relation
+   
+   ;; Call options (for multi-option modal support)
+   #:call-option
+   #:call-option-type
+   #:call-option-label
+   #:call-option-tiles
+   #:make-call-option
+   #:collect-call-options
+   #:format-chi-label
 
    ;; Wall operations
    #:create-wall
@@ -180,6 +190,7 @@
    #:player-calculate-shanten
    #:player-is-tenpai
    #:player-has-winning-hand
+   #:find-furiten-tiles
 
    ;; Game state management
    #:create-game-state
