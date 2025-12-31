@@ -39,7 +39,8 @@
   (valid-riichi-discards nil) ; List of tiles that maintain tempai for riichi
   (pending-win nil)) ; Plist with win info: (:type :tsumo/:ron :winning-tile TILE :loser-seat SEAT)
 
-(defparameter *debug-ui* t)
+(defparameter *debug-ui* t
+              "When T, enable debug UI features.")
 
 (defparameter *game* nil
               "The current game state.")
@@ -59,7 +60,7 @@
 (defun resume-game ()
   "Resume the game loop after pausing."
   (setf *game-paused* nil
-        *step-requested* nil)
+    *step-requested* nil)
   (format t "Game resumed.~%")
   :resumed)
 
@@ -167,14 +168,14 @@
   "Check if winning on any waiting tile would give at least 1 yaku.
    Returns T if at least one wait would have yaku, NIL if no yaku possible."
   (when (and waits game)
-    (dolist (wait waits)
-      (let* ((test-hand (cons wait hand))
-             ;; Build a simple ron context 
-             (context (build-winning-context game player-seat wait nil nil))
-             (score-result (calculate-score test-hand melds wait context)))
-        (when score-result
-          (return-from has-yaku-for-any-wait t))))
-    nil))
+        (dolist (wait waits)
+          (let* ((test-hand (cons wait hand))
+                 ;; Build a simple ron context 
+                 (context (build-winning-context game player-seat wait nil nil))
+                 (score-result (calculate-score test-hand melds wait context)))
+            (when score-result
+                  (return-from has-yaku-for-any-wait t))))
+        nil))
 
 (defun make-exhaustive-draw-modal (game)
   "Create a modal for exhaustive draw (ryuukyoku) showing tenpai status.
@@ -187,7 +188,7 @@
          (num-players (game-config-num-players config))
          ;; Determine pool based on variant (yonma: 3000, sanma: 4000)
          (total-pool (if (= num-players 3) 4000 3000))
-         (tenpai-data nil)  ; List of (seat . wait-tiles)
+         (tenpai-data nil) ; List of (seat . wait-tiles)
          (noten-seats nil)
          (lines nil))
     ;; Check tenpai status for each player and collect waits
@@ -220,8 +221,8 @@
                   (waits (cdr tenpai-entry)))
              (if is-tenpai
                  (push (list :text (format nil "~A: Tenpai (~{~A~^,~})"
-                                           (player-name player)
-                                           (mapcar #'tile-to-string waits))
+                                     (player-name player)
+                                     (mapcar #'tile-to-string waits))
                              :color :green)
                        lines)
                  (push (list :text (format nil "~A: Noten" (player-name player))
@@ -245,19 +246,19 @@
                     (change (if is-tenpai receive-each (- pay-each))))
                (if is-tenpai
                    (push (list :text (format nil "~A: ~@D (~{~A~^,~})"
-                                             (player-name player) change
-                                             (mapcar #'tile-to-string waits))
+                                       (player-name player) change
+                                       (mapcar #'tile-to-string waits))
                                :color :green)
                          lines)
                    (push (list :text (format nil "~A: ~@D" (player-name player) change)
                                :color :red)
                          lines))))))))
 
-      (make-modal-state
-       :title "DRAW"
-       :message-lines (nreverse lines)
-       :buttons '("OK")
-       :selected-index 0)))
+    (make-modal-state
+     :title "DRAW"
+     :message-lines (nreverse lines)
+     :buttons '("OK")
+     :selected-index 0)))
 
 (defun format-yaku-name (yaku-keyword)
   "Convert a yaku keyword to a readable name."
@@ -954,7 +955,7 @@
            (has-drawn (> (length full-hand) expected-tiles))
            ;; If tile selected, calculate waits for hand AFTER discarding selected
            (selected-tile (when (and selected-index (< selected-index (length full-hand)))
-                           (nth selected-index full-hand)))
+                                (nth selected-index full-hand)))
            ;; Hypothetical hand without the selected tile
            (hypo-hand (if selected-tile
                           (remove selected-tile full-hand :test #'eq :count 1)
@@ -963,35 +964,35 @@
       ;; Check for furiten first (on current full hand waits)
       (let ((furiten-tiles (find-furiten-tiles player)))
         (cond
-          ;; Furiten takes precedence
-          (furiten-tiles
+         ;; Furiten takes precedence
+         (furiten-tiles
            (add-string scr (format nil " FURITEN(~{~A~^,~})"
-                                   (mapcar #'tile-to-string furiten-tiles))
+                             (mapcar #'tile-to-string furiten-tiles))
                        :color-pair '(:red :black)))
-          ;; If tile selected and would be tenpai after discard, show hypothetical waits
-          ((and selected-tile (zerop hypo-shanten))
+         ;; If tile selected and would be tenpai after discard, show hypothetical waits
+         ((and selected-tile (zerop hypo-shanten))
            (let ((waits (calculate-waiting-tiles hypo-hand melds)))
              (when waits
-               (add-string scr (format nil " TENPAI(~{~A~^,~})"
-                                       (mapcar #'tile-to-string waits))
-                           :color-pair '(:cyan :black))
-               ;; Check for no yaku if game context available
-               (when (and game
-                          (not (has-yaku-for-any-wait hypo-hand melds waits game (player-seat player))))
-                 (add-string scr " (No Yaku!)" :color-pair '(:magenta :black))))))
-          ;; Otherwise if already in tenpai (has drawn tile), show current waits
-          ((and has-drawn
-                (zerop (calculate-shanten (butlast full-hand) melds)))
+                   (add-string scr (format nil " TENPAI(~{~A~^,~})"
+                                     (mapcar #'tile-to-string waits))
+                               :color-pair '(:cyan :black))
+                   ;; Check for no yaku if game context available
+                   (when (and game
+                              (not (has-yaku-for-any-wait hypo-hand melds waits game (player-seat player))))
+                         (add-string scr " (No Yaku!)" :color-pair '(:magenta :black))))))
+         ;; Otherwise if already in tenpai (has drawn tile), show current waits
+         ((and has-drawn
+               (zerop (calculate-shanten (butlast full-hand) melds)))
            (let* ((tenpai-hand (butlast full-hand))
                   (waits (calculate-waiting-tiles tenpai-hand melds)))
              (when waits
-               (add-string scr (format nil " TENPAI(~{~A~^,~})"
-                                       (mapcar #'tile-to-string waits))
-                           :color-pair '(:green :black))
-               ;; Check for no yaku if game context available
-               (when (and game
-                          (not (has-yaku-for-any-wait tenpai-hand melds waits game (player-seat player))))
-                 (add-string scr " (No Yaku!)" :color-pair '(:magenta :black)))))))))
+                   (add-string scr (format nil " TENPAI(~{~A~^,~})"
+                                     (mapcar #'tile-to-string waits))
+                               :color-pair '(:green :black))
+                   ;; Check for no yaku if game context available
+                   (when (and game
+                              (not (has-yaku-for-any-wait tenpai-hand melds waits game (player-seat player))))
+                         (add-string scr " (No Yaku!)" :color-pair '(:magenta :black)))))))))
 
     ;; Draw main hand (13 tiles or fewer)
     (loop for tile in main-hand
@@ -1824,10 +1825,20 @@
 ;;; ============================================================================
 
 (defun check-tsumo-opportunity (player)
-  "Check if player's current hand (with 14 tiles) is a winning hand.
-   Returns T if the hand is complete."
-  (and (= (length (player-hand player)) 14)
-       (player-has-winning-hand player)))
+  "Check if player's current hand (with drawn tile) is a winning hand.
+   Returns T if the hand is complete.
+   Accounts for open melds: expected tiles = 14 - 3*pons - 4*kans in hand."
+  (let* ((melds (player-melds player))
+         (num-pons (count-if (lambda (m)
+                               (member (meld-type m) '(:pon :chi)))
+                             melds))
+         (num-kans (count-if (lambda (m)
+                               (member (meld-type m) '(:kan-open :kan-closed :kan-added)))
+                             melds))
+         ;; Expected: 14 - 3*(pons+chis) - 3*kans (since kan is also -3 from visible hand +1 extra tile)
+         (expected-hand-tiles (- 14 (* 3 num-pons) (* 4 num-kans))))
+    (and (= (length (player-hand player)) expected-hand-tiles)
+         (player-has-winning-hand player))))
 
 (defun check-ron-opportunity (player tile &optional game player-seat loser-seat)
   "Check if adding TILE to player's hand would create a winning hand with yaku.
@@ -1838,13 +1849,13 @@
     ;; First check structural validity and furiten
     (when (and (validate-hand test-hand melds)
                (not (player-check-furiten player tile)))
-      ;; If game context provided, verify yaku existence
-      (if game
-          (let* ((context (build-winning-context game player-seat tile nil loser-seat))
-                 (score-result (calculate-score test-hand melds tile context)))
-            (not (null score-result)))  ; Has yaku if score-result is non-nil
-          ;; No game context - just structural check (backwards compat)
-          t))))
+          ;; If game context provided, verify yaku existence
+          (if game
+              (let* ((context (build-winning-context game player-seat tile nil loser-seat))
+                     (score-result (calculate-score test-hand melds tile context)))
+                (not (null score-result))) ; Has yaku if score-result is non-nil
+              ;; No game context - just structural check (backwards compat)
+              t))))
 
 (defun find-safe-riichi-discard (player)
   "Find the drawn tile for auto-discard during riichi.
@@ -2182,13 +2193,18 @@
             ;; Right player discards: rotated 90° CW from bottom.
             ;; Oldest at our bottom (their left), newest at our top (their right).
             ;; Columns expand rightward toward their hand.
+            ;; Grid starts at bottom of center box and grows upward.
             (when right-player
                   (let* ((discards (reverse (player-discards right-player))) ; oldest to newest
                                                                             (tiles-per-column 6)
                                                                             (num-cols (ceiling (length discards) tiles-per-column))
+                                                                            ;; Calculate grid height: each tile is 2 rows + 1 for bottom border
+                                                                            (num-tile-rows (min (length discards) tiles-per-column))
+                                                                            (grid-height (1+ (* num-tile-rows 2)))
+                                                                            ;; Position grid so bottom aligns with bottom of center box
+                                                                            (discard-row (- (+ center-row center-box-height) grid-height))
                                                                             ;; Position grid just to the right of center box
                                                                             ;; Since stack-rightward=nil causes leftward offset, add compensation
-                                                                            (discard-row center-row)
                                                                             (discard-col (+ center-col center-box-width 1 (* (1- num-cols) 3))))
                     (draw-discards-vertical scr discards discard-row discard-col tiles-per-column t nil))) ; reverse-vert, stack-right (newer on RIGHT)
 
@@ -2234,7 +2250,7 @@
                      (setf last-ai-turn-time current-time)
                      ;; After stepping, clear the step request and stay paused
                      (when *step-requested*
-                       (setf *step-requested* nil))))
+                           (setf *step-requested* nil))))
          (when (eq current-seat human-seat)
                ;; Human player turn - process immediately
                (process-turn-phase *game* human-seat ui-state)))
@@ -2242,10 +2258,10 @@
        ;; Check for refresh request (from SLIME)
        ;; Use endwin/refresh cycle to force full terminal redraw
        (when *refresh-requested*
-         (croatoan:end-screen)
-         (croatoan:refresh scr)
-         (clear scr)
-         (setf *refresh-requested* nil))
+             (croatoan:end-screen)
+             (croatoan:refresh scr)
+             (clear scr)
+             (setf *refresh-requested* nil))
 
        ;; Render game state
        (draw-game scr *game* ui-state)
@@ -2294,24 +2310,24 @@
    - Access *debug-ui* to toggle debug mode"
   (handler-case
       (progn
-        ;; Load swank silently (suppress warnings that corrupt TUI)
-        (unless (find-package :swank)
-          (with-open-file (null-stream "/dev/null" :direction :output :if-exists :supersede)
-            (let ((*standard-output* null-stream)
-                  (*error-output* null-stream)
-                  (*trace-output* null-stream))
-              (asdf:load-system :swank))))
-        ;; Create the server silently
-        (let ((swank-package (find-package :swank)))
-          (with-open-file (null-stream "/dev/null" :direction :output :if-exists :supersede)
-            (let ((*standard-output* null-stream)
-                  (*error-output* null-stream)
-                  (*trace-output* null-stream))
-              (funcall (intern "CREATE-SERVER" swank-package)
-                       :port port
-                       :interface interface
-                       :dont-close t)))
-          t))
+       ;; Load swank silently (suppress warnings that corrupt TUI)
+       (unless (find-package :swank)
+         (with-open-file (null-stream "/dev/null" :direction :output :if-exists :supersede)
+           (let ((*standard-output* null-stream)
+                 (*error-output* null-stream)
+                 (*trace-output* null-stream))
+             (asdf:load-system :swank))))
+       ;; Create the server silently
+       (let ((swank-package (find-package :swank)))
+         (with-open-file (null-stream "/dev/null" :direction :output :if-exists :supersede)
+           (let ((*standard-output* null-stream)
+                 (*error-output* null-stream)
+                 (*trace-output* null-stream))
+             (funcall (intern "CREATE-SERVER" swank-package)
+               :port port
+               :interface interface
+               :dont-close t)))
+         t))
     (error (e)
       (declare (ignore e))
       nil)))
@@ -2346,7 +2362,7 @@
    - (step-game) - Advance one AI turn then pause"
   ;; Start Swank server if requested
   (when swank
-    (start-swank-server :port swank-port :interface swank-interface))
+        (start-swank-server :port swank-port :interface swank-interface))
   (handler-case
       (with-screen (scr :input-echoing nil
                         :input-blocking 100
