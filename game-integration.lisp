@@ -241,3 +241,73 @@
                ;; For now, this is called manually after call actions
                (setf (player-ippatsu-active player) nil)))
            (game-players game)))
+
+(defun has-yaku-for-any-wait (hand melds waits game player-seat)
+  "Check if winning on any waiting tile would give at least 1 yaku.
+   Returns T if at least one wait would have yaku, NIL if no yaku possible."
+  (when (and waits game)
+    (dolist (wait waits)
+      (let* ((test-hand (cons wait hand))
+             ;; Build a simple ron context
+             (context (build-winning-context game player-seat wait nil nil))
+             (score-result (calculate-score test-hand melds wait context)))
+        (when score-result
+          (return-from has-yaku-for-any-wait t))))
+    nil))
+
+(defun calculate-exhaustive-draw-payments (game)
+  "Calculate tenpai status and payments for exhaustive draw (ryuukyoku).
+
+   Returns exhaustive-draw-result struct with:
+   - tenpai-data: List of (seat . wait-tiles) for players in tenpai
+   - noten-seats: List of seats not in tenpai
+   - payments: List of (seat . payment-delta) or NIL if no payment
+
+   Payment rules:
+   - Yonma (4-player): Total pool is 3000 points (1000 per noten or split among tenpai)
+   - Sanma (3-player): Total pool is 4000 points (2000 per noten or split among tenpai)
+   - If all tenpai or all noten: no payment"
+  (let* ((config (game-config game))
+         (seats (game-config-seats config))
+         (num-players (game-config-num-players config))
+         ;; Determine pool based on variant (yonma: 3000, sanma: 4000)
+         (total-pool (if (= num-players 3) 4000 3000))
+         (tenpai-data nil)
+         (noten-seats nil))
+
+    ;; Check tenpai status for each player and collect waits
+    (dolist (seat seats)
+      (let* ((player (get-player game seat))
+             (hand (player-hand player))
+             (melds (player-melds player))
+             (shanten (calculate-shanten hand melds)))
+        (if (zerop shanten)
+            (let ((waits (calculate-waiting-tiles hand melds)))
+              (push (cons seat waits) tenpai-data))
+            (push seat noten-seats))))
+
+    (setf tenpai-data (nreverse tenpai-data))
+    (setf noten-seats (nreverse noten-seats))
+
+    (let ((tenpai-seats (mapcar #'car tenpai-data))
+          (payments nil))
+
+      ;; Calculate payments if some tenpai and some noten
+      (when (and tenpai-seats noten-seats)
+        (let* ((num-tenpai (length tenpai-seats))
+               (num-noten (length noten-seats))
+               ;; Split pool among tenpai players
+               (receive-each (floor total-pool num-tenpai))
+               ;; Each noten pays their share
+               (pay-each (floor total-pool num-noten)))
+          (dolist (seat seats)
+            (let ((is-tenpai (member seat tenpai-seats))
+                  (change (if (member seat tenpai-seats) receive-each (- pay-each))))
+              (push (cons seat change) payments)))))
+
+      (setf payments (nreverse payments))
+
+      (make-exhaustive-draw-result
+       :tenpai-data tenpai-data
+       :noten-seats noten-seats
+       :payments payments))))

@@ -191,6 +191,8 @@
    #:player-is-tenpai
    #:player-has-winning-hand
    #:find-furiten-tiles
+   #:find-closed-kan-tiles
+   #:find-added-kan-tiles
 
    ;; Game state management
    #:create-game-state
@@ -256,4 +258,10 @@
    #:payment-split-direct-payment
    #:payment-split-dealer-pays
    #:payment-split-non-dealer-pays
-   #:player-set-ready))
+   #:player-set-ready
+   #:has-yaku-for-any-wait
+   #:calculate-exhaustive-draw-payments
+   #:exhaustive-draw-result
+   #:exhaustive-draw-result-tenpai-data
+   #:exhaustive-draw-result-noten-seats
+   #:exhaustive-draw-result-payments))

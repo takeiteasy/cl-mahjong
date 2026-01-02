@@ -445,3 +445,9 @@
   (base-points 0 :type integer)     ; Base points before payment split
   (limit-hand nil :type (or null keyword)) ; :mangan :haneman :baiman etc.
   (payment nil))                    ; payment-split struct
+
+(defstruct exhaustive-draw-result
+  "Tenpai status and payments for exhaustive draw (ryuukyoku)"
+  (tenpai-data nil :type list)      ; List of (seat . wait-tiles)
+  (noten-seats nil :type list)      ; List of seats
+  (payments nil :type list))        ; List of (seat . payment-delta), or NIL if no payment

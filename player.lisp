@@ -206,6 +206,29 @@
                                 (member tile (meld-tiles meld) :test #'eq)))
                          (player-melds player))))))
 
+(defun find-closed-kan-tiles (player)
+  "Find all tiles for which player can declare closed kan (has 4 of same tile).
+   Returns list of tiles or NIL."
+  (let ((hand (player-hand player))
+        (kan-tiles nil))
+    (dolist (tile (remove-duplicates hand :test #'eq))
+      (when (>= (count tile hand :test #'eq) 4)
+        (push tile kan-tiles)))
+    kan-tiles))
+
+(defun find-added-kan-tiles (player)
+  "Find all tiles for which player can declare added kan (has tile matching existing pon).
+   Returns list of tiles or NIL."
+  (let ((hand (player-hand player))
+        (melds (player-melds player))
+        (kan-tiles nil))
+    (dolist (meld melds)
+      (when (eq (meld-type meld) :pon)
+        (let ((pon-tile (first (meld-tiles meld))))
+          (when (member pon-tile hand :test #'eq)
+            (push pon-tile kan-tiles)))))
+    kan-tiles))
+
 (defun player-can-extract-north (player config)
   "Check if player can extract North (must be in hand and sanma variant).
    CONFIG: game-config struct"

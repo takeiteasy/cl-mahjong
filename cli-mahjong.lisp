@@ -141,118 +141,63 @@
      :escape "SKIP"
      :call-options call-options)))
 
-(defun find-closed-kan-tiles (player)
-  "Find all tiles for which player can declare closed kan (has 4 of same tile).
-   Returns list of tiles or NIL."
-  (let ((hand (player-hand player))
-        (kan-tiles nil))
-    (dolist (tile (remove-duplicates hand :test #'eq))
-      (when (>= (count tile hand :test #'eq) 4)
-            (push tile kan-tiles)))
-    kan-tiles))
-
-(defun find-added-kan-tiles (player)
-  "Find all tiles for which player can declare added kan (has tile matching existing pon).
-   Returns list of tiles or NIL."
-  (let ((hand (player-hand player))
-        (melds (player-melds player))
-        (kan-tiles nil))
-    (dolist (meld melds)
-      (when (eq (meld-type meld) :pon)
-            (let ((pon-tile (first (meld-tiles meld))))
-              (when (member pon-tile hand :test #'eq)
-                    (push pon-tile kan-tiles)))))
-    kan-tiles))
-
-(defun has-yaku-for-any-wait (hand melds waits game player-seat)
-  "Check if winning on any waiting tile would give at least 1 yaku.
-   Returns T if at least one wait would have yaku, NIL if no yaku possible."
-  (when (and waits game)
-        (dolist (wait waits)
-          (let* ((test-hand (cons wait hand))
-                 ;; Build a simple ron context 
-                 (context (build-winning-context game player-seat wait nil nil))
-                 (score-result (calculate-score test-hand melds wait context)))
-            (when score-result
-                  (return-from has-yaku-for-any-wait t))))
-        nil))
-
 (defun make-exhaustive-draw-modal (game)
   "Create a modal for exhaustive draw (ryuukyoku) showing tenpai status.
-   Players in tenpai receive points from those not in tenpai.
-   Yonma: Total pool is 3000 (1000 per noten or split among tenpai)
-   Sanma: Total pool is 4000 (2000 per noten or split among tenpai)
-   If all tenpai or all noten: no payment."
+   Uses calculate-exhaustive-draw-payments from library for payment logic."
   (let* ((config (game-config game))
          (seats (game-config-seats config))
-         (num-players (game-config-num-players config))
-         ;; Determine pool based on variant (yonma: 3000, sanma: 4000)
-         (total-pool (if (= num-players 3) 4000 3000))
-         (tenpai-data nil) ; List of (seat . wait-tiles)
-         (noten-seats nil)
+         (result (calculate-exhaustive-draw-payments game))
+         (tenpai-data (exhaustive-draw-result-tenpai-data result))
+         (noten-seats (exhaustive-draw-result-noten-seats result))
+         (payments (exhaustive-draw-result-payments result))
+         (tenpai-seats (mapcar #'car tenpai-data))
          (lines nil))
-    ;; Check tenpai status for each player and collect waits
-    (dolist (seat seats)
-      (let* ((player (get-player game seat))
-             (hand (player-hand player))
-             (melds (player-melds player))
-             (shanten (calculate-shanten hand melds)))
-        (if (zerop shanten)
-            (let ((waits (calculate-waiting-tiles hand melds)))
-              (push (cons seat waits) tenpai-data))
-            (push seat noten-seats))))
-    (setf tenpai-data (nreverse tenpai-data))
-    (setf noten-seats (nreverse noten-seats))
-    (let ((tenpai-seats (mapcar #'car tenpai-data)))
 
-      (push "Wall exhausted - no winner" lines)
-      (push "" lines)
+    (push "Wall exhausted - no winner" lines)
+    (push "" lines)
 
-      ;; Calculate and display payments
-      (cond
-       ;; All players tenpai or all noten - no payment
-       ((or (null tenpai-seats) (null noten-seats))
-         (push "No tenpai payment" lines)
+    ;; Display payments or no-payment message
+    (cond
+     ;; No payment case (all tenpai or all noten)
+     ((null payments)
+       (push "No tenpai payment" lines)
+       (push "" lines)
+       (dolist (seat seats)
+         (let* ((player (get-player game seat))
+                (is-tenpai (member seat tenpai-seats))
+                (tenpai-entry (assoc seat tenpai-data))
+                (waits (cdr tenpai-entry)))
+           (if is-tenpai
+               (push (list :text (format nil "~A: Tenpai (~{~A~^,~})"
+                                   (player-name player)
+                                   (mapcar #'tile-to-string waits))
+                           :color :green)
+                     lines)
+               (push (list :text (format nil "~A: Noten" (player-name player))
+                           :color :white)
+                     lines)))))
+     ;; Payment case (some tenpai, some noten)
+     (t
+       (let ((num-tenpai (length tenpai-seats))
+             (num-noten (length noten-seats)))
+         (push (format nil "Tenpai: ~A  Noten: ~A" num-tenpai num-noten) lines)
          (push "" lines)
          (dolist (seat seats)
            (let* ((player (get-player game seat))
                   (is-tenpai (member seat tenpai-seats))
                   (tenpai-entry (assoc seat tenpai-data))
-                  (waits (cdr tenpai-entry)))
+                  (waits (cdr tenpai-entry))
+                  (payment-entry (assoc seat payments))
+                  (change (cdr payment-entry)))
              (if is-tenpai
-                 (push (list :text (format nil "~A: Tenpai (~{~A~^,~})"
-                                     (player-name player)
+                 (push (list :text (format nil "~A: ~@D (~{~A~^,~})"
+                                     (player-name player) change
                                      (mapcar #'tile-to-string waits))
                              :color :green)
                        lines)
-                 (push (list :text (format nil "~A: Noten" (player-name player))
-                             :color :white)
-                       lines)))))
-       ;; Some tenpai, some noten - calculate payments
-       (t
-         (let* ((num-tenpai (length tenpai-seats))
-                (num-noten (length noten-seats))
-                ;; Split pool among tenpai players
-                (receive-each (floor total-pool num-tenpai))
-                ;; Each noten pays their share
-                (pay-each (floor total-pool num-noten)))
-           (push (format nil "Tenpai: ~A  Noten: ~A" num-tenpai num-noten) lines)
-           (push "" lines)
-           (dolist (seat seats)
-             (let* ((player (get-player game seat))
-                    (is-tenpai (member seat tenpai-seats))
-                    (tenpai-entry (assoc seat tenpai-data))
-                    (waits (cdr tenpai-entry))
-                    (change (if is-tenpai receive-each (- pay-each))))
-               (if is-tenpai
-                   (push (list :text (format nil "~A: ~@D (~{~A~^,~})"
-                                       (player-name player) change
-                                       (mapcar #'tile-to-string waits))
-                               :color :green)
-                         lines)
-                   (push (list :text (format nil "~A: ~@D" (player-name player) change)
-                               :color :red)
-                         lines))))))))
+                 (push (list :text (format nil "~A: ~@D" (player-name player) change)
+                             :color :red)
+                       lines)))))))
 
     (make-modal-state
      :title "DRAW"
