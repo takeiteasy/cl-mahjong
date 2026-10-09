@@ -24,7 +24,9 @@
 
 ;;; Yaku
 
-(defparameter *riichi-options* '(:kuitan t :double-yakuman t :renhou nil))
+(defparameter *riichi-options*
+  '(:kuitan t :double-yakuman t :renhou nil
+    :kiriage nil :kazoe-yakuman t :double-wind-fu 4 :rinshan-tsumo-fu t))
 
 (defun chuuren-counts-p (tileset counts exact)
   "One suit holding the low and high ranks three times and each rank between at least once, or exactly once with EXACT."
@@ -142,7 +144,9 @@
 (defyaku chiihou (:yakuman 1 :closed-only t)
   (:when (context chiihou)))
 (defyaku renhou (:yakuman 1 :closed-only t)
-  (:when (context renhou) (option renhou)))
+  (:when (context renhou) (option renhou :yakuman)))
+(defyaku renhou-mangan (:han 5 :closed-only t)
+  (:when (context renhou) (option renhou :mangan)))
 
 (defparameter *riichi-yaku*
   '(riichi double-riichi ippatsu menzen-tsumo pinfu iipeikou ryanpeikou tanyao
@@ -150,4 +154,22 @@
     chiitoitsu chanta junchan ittsu sanshoku sanshoku-doukou sanankou sankantsu
     toitoi shousangen honroutou honitsu chinitsu
     kokushi suuankou chuuren daisangen shousuushii daisuushii tsuuiisou chinroutou
-    ryuuiisou suukantsu tenhou chiihou renhou))
+    ryuuiisou suukantsu tenhou chiihou renhou renhou-mangan))
+
+;;; Scoring
+
+(defscoring riichi
+  (:fu (:base 20) (:round 10) (:closed-ron 10) (:tsumo 2) (:open-minimum 30)
+       (:group triplet simple 2) (:group triplet (terminal honor) 4)
+       (:concealed 2) (:quad 4)
+       (:pair seat-wind 2) (:pair round-wind 2) (:pair dragon 2)
+       (:wait (kanchan penchan tanki) 2)
+       (:flat chiitoitsu 25)
+       (:no-tsumo-fu pinfu))
+  (:limits (mangan 2000 :han 5) (haneman 3000 :han 6) (baiman 4000 :han 8)
+           (sanbaiman 6000 :han 11) (yakuman 8000 :han 13))
+  (:floor renhou-mangan mangan)
+  (:kiriage 1920)
+  (:dora (:indicator next))
+  (:payments (:ron :dealer 6 :other 4) (:tsumo :dealer 2 :other (2 1))
+             (:round 100) (:honba 300) (:riichi-stick 1000)))

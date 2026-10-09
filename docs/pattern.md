@@ -18,7 +18,7 @@ A pattern is a condition on a winning hand. `defyaku` ([yaku.md](yaku.md)) lists
 | `(shape name...)` | The decomposition is one of these shapes |
 | `(closed)` | No meld is open |
 | `(context flag)` | A [win context](#win-context) flag is set |
-| `(option key)` | The evaluation option is true |
+| `(option key [value])` | The evaluation option is true, or equals `value` |
 | `(every-tile sel)`, `(some-tile sel)` | Every / some tile of the hand and melds matches |
 | `(one-suit)` | The suited tiles belong to one suit |
 | `(every-group types [sel] [:concealed t])` | Every group matches (the hand has groups) |
@@ -69,6 +69,7 @@ The caller describes how the hand was won with `make-win-context`.
 | `last-tile` | Won on the last wall tile (haitei when `tsumo`, houtei otherwise) |
 | `rinshan`, `chankan` | Won on a replacement draw / by robbing a kan |
 | `tenhou`, `chiihou`, `renhou` | First-turn wins |
+| `dealer`, `dora-indicators`, `ura-indicators`, `tiles` | Inputs for [scoring](scoring.md#dora) |
 
 `(context flag)` reads the boolean fields.
 

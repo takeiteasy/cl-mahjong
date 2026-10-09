@@ -83,8 +83,18 @@
 (defun names (reading)
   (sort (mapcar #'car (cl-mahjong:reading-yaku reading)) #'string<))
 
+(defun best-reading (readings)
+  "The reading with the most yakuman, then han; the first of equals."
+  (let (best)
+    (dolist (reading readings best)
+      (when (or (null best)
+                (> (cl-mahjong:reading-yakuman reading) (cl-mahjong:reading-yakuman best))
+                (and (= (cl-mahjong:reading-yakuman reading) (cl-mahjong:reading-yakuman best))
+                     (> (cl-mahjong:reading-han reading) (cl-mahjong:reading-han best))))
+        (setf best reading)))))
+
 (defun best (tileset notation win &rest args)
-  (cl-mahjong:best-reading (apply #'readings tileset notation win args)))
+  (best-reading (apply #'readings tileset notation win args)))
 
 (test ron-triplet-is-not-concealed-but-the-hand-stays-closed
   (with-riichi (ts)

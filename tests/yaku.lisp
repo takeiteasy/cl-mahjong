@@ -75,14 +75,14 @@
       (is (equal '(:standard :seven-pairs)
                  (mapcar #'cl-mahjong:decomposition-shape
                          (mapcar #'cl-mahjong:reading-decomposition readings))))
-      (is (equal '((:ryanpeikou) 3 0) (score (cl-mahjong:best-reading readings)))))
+      (is (equal '((:ryanpeikou) 3 0) (score (best-reading readings)))))
     (is-score '((:chiitoitsu) 2 0) (ts "1122m3344p5566s77z" "7z"))))
 
 (test best-reading-picks-the-best-split
   (with-riichi (ts)
     (let ((readings (readings ts "111222333m456p77s" "7s")))
       (is (= 2 (length readings)))
-      (is (equal '((:sanankou) 2 0) (score (cl-mahjong:best-reading readings)))))))
+      (is (equal '((:sanankou) 2 0) (score (best-reading readings)))))))
 
 (test triplet-yaku
   (with-riichi (ts)
@@ -141,7 +141,7 @@
     (is-score '((:pinfu :tanyao) 2 0) (ts "234m567p345s678s66p" "8s" :context-args '(:renhou t)))
     (is-score '((:renhou) 0 1)
               (ts "234m567p345s678s66p" "8s" :context-args '(:renhou t)
-                                             :options '(:renhou t)))))
+                                             :options '(:renhou :yakuman)))))
 
 (test double-yakuman
   (with-riichi (ts)

@@ -1,12 +1,17 @@
 (in-package #:cl-mahjong)
 
 ;; seat-wind and round-wind are honor kind names such as :east.
+;; dora-indicators and ura-indicators are tile ids; tiles are the tile ids of the whole hand,
+;; melds and the winning tile included, so red fives can be counted.
 (defstruct win-context
   win-tile
   tsumo riichi double-riichi ippatsu
   seat-wind round-wind
   last-tile rinshan chankan
-  tenhou chiihou renhou)
+  tenhou chiihou renhou
+  dealer
+  dora-indicators ura-indicators
+  tiles)
 
 (defstruct (win-hand (:constructor make-win-hand
                          (tileset decomposition counts melds context options

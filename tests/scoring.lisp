@@ -1,0 +1,279 @@
+(in-package #:cl-mahjong/tests)
+
+(in-suite :cl-mahjong)
+
+(defun tile-ids (tileset notation &key plain)
+  "Distinct tile ids for NOTATION; the first copy of a kind is the red one unless PLAIN."
+  (let ((used (make-hash-table)))
+    (mapcar (lambda (id)
+              (let* ((tiles (cl-mahjong:tiles-of-kind tileset (cl-mahjong:tileset-kind tileset id)))
+                     (n (1- (incf (gethash id used 0)))))
+                (nth (if plain (- (length tiles) 1 n) n) tiles)))
+            (kind-ids tileset notation))))
+
+(defun scores (tileset notation win &key melds (options cl-mahjong:*riichi-options*)
+                                         context-args honba riichi-sticks (players 4)
+                                         (scoring 'riichi))
+  (cl-mahjong:evaluate-score scoring tileset *riichi-shapes* cl-mahjong:*riichi-yaku*
+                             (hand tileset notation) melds
+                             (apply #'context tileset win context-args)
+                             :options options :honba (or honba 0)
+                             :riichi-sticks (or riichi-sticks 0) :players players))
+
+(defun best-scored (&rest args)
+  (cl-mahjong:best-score (apply #'scores args)))
+
+(defun summary (score)
+  (list (cl-mahjong:score-fu score) (cl-mahjong:score-han score) (cl-mahjong:score-points score)))
+
+(defmacro is-points (expected (ts notation win &rest args))
+  `(is (equal ,expected (summary (best-scored ,ts ,notation ,win ,@args)))))
+
+(defun dora-of (score)
+  (cl-mahjong:score-dora score))
+
+;;; Fu
+
+(test pinfu-fu
+  (with-riichi (ts)
+    (is-points '(20 3 2700) (ts "234m567p345s678s66p" "8s" :context-args '(:tsumo t)))
+    (is-points '(30 2 2000) (ts "234m567p345s678s66p" "8s"))))
+
+(test chiitoitsu-is-25-fu
+  (with-riichi (ts)
+    (is-points '(25 2 1600) (ts "1122m3344p5566s77z" "7z"))))
+
+(test triplets-are-concealed-unless-completed-by-ron
+  (with-riichi (ts)
+    (is-points '(40 1 1300) (ts "222m345p678p456s88s" "2m"))
+    (is-points '(30 2 2000) (ts "222m345p678p456s88s" "2m" :context-args '(:tsumo t)))
+    (is-points '(30 1 1000)
+               (ts "345p678p456s88s" "4s" :melds (list (meld ts :triplet "222m" :open t))))))
+
+(test quad-fu
+  (with-riichi (ts)
+    (is-points '(70 1 2300)
+               (ts "234p567p456s99s" "4s" :melds (list (meld ts :quad "1111m"))
+                                           :context-args '(:riichi t)))))
+
+(test wait-fu
+  (with-riichi (ts)
+    (is-points '(40 1 1300) (ts "234m567p345s678s66p" "3m"))
+    (is-points '(40 1 1300) (ts "123m456p789s234s66p" "3m" :context-args '(:riichi t)))
+    (is-points '(40 1 1300) (ts "234m567p345s678s66p" "6p"))))
+
+(test value-pairs
+  (with-riichi (ts)
+    (is-points '(40 1 1300) (ts "234m567p345s678s55z" "8s" :context-args '(:riichi t)))
+    (is-points '(50 1 1600) (ts "111m234p567s789s11z" "4p" :context-args '(:riichi t)))
+    (is-points '(40 1 1300)
+               (ts "111m234p567s789s11z" "4p" :context-args '(:riichi t)
+                                              :options (list* :double-wind-fu 2
+                                                              cl-mahjong:*riichi-options*)))))
+
+(test rinshan-tsumo-fu-is-an-option
+  (with-riichi (ts)
+    (flet ((fu (options)
+             (cl-mahjong:score-fu
+              (best-scored ts "111m234p567s789s22p" "3p"
+                           :context-args '(:riichi t :tsumo t :rinshan t) :options options))))
+      (is (= 40 (fu cl-mahjong:*riichi-options*)))
+      (is (= 30 (fu (list* :rinshan-tsumo-fu nil cl-mahjong:*riichi-options*)))))))
+
+;;; Limits
+
+(defparameter *sanshoku-hand* "234m234p234s567m66p")
+
+(defun dora-rich (ts count)
+  "Indicators giving COUNT dora in the sanshoku hand."
+  (tile-ids ts (subseq "1m1p1s2m2p2s3m3p3s" 0 (* 2 count))))
+
+(test limits
+  (with-riichi (ts)
+    (flet ((limit (dora)
+             (let ((score (best-scored ts *sanshoku-hand* "7m"
+                                       :context-args (list :dora-indicators (dora-rich ts dora)))))
+               (list (cl-mahjong:score-han score) (cl-mahjong:score-limit score)
+                     (cl-mahjong:score-points score)))))
+      (is (equal '(4 nil 7700) (limit 0)))
+      (is (equal '(5 :mangan 8000) (limit 1)))
+      (is (equal '(6 :haneman 12000) (limit 2)))
+      (is (equal '(8 :baiman 16000) (limit 4)))
+      (is (equal '(11 :sanbaiman 24000) (limit 7)))
+      (is (equal '(13 :yakuman 32000) (limit 9))))))
+
+(test kazoe-yakuman-is-an-option
+  (with-riichi (ts)
+    (let ((score (best-scored ts *sanshoku-hand* "7m"
+                              :context-args (list :dora-indicators (dora-rich ts 9))
+                              :options '(:kuitan t))))
+      (is (eq :sanbaiman (cl-mahjong:score-limit score)))
+      (is (= 24000 (cl-mahjong:score-points score))))))
+
+(test kiriage-is-an-option
+  (with-riichi (ts)
+    (is (= 7700 (cl-mahjong:score-points (best-scored ts *sanshoku-hand* "7m"))))
+    (let ((score (best-scored ts *sanshoku-hand* "7m"
+                              :options (list* :kiriage t cl-mahjong:*riichi-options*))))
+      (is (eq :mangan (cl-mahjong:score-limit score)))
+      (is (= 8000 (cl-mahjong:score-points score))))))
+
+(test yakuman-multiples
+  (with-riichi (ts)
+    (let ((score (best-scored ts "19m19p19s1234567z1m" "1m")))
+      (is (eq :yakuman (cl-mahjong:score-limit score)))
+      (is (= 64000 (cl-mahjong:score-points score))))
+    (is (= 96000 (cl-mahjong:score-points
+                  (best-scored ts "19m19p19s1234567z1m" "1m" :context-args '(:dealer t)))))
+    (is (= 64000 (cl-mahjong:score-points
+                  (best-scored ts "111m222p333s444z55z" "5z"))))))
+
+;;; Dora
+
+(defun dora-counts (score)
+  (list (getf (dora-of score) :dora) (getf (dora-of score) :ura) (getf (dora-of score) :aka)))
+
+(test indicators-wrap-round
+  (with-riichi (ts)
+    (flet ((dora (notation win indicator)
+             (first (dora-counts
+                     (best-scored ts notation win
+                                  :context-args (list :riichi t
+                                                      :dora-indicators (tile-ids ts indicator)))))))
+      (is (= 3 (dora "111m234p567s789s22p" "4p" "9m")))
+      (is (= 2 (dora "234m567p345s678s11z" "8s" "4z")))
+      (is (= 3 (dora "123m456p789s555z22z" "3m" "7z")))
+      (is (= 1 (dora "234m567p345s678s66p" "8s" "1m"))))))
+
+(test dora-count-quads
+  (with-riichi (ts)
+    (is (= 4 (first (dora-counts
+                     (best-scored ts "234p567p456s99s" "4s"
+                                  :melds (list (meld ts :quad "1111m"))
+                                  :context-args (list :riichi t
+                                                      :dora-indicators (tile-ids ts "9m")))))))))
+
+(test kan-dora-are-more-indicators
+  (with-riichi (ts)
+    (is (= 2 (first (dora-counts
+                     (best-scored ts "234m567p345s678s66p" "8s"
+                                  :context-args (list :dora-indicators (tile-ids ts "1m2s")))))))))
+
+(test ura-needs-riichi
+  (with-riichi (ts)
+    (flet ((counts (&rest context-args)
+             (dora-counts (best-scored ts "234m567p345s678s66p" "8s"
+                                       :context-args (list* :ura-indicators (tile-ids ts "1m")
+                                                            context-args)))))
+      (is (equal '(0 0 0) (counts)))
+      (is (equal '(0 1 0) (counts :riichi t))))))
+
+(test dora-never-make-a-yaku
+  (with-riichi (ts)
+    (is (null (scores ts "234m567p345s678s55z" "8s"
+                      :context-args (list :dora-indicators (tile-ids ts "1m")))))))
+
+(test red-fives
+  (with-riichi (ts)
+    (flet ((aka (plain)
+             (third (dora-counts
+                     (best-scored ts "234m567p345s678s66p" "8s"
+                                  :context-args (list :tiles (tile-ids ts "234m567p345s678s66p8s"
+                                                                       :plain plain)))))))
+      (is (= 2 (aka nil)))
+      (is (= 0 (aka t))))))
+
+(test sanma-indicators-skip-the-removed-ranks
+  (let ((ts (cl-mahjong:find-tileset 'sanma-108)))
+    (flet ((dora (indicator)
+             (first (dora-counts
+                     (best-scored ts "111m999m234p567s11z" "4p"
+                                  :context-args (list :riichi t
+                                                      :dora-indicators (tile-ids ts indicator)))))))
+      (is (= 3 (dora "1m")))
+      (is (= 3 (dora "9m"))))))
+
+;;; Payments
+
+(test tsumo-payments
+  (with-riichi (ts)
+    (let ((score (best-scored ts "234m567p345s678s66p" "8s" :context-args '(:tsumo t))))
+      (is (equal '(:dealer 1300 :other 700) (cl-mahjong:score-payments score)))
+      (is (= 2700 (cl-mahjong:score-points score))))
+    (let ((score (best-scored ts "234m567p345s678s66p" "8s" :context-args '(:tsumo t :dealer t))))
+      (is (equal '(:dealer nil :other 1300) (cl-mahjong:score-payments score)))
+      (is (= 3900 (cl-mahjong:score-points score))))))
+
+(test honba-and-riichi-sticks
+  (with-riichi (ts)
+    (let ((ron (best-scored ts "234m567p345s678s66p" "8s" :honba 3 :riichi-sticks 1)))
+      (is (equal '(:ron 2900) (cl-mahjong:score-payments ron)))
+      (is (= 3900 (cl-mahjong:score-points ron))))
+    (let ((tsumo (best-scored ts "234m567p345s678s66p" "8s" :context-args '(:tsumo t)
+                                                              :honba 2 :riichi-sticks 2)))
+      (is (equal '(:dealer 1500 :other 900) (cl-mahjong:score-payments tsumo)))
+      (is (= 5300 (cl-mahjong:score-points tsumo))))))
+
+(test dealer-limits-pay-more
+  (with-riichi (ts)
+    (is (= 12000 (cl-mahjong:score-points
+                  (best-scored ts *sanshoku-hand* "7m"
+                               :context-args (list :dealer t :dora-indicators (dora-rich ts 1))))))))
+
+;;; Ranking
+
+(test best-score-ranks-points-then-han-then-fu
+  (flet ((score (fu han points) (cl-mahjong::make-score nil fu han nil nil 0 points nil)))
+    (is (= 4 (cl-mahjong:score-han
+              (cl-mahjong:best-score (list (score 30 3 1000) (score 30 4 1000) (score 30 2 1000))))))
+    (is (= 40 (cl-mahjong:score-fu
+               (cl-mahjong:best-score (list (score 30 2 1000) (score 40 2 1000))))))
+    (is (= 2000 (cl-mahjong:score-points
+                 (cl-mahjong:best-score (list (score 30 4 1000) (score 60 1 2000))))))
+    (is (null (cl-mahjong:best-score '())))))
+
+(test best-score-picks-the-better-split
+  (with-riichi (ts)
+    (is (= 2 (length (scores ts "111222333m456p77s" "7s"))))
+    (is-points '(50 2 3200) (ts "111222333m456p77s" "7s"))))
+
+;;; Renhou
+
+(test renhou-mangan-is-a-floor
+  (with-riichi (ts)
+    (flet ((points (renhou &rest context-args)
+             (cl-mahjong:score-points
+              (best-scored ts *sanshoku-hand* "7m"
+                           :context-args (list* :renhou t context-args)
+                           :options (list* :renhou renhou cl-mahjong:*riichi-options*)))))
+      (is (= 7700 (points nil)))
+      (is (= 8000 (points :mangan)))
+      (is (= 12000 (points :mangan :dora-indicators (dora-rich ts 2))))
+      (is (= 32000 (points :yakuman))))
+    (is (eq :mangan (cl-mahjong:score-limit
+                     (best-scored ts "234m567p345s678s66p" "8s" :context-args '(:renhou t)
+                                  :options '(:renhou :mangan)))))))
+
+;;; Definitions
+
+(test scoring-extends-and-lambda-fu
+  (cl-mahjong::register-definition
+   :scoring 'test-base-30 'riichi '((:name test-base-30) (:fu (:base 30))))
+  (cl-mahjong::register-definition
+   :scoring 'test-lambda-fu 'riichi
+   '((:name test-lambda-fu) (:fu (:lambda (hand reading) (declare (ignore hand reading)) 99))))
+  (with-riichi (ts)
+    (is-points '(40 2 2600) (ts "234m567p345s678s66p" "8s" :scoring 'test-base-30))
+    (is (= 99 (cl-mahjong:score-fu
+               (best-scored ts "234m567p345s678s66p" "8s" :scoring 'test-lambda-fu))))))
+
+(test invalid-scoring-definitions
+  (flet ((invalid (name &rest clauses)
+           (cl-mahjong::register-definition :scoring name nil (cons (list :name name) clauses))
+           (signals cl-mahjong:invalid-definition (cl-mahjong:find-scoring name))))
+    (invalid 'test-no-fu '(:limits (yakuman 8000)))
+    (invalid 'test-no-yakuman '(:fu (:base 20)) '(:limits (mangan 2000 :han 5)))
+    (invalid 'test-bad-clause '(:colour red))
+    (invalid 'test-bad-fu '(:fu (:colour 2)) '(:limits (yakuman 8000)))
+    (invalid 'test-bad-floor '(:fu (:base 20)) '(:limits (yakuman 8000)) '(:floor x mangan))
+    (invalid 'test-no-payments '(:fu (:base 20)) '(:limits (yakuman 8000)))))

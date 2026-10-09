@@ -5,8 +5,8 @@
   han open-han yakuman closed-only
   double-when patterns implies excludes)
 
-(defstruct (reading (:constructor make-reading (decomposition win-group wait yaku han yakuman)))
-  decomposition win-group wait yaku han yakuman)
+(defstruct (reading (:constructor make-reading (decomposition win-group wait yaku han yakuman hand)))
+  decomposition win-group wait yaku han yakuman hand)
 
 (defparameter *yaku-clauses* '(:name :han :yakuman :when :implies :excludes))
 
@@ -119,7 +119,8 @@
     (make-reading (win-hand-decomposition hand) (win-hand-win-group hand) (win-hand-wait hand)
                   (mapcar (lambda (award) (cons (yaku-name (car award)) (cdr award))) awards)
                   (if (plusp yakuman) 0 (reduce #'+ awards :key #'cdr))
-                  yakuman)))
+                  yakuman
+                  hand)))
 
 (defun evaluate-yaku (tileset shapes yaku counts melds context &key options)
   "Every reading of a winning hand: each decomposition at each winning-tile placement.
@@ -134,16 +135,3 @@ value being han, or the yakuman multiple when `reading-yakuman' is positive."
           for shape = (find (decomposition-shape decomposition) shapes :key #'shape-name)
           append (mapcar (lambda (hand) (read-win-hand hand yaku))
                          (expand-wins tileset shape decomposition counts melds context options)))))
-
-(defun reading-better-p (a b)
-  (or (> (reading-yakuman a) (reading-yakuman b))
-      (and (= (reading-yakuman a) (reading-yakuman b))
-           (> (reading-han a) (reading-han b)))))
-
-(defun best-reading (readings)
-  "The reading with the most yakuman, then han; the first of equals."
-  ;; TODO: ties are not broken by fu; tracked in #4
-  (let (best)
-    (dolist (reading readings best)
-      (when (or (null best) (reading-better-p reading best))
-        (setf best reading)))))

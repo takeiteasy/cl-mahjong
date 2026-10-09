@@ -80,6 +80,10 @@
    #:win-context-tenhou
    #:win-context-chiihou
    #:win-context-renhou
+   #:win-context-dealer
+   #:win-context-dora-indicators
+   #:win-context-ura-indicators
+   #:win-context-tiles
    #:win-hand-tileset
    #:win-hand-decomposition
    #:win-hand-counts
@@ -97,13 +101,27 @@
    #:find-yaku
    #:yaku-name
    #:evaluate-yaku
-   #:best-reading
    #:reading-decomposition
    #:reading-win-group
    #:reading-wait
    #:reading-yaku
    #:reading-han
    #:reading-yakuman
+   #:reading-hand
+   ;; scoring
+   #:defscoring
+   #:find-scoring
+   #:evaluate-score
+   #:reading-score
+   #:best-score
+   #:score-reading
+   #:score-fu
+   #:score-han
+   #:score-dora
+   #:score-limit
+   #:score-base
+   #:score-points
+   #:score-payments
    ;; riichi
    #:*riichi-yaku*
    #:*riichi-options*))

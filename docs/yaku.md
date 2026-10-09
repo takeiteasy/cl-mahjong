@@ -7,12 +7,11 @@
   (:when (across-suits sequence)))
 
 (let ((ts (find-tileset 'riichi-136)))
-  (best-reading
-   (evaluate-yaku ts '(standard seven-pairs kokushi) *riichi-yaku*
-                  counts melds
-                  (make-win-context :win-tile tile :seat-wind :east :round-wind :east
-                                    :tsumo t)
-                  :options *riichi-options*)))
+  (evaluate-yaku ts '(standard seven-pairs kokushi) *riichi-yaku*
+                 counts melds
+                 (make-win-context :win-tile tile :seat-wind :east :round-wind :east
+                                   :tsumo t)
+                 :options *riichi-options*))
 ```
 
 ## Clauses
@@ -38,18 +37,18 @@ Yakuman replace every other yaku in a reading.
 | Function | Result |
 |---|---|
 | `(evaluate-yaku ts shapes yaku counts melds context &key options)` | A list of readings |
-| `(best-reading readings)` | The reading with the most yakuman, then han; `NIL` when there are none |
 
 `yaku` is a list of yaku or their names, like `shapes`. `counts` include the winning tile named by the context ([pattern.md](pattern.md#win-context)). A reading is one decomposition with the winning tile in one group, so a hand with several splits or waits has several readings. Readings that earn no yaku are included.
 
 | Reader | Value |
 |---|---|
 | `reading-decomposition`, `reading-win-group`, `reading-wait` | Where the winning tile sits |
+| `reading-hand` | The [win hand](pattern.md#win-hand) |
 | `reading-yaku` | `(name . value)` pairs; `value` is han, or the yakuman multiple in a yakuman reading |
 | `reading-han` | Total han; `0` in a yakuman reading |
 | `reading-yakuman` | Total yakuman multiple |
 
-Dora do not count towards han.[^dora]
+Dora do not count towards han; [scoring](scoring.md) adds them and picks the best reading.[^dora]
 
 ## Riichi
 
@@ -59,7 +58,7 @@ Dora do not count towards han.[^dora]
 |---|---|---|
 | `kuitan` | on | Tanyao scores with open melds |
 | `double-yakuman` | on | Yakuman with `:double-when` can double |
-| `renhou` | off | Renhou scores as a yakuman |
+| `renhou` | off | `:yakuman` scores renhou as a yakuman, `:mangan` as `renhou-mangan`, a 5 han yaku that [scoring](scoring.md) treats as a mangan floor |
 
 | Han (closed / open) | Yaku |
 |---|---|
@@ -85,6 +84,6 @@ Double riichi replaces riichi, ryanpeikou iipeikou and junchan chanta. A double 
 
 ## Limitations
 
-See [PLAN.md](PLAN.md#limitations): `best-reading` does not break ties by fu, and selector names are not checked against the tileset.
+See [PLAN.md](PLAN.md#limitations): selector names are not checked against the tileset.
 
-[^dora]: Dora, red fives and limits belong to scoring.
+[^dora]: Dora, red fives, kazoe yakuman and limits belong to scoring.
