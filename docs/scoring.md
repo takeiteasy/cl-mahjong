@@ -1,6 +1,6 @@
 # Scoring
 
-`defscoring` turns a reading into points: fu, han plus dora, limits, and who pays what. `evaluate-score` scores every reading of a hand and `best-score` picks the highest.
+`defscoring` turns a reading into points: fu, han plus dora, limits, and who pays what. `evaluate-score` scores every reading of one winner's hand and `best-score` picks the highest.
 
 ```lisp
 (let* ((ts (find-tileset 'riichi-136))
@@ -119,4 +119,4 @@ Each payer's share rounds up on its own. `:honba n` is paid per honba by the dis
 
 ## Limitations
 
-See [PLAN.md](PLAN.md#limitations): pao is not applied ([#17](https://todo.sr.ht/~takeiteasy/cl-mahjong/17)), one winner is scored per call ([#18](https://todo.sr.ht/~takeiteasy/cl-mahjong/18)), and sanma tsumo payments follow the same multipliers as four players ([#6](https://todo.sr.ht/~takeiteasy/cl-mahjong/6)).
+See [PLAN.md](PLAN.md#limitations): pao is not applied ([#17](https://todo.sr.ht/~takeiteasy/cl-mahjong/17)), and sanma tsumo payments follow the same multipliers as four players ([#6](https://todo.sr.ht/~takeiteasy/cl-mahjong/6)).

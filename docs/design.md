@@ -10,7 +10,7 @@ A variant is data compiled into an immutable `ruleset`. The engine never branche
 | Hand shape | `defshape` | sets + pair, seven pairs, kokushi, lambda; see [shape.md](shape.md) |
 | Yaku | `defyaku` | condition, han (open/closed), excludes/implies, yakuman; see [yaku.md](yaku.md) |
 | Scoring | `defscoring` | fu, han to base points, limits, dora, payments; see [scoring.md](scoring.md) |
-| Variant | `defvariant` | players, tileset, shapes, yaku, scoring, options |
+| Variant | `defvariant` | players, tileset, shapes, yaku, scoring, options; see [variant.md](variant.md) |
 
 Each takes `:extends` to inherit from a definition of the same kind, then adds, removes or overrides parts. Definitions are stored by name and compiled on first lookup; redefining one recompiles the definitions that extend it.
 
@@ -38,7 +38,7 @@ An event ruleset is a variant that extends another and changes a few rules.
 
 | Path | Content |
 |---|---|
-| `src/` | engine: registry, random, tileset, [wall](wall.md), hand, [shapes](shape.md), [analysis](analysis.md), win, [patterns](pattern.md), [yaku](yaku.md), [scoring](scoring.md), variant, game |
+| `src/` | engine: registry, random, tileset, [wall](wall.md), hand, [shapes](shape.md), [analysis](analysis.md), win, [patterns](pattern.md), [yaku](yaku.md), [scoring](scoring.md), [variant](variant.md), [game](game.md) (state and `play`: actions) |
 | `variants/` | `riichi`, `sanma` |
 | `tests/` | fiveam suites |
 

@@ -24,10 +24,6 @@
 
 ;;; Yaku
 
-(defparameter *riichi-options*
-  '(:kuitan t :double-yakuman t :renhou nil
-    :kiriage nil :kazoe-yakuman t :double-wind-fu 4 :rinshan-tsumo-fu t))
-
 (defun chuuren-counts-p (tileset counts exact)
   "One suit holding the low and high ranks three times and each rank between at least once, or exactly once with EXACT."
   (let ((by-rank (make-hash-table))
@@ -148,13 +144,6 @@
 (defyaku renhou-mangan (:han 5 :closed-only t)
   (:when (context renhou) (option renhou :mangan)))
 
-(defparameter *riichi-yaku*
-  '(riichi double-riichi ippatsu menzen-tsumo pinfu iipeikou ryanpeikou tanyao
-    haku hatsu chun jikaze bakaze haitei houtei rinshan chankan
-    chiitoitsu chanta junchan ittsu sanshoku sanshoku-doukou sanankou sankantsu
-    toitoi shousangen honroutou honitsu chinitsu
-    kokushi suuankou chuuren daisangen shousuushii daisuushii tsuuiisou chinroutou
-    ryuuiisou suukantsu tenhou chiihou renhou renhou-mangan))
 
 ;;; Scoring
 
@@ -173,3 +162,23 @@
   (:dora (:indicator next))
   (:payments (:ron :dealer 6 :other 4) (:tsumo :dealer 2 :other (2 1))
              (:round 100) (:honba 300) (:riichi-stick 1000)))
+
+;;; Variant
+
+(defvariant riichi
+  (:players 4)
+  (:tileset riichi-136)
+  (:shapes standard seven-pairs kokushi)
+  (:yaku
+   riichi double-riichi ippatsu menzen-tsumo pinfu iipeikou ryanpeikou tanyao
+   haku hatsu chun jikaze bakaze haitei houtei rinshan chankan
+   chiitoitsu chanta junchan ittsu sanshoku sanshoku-doukou sanankou sankantsu
+   toitoi shousangen honroutou honitsu chinitsu
+   kokushi suuankou chuuren daisangen shousuushii daisuushii tsuuiisou chinroutou
+   ryuuiisou suukantsu tenhou chiihou renhou renhou-mangan)
+  (:scoring riichi)
+  (:options :kuitan t :double-yakuman t :renhou nil
+            :kiriage nil :kazoe-yakuman t :double-wind-fu 4 :rinshan-tsumo-fu t))
+
+(defparameter *riichi-yaku* (variant-yaku (find-variant 'riichi)))
+(defparameter *riichi-options* (variant-options (find-variant 'riichi)))

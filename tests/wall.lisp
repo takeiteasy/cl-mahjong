@@ -85,3 +85,17 @@
   (let ((wall (cl-mahjong:make-wall (cl-mahjong:find-tileset 'wall-bare) :seed 1)))
     (is (= 9 (cl-mahjong:wall-live-count wall)))
     (is (null (cl-mahjong:wall-dora-indicators wall)))))
+
+(test stacked-wall
+  (let* ((ts (cl-mahjong:find-tileset 'riichi-136))
+         (order (reverse (loop for i below 136 collect i)))
+         (wall (cl-mahjong:make-wall ts :tiles order)))
+    (is (equal (subseq order 0 122) (drain wall)))
+    (is (equal (subseq order 122) (cl-mahjong:wall-dead-tiles wall)))))
+
+(test stacked-wall-needs-every-tile-once
+  (let ((ts (cl-mahjong:find-tileset 'riichi-136)))
+    (signals cl-mahjong:invalid-definition
+      (cl-mahjong:make-wall ts :tiles (loop for i below 135 collect i)))
+    (signals cl-mahjong:invalid-definition
+      (cl-mahjong:make-wall ts :tiles (cons 0 (loop for i below 135 collect i))))))

@@ -65,3 +65,9 @@
   (let* ((ts (cl-mahjong:find-tileset 'shp-flowers))
          (plum (first (cl-mahjong:tiles-of-kind ts (cl-mahjong:find-kind ts 'plum)))))
     (signals cl-mahjong:invalid-hand (cl-mahjong:hand-counts ts (list plum)))))
+
+(test meld-records-giver-and-tiles
+  (let ((meld (cl-mahjong:make-meld :triplet '(0 0 0) :open t :from 2 :tiles '(0 1 2))))
+    (is (= 2 (cl-mahjong:meld-from meld)))
+    (is (equal '(0 1 2) (cl-mahjong:meld-tiles meld))))
+  (is (null (cl-mahjong:meld-from (cl-mahjong:make-meld :triplet '(0 0 0))))))

@@ -7,12 +7,23 @@
   (live-end 0 :type fixnum)
   (replacements-drawn 0 :type fixnum))
 
-(defun make-wall (tileset &key seed)
+(defun stacked-tiles (tileset tiles)
+  (let ((count (tileset-tile-count tileset)))
+    (unless (and (= (length tiles) count)
+                 (equal (sort (copy-seq (coerce tiles 'list)) #'<)
+                        (loop for tile below count collect tile)))
+      (invalid "A stacked wall needs every tile id of the tileset exactly once"))
+    (coerce tiles 'simple-vector)))
+
+(defun make-wall (tileset &key seed tiles)
+  "A shuffled wall, or with TILES (every tile id once) one stacked in that order."
   (let* ((layout (tileset-wall-layout tileset))
-         (all (shuffle-vector (coerce (loop for tile below (tileset-tile-count tileset)
-                                            collect tile)
-                                      'simple-vector)
-                              (make-rng seed)))
+         (all (if tiles
+                  (stacked-tiles tileset tiles)
+                  (shuffle-vector (coerce (loop for tile below (tileset-tile-count tileset)
+                                                collect tile)
+                                          'simple-vector)
+                                  (make-rng seed))))
          (live-end (- (length all) (wall-layout-dead-wall layout))))
     (%make-wall tileset
                 (subseq all 0 live-end)

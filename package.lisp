@@ -49,6 +49,8 @@
    #:meld-type
    #:meld-kinds
    #:meld-open-p
+   #:meld-from
+   #:meld-tiles
    #:hand-closed-p
    ;; shape
    #:defshape
@@ -122,6 +124,50 @@
    #:score-base
    #:score-points
    #:score-payments
+   ;; variant
+   #:defvariant
+   #:find-variant
+   #:variant-name
+   #:variant-players
+   #:variant-tileset
+   #:variant-shapes
+   #:variant-yaku
+   #:variant-scoring
+   #:variant-options
+   ;; game
+   #:illegal-action
+   #:start-game
+   #:next-deal
+   #:legal-actions
+   #:deciding-seats
+   #:apply-action
+   #:game-over-p
+   #:game-variant
+   #:game-points
+   #:game-kyoku
+   #:game-honba
+   #:game-sticks
+   #:game-phase
+   #:game-deal
+   #:game-result
+   #:game-final
+   #:deal-wall
+   #:deal-players
+   #:deal-dealer
+   #:deal-turn
+   #:deal-phase
+   #:deal-drawn
+   #:player-tiles
+   #:player-melds
+   #:player-discards
+   #:player-riichi
+   #:player-double-riichi
+   #:player-ippatsu
+   #:player-temp-furiten
+   #:player-riichi-furiten
+   #:player-called-away
+   #:variant-option
+   #:limit-payments
    ;; riichi
    #:*riichi-yaku*
    #:*riichi-options*))

@@ -13,6 +13,8 @@ Status: work in progress, restarting around riichi. See [docs/PLAN.md](docs/PLAN
 | Patterns, waits, win context | [docs/pattern.md](docs/pattern.md) |
 | Yaku and the riichi yaku set | [docs/yaku.md](docs/yaku.md) |
 | Fu, limits, dora and payments | [docs/scoring.md](docs/scoring.md) |
+| Variants | [docs/variant.md](docs/variant.md) |
+| Game flow, calls, riichi, game end | [docs/game.md](docs/game.md) |
 
 ## Tests
 

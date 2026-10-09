@@ -27,7 +27,7 @@ Positions must be unique and inside the dead wall.
 
 | Function | Result |
 |---|---|
-| `make-wall tileset &key seed` | New wall; random seed when omitted |
+| `make-wall tileset &key seed tiles` | New wall; random seed when omitted. `tiles` stacks it: every tile id once, in wall order |
 | `wall-draw wall` | `(values tile new-wall)`; `(values nil wall)` when empty |
 | `wall-draw-replacement wall` | Tile from the next replacement slot; the last live tile refills the slot |
 | `wall-reveal-dora wall` | Wall with one more indicator revealed, or `NIL` when all are |
