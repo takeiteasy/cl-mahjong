@@ -10,6 +10,8 @@ Status: work in progress, restarting around riichi. See [docs/PLAN.md](docs/PLAN
 | Wall and dead wall | [docs/wall.md](docs/wall.md) |
 | Hand shapes | [docs/shape.md](docs/shape.md) |
 | Decomposition, shanten, ukeire | [docs/analysis.md](docs/analysis.md) |
+| Patterns, waits, win context | [docs/pattern.md](docs/pattern.md) |
+| Yaku and the riichi yaku set | [docs/yaku.md](docs/yaku.md) |
 
 ## Tests
 

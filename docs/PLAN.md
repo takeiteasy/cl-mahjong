@@ -9,7 +9,7 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 | 0 | Skeleton, docs, tracker | n/a | done |
 | 1 | Registry, inheritance, tileset and wall DSL | [#1](https://todo.sr.ht/~takeiteasy/cl-mahjong/1) | done |
 | 2 | Shape DSL, decomposition, shanten | [#2](https://todo.sr.ht/~takeiteasy/cl-mahjong/2) | done |
-| 3 | Pattern language, `defyaku`, riichi yaku | [#3](https://todo.sr.ht/~takeiteasy/cl-mahjong/3) | open |
+| 3 | Pattern language, `defyaku`, riichi yaku | [#3](https://todo.sr.ht/~takeiteasy/cl-mahjong/3) | done |
 | 4 | Scoring DSL | [#4](https://todo.sr.ht/~takeiteasy/cl-mahjong/4) | open |
 | 5 | Game-flow state machine | [#5](https://todo.sr.ht/~takeiteasy/cl-mahjong/5) | open |
 | 6 | Variant deltas, sanma, event examples | [#6](https://todo.sr.ht/~takeiteasy/cl-mahjong/6) | open |
@@ -27,3 +27,5 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 | No bot interface | [#13](https://todo.sr.ht/~takeiteasy/cl-mahjong/13) |
 | Rule files must be trusted Lisp; no sandboxed loading | [#14](https://todo.sr.ht/~takeiteasy/cl-mahjong/14) |
 | Shanten uses generic shape search, no fast path | [#15](https://todo.sr.ht/~takeiteasy/cl-mahjong/15) |
+| `best-reading` does not break ties by fu | [#4](https://todo.sr.ht/~takeiteasy/cl-mahjong/4) |
+| Pattern selector names are not checked against the tileset | [#16](https://todo.sr.ht/~takeiteasy/cl-mahjong/16) |

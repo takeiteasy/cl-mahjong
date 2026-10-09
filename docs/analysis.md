@@ -75,7 +75,7 @@ A decomposition is the shape's name and its groups, melds first, then the rest i
 - Sequences follow suit and rank, never kind ids, so sanma's man 1 and man 9 do not connect.
 - Honors never form sequences.
 - Each split is listed once.
-- Winning-tile placement is not part of a decomposition.
+- A decomposition does not place the winning tile; [pattern.md](pattern.md#waits) expands it per placement.
 
 ## Limitations
 

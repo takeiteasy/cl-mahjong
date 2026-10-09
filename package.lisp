@@ -64,4 +64,46 @@
    #:decompose
    #:complete-p
    #:shanten
-   #:ukeire))
+   #:ukeire
+   ;; win
+   #:make-win-context
+   #:win-context-win-tile
+   #:win-context-tsumo
+   #:win-context-riichi
+   #:win-context-double-riichi
+   #:win-context-ippatsu
+   #:win-context-seat-wind
+   #:win-context-round-wind
+   #:win-context-last-tile
+   #:win-context-rinshan
+   #:win-context-chankan
+   #:win-context-tenhou
+   #:win-context-chiihou
+   #:win-context-renhou
+   #:win-hand-tileset
+   #:win-hand-decomposition
+   #:win-hand-counts
+   #:win-hand-melds
+   #:win-hand-context
+   #:win-hand-options
+   #:win-hand-win-kind
+   #:win-hand-win-group
+   #:win-hand-wait
+   #:win-hand-closed-p
+   #:win-hand-pre-win-counts
+   #:group-concealed-p
+   ;; yaku
+   #:defyaku
+   #:find-yaku
+   #:yaku-name
+   #:evaluate-yaku
+   #:best-reading
+   #:reading-decomposition
+   #:reading-win-group
+   #:reading-wait
+   #:reading-yaku
+   #:reading-han
+   #:reading-yakuman
+   ;; riichi
+   #:*riichi-yaku*
+   #:*riichi-options*))
