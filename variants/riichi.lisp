@@ -10,3 +10,14 @@
          (:replacement 0 1 2 3)
          (:dora 4 6 8 10 12)
          (:ura 5 7 9 11 13)))
+
+(defshape standard
+  (:sets 4 :of (sequence triplet))
+  (:pair 1))
+
+(defshape seven-pairs
+  (:pairs 7 :distinct t))
+
+(defshape kokushi
+  (:each terminal honor)
+  (:extra 1 :of (terminal honor)))

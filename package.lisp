@@ -41,4 +41,27 @@
    #:wall-ura-indicators
    #:wall-dead-tiles
    #:wall-live-count
-   #:wall-exhausted-p))
+   #:wall-exhausted-p
+   ;; hand
+   #:invalid-hand
+   #:hand-counts
+   #:make-meld
+   #:meld-type
+   #:meld-kinds
+   #:meld-open-p
+   #:hand-closed-p
+   ;; shape
+   #:defshape
+   #:find-shape
+   #:shape-name
+   #:shape-family
+   ;; analysis
+   #:group-type
+   #:group-kinds
+   #:group-open-p
+   #:decomposition-shape
+   #:decomposition-groups
+   #:decompose
+   #:complete-p
+   #:shanten
+   #:ukeire))

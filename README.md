@@ -8,6 +8,8 @@ Status: work in progress, restarting around riichi. See [docs/PLAN.md](docs/PLAN
 |---|---|
 | Tilesets and inheritance | [docs/tileset.md](docs/tileset.md) |
 | Wall and dead wall | [docs/wall.md](docs/wall.md) |
+| Hand shapes | [docs/shape.md](docs/shape.md) |
+| Decomposition, shanten, ukeire | [docs/analysis.md](docs/analysis.md) |
 
 ## Tests
 

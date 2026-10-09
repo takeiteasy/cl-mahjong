@@ -7,7 +7,7 @@ A variant is data compiled into an immutable `ruleset`. The engine never branche
 | Definition | Macro | Contents |
 |---|---|---|
 | Tile set | `deftileset` | suits, ranks, honors, bonus tiles, copies, attributes (red fives), wall layout; see [tileset.md](tileset.md) |
-| Hand shape | `defshape` | sets + pair, seven pairs, kokushi |
+| Hand shape | `defshape` | sets + pair, seven pairs, kokushi, lambda; see [shape.md](shape.md) |
 | Yaku | `defyaku` | condition, han (open/closed), excludes/implies, yakuman |
 | Scoring | `defscoring` | fu, han to base points, limits, payments |
 | Variant | `defvariant` | players, tileset, shapes, yaku, scoring, options |
@@ -29,7 +29,7 @@ An event ruleset is a variant that extends another and changes a few rules.
 
 - Rule conditions are patterns (`every-tile`, `some-group`, `wait`, ...) with a `(:lambda ...)` escape hatch. Patterns compile to closures when the variant resolves.
 - Every decomposition of a hand is scored; the highest wins.
-- Shanten and ukeire work over the shapes the variant declares.
+- Shanten and ukeire work over the shapes the variant declares; see [analysis.md](analysis.md).
 - A hand is closed when no meld is open; a closed kan keeps it closed.
 - Tiles are compact ids from the compiled tileset: a kind id for shapes and patterns, a tile id for one physical tile. A red five has the kind of a five and a `:red` attribute.
 - Rule definitions are trusted Lisp.[^trusted]
@@ -38,7 +38,7 @@ An event ruleset is a variant that extends another and changes a few rules.
 
 | Path | Content |
 |---|---|
-| `src/` | engine: registry, random, tileset, [wall](wall.md), shapes, analysis, patterns, yaku, scoring, variant, game |
+| `src/` | engine: registry, random, tileset, [wall](wall.md), hand, [shapes](shape.md), [analysis](analysis.md), patterns, yaku, scoring, variant, game |
 | `variants/` | `riichi`, `sanma` |
 | `tests/` | fiveam suites |
 
