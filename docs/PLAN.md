@@ -20,6 +20,7 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 | Limitation | Ticket |
 |---|---|
 | No Tenhou log replay validation | [#9](https://todo.sr.ht/~takeiteasy/cl-mahjong/9) |
+| No WRC or Tenhou rules variants | [#20](https://todo.sr.ht/~takeiteasy/cl-mahjong/20), [#21](https://todo.sr.ht/~takeiteasy/cl-mahjong/21) |
 | No HK variant | [#10](https://todo.sr.ht/~takeiteasy/cl-mahjong/10) |
 | No MCR variant | [#11](https://todo.sr.ht/~takeiteasy/cl-mahjong/11) |
 | No CLI; the library has no UI | [#12](https://todo.sr.ht/~takeiteasy/cl-mahjong/12) |

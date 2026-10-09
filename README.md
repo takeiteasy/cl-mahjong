@@ -2,7 +2,9 @@
 
 Mahjong rules engine for Common Lisp. A whole variant (tiles, wall, hand shapes, yaku, scoring, game flow) is defined in a DSL, and every definition can inherit from another.
 
-Status: work in progress, restarting around riichi. See [docs/PLAN.md](docs/PLAN.md) and [docs/design.md](docs/design.md).
+> **Work in progress.** The API is unstable and will change before v1. Riichi is playable end to end; other variants and the validation corpus are not done yet.
+
+Status: restarting around riichi. See [docs/PLAN.md](docs/PLAN.md) and [docs/design.md](docs/design.md).
 
 | Topic | Page |
 |---|---|
