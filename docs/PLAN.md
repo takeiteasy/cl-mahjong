@@ -7,7 +7,7 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 | # | Deliverable | Ticket | Status |
 |---|---|---|---|
 | 0 | Skeleton, docs, tracker | n/a | done |
-| 1 | Registry, inheritance, tileset and wall DSL | [#1](https://todo.sr.ht/~takeiteasy/cl-mahjong/1) | open |
+| 1 | Registry, inheritance, tileset and wall DSL | [#1](https://todo.sr.ht/~takeiteasy/cl-mahjong/1) | done |
 | 2 | Shape DSL, decomposition, shanten | [#2](https://todo.sr.ht/~takeiteasy/cl-mahjong/2) | open |
 | 3 | Pattern language, `defyaku`, riichi yaku | [#3](https://todo.sr.ht/~takeiteasy/cl-mahjong/3) | open |
 | 4 | Scoring DSL | [#4](https://todo.sr.ht/~takeiteasy/cl-mahjong/4) | open |

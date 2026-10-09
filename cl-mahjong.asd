@@ -6,14 +6,24 @@
   :license "GPL-3.0-or-later"
   :version "0.0.0"
   :serial t
-  :components ((:file "package"))
+  :components ((:file "package")
+               (:file "src/registry")
+               (:file "src/random")
+               (:file "src/tileset")
+               (:file "src/wall")
+               (:file "variants/riichi")
+               (:file "variants/sanma"))
   :in-order-to ((asdf:test-op (asdf:test-op "cl-mahjong/tests"))))
 
 (asdf:defsystem "cl-mahjong/tests"
   :depends-on ("cl-mahjong" "fiveam")
   :serial t
   :components ((:file "tests/package")
-               (:file "tests/smoke"))
+               (:file "tests/smoke")
+               (:file "tests/registry")
+               (:file "tests/random")
+               (:file "tests/tileset")
+               (:file "tests/wall"))
   :perform (asdf:test-op (op component)
              (declare (ignore op component))
              (unless (uiop:symbol-call :cl-mahjong/tests :run-tests)

@@ -6,13 +6,13 @@ A variant is data compiled into an immutable `ruleset`. The engine never branche
 
 | Definition | Macro | Contents |
 |---|---|---|
-| Tile set | `deftileset` | suits, ranks, honors, bonus tiles, copies, attributes (red fives) |
+| Tile set | `deftileset` | suits, ranks, honors, bonus tiles, copies, attributes (red fives), wall layout; see [tileset.md](tileset.md) |
 | Hand shape | `defshape` | sets + pair, seven pairs, kokushi |
 | Yaku | `defyaku` | condition, han (open/closed), excludes/implies, yakuman |
 | Scoring | `defscoring` | fu, han to base points, limits, payments |
 | Variant | `defvariant` | players, tileset, shapes, yaku, scoring, options |
 
-Each takes `:extends` to inherit from a definition of the same kind, then adds, removes or overrides parts.
+Each takes `:extends` to inherit from a definition of the same kind, then adds, removes or overrides parts. Definitions are stored by name and compiled on first lookup; redefining one recompiles the definitions that extend it.
 
 ```lisp
 (deftileset sanma-108 :extends riichi-136
@@ -31,14 +31,14 @@ An event ruleset is a variant that extends another and changes a few rules.
 - Every decomposition of a hand is scored; the highest wins.
 - Shanten and ukeire work over the shapes the variant declares.
 - A hand is closed when no meld is open; a closed kan keeps it closed.
-- Tiles are compact ids from the compiled tileset. A red five matches a five in shapes and is distinct for dora.
+- Tiles are compact ids from the compiled tileset: a kind id for shapes and patterns, a tile id for one physical tile. A red five has the kind of a five and a `:red` attribute.
 - Rule definitions are trusted Lisp.[^trusted]
 
 ## Layout
 
 | Path | Content |
 |---|---|
-| `src/` | engine: tiles, wall, shapes, analysis, patterns, yaku, scoring, variant, game |
+| `src/` | engine: registry, random, tileset, [wall](wall.md), shapes, analysis, patterns, yaku, scoring, variant, game |
 | `variants/` | `riichi`, `sanma` |
 | `tests/` | fiveam suites |
 

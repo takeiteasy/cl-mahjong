@@ -4,6 +4,11 @@ Mahjong rules engine for Common Lisp. A whole variant (tiles, wall, hand shapes,
 
 Status: work in progress, restarting around riichi. See [docs/PLAN.md](docs/PLAN.md) and [docs/design.md](docs/design.md).
 
+| Topic | Page |
+|---|---|
+| Tilesets and inheritance | [docs/tileset.md](docs/tileset.md) |
+| Wall and dead wall | [docs/wall.md](docs/wall.md) |
+
 ## Tests
 
 ```
