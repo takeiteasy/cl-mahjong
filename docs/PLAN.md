@@ -19,7 +19,6 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 
 | Limitation | Ticket |
 |---|---|
-| `master` is still the GitHub default branch | [#8](https://todo.sr.ht/~takeiteasy/cl-mahjong/8) |
 | No Tenhou log replay validation | [#9](https://todo.sr.ht/~takeiteasy/cl-mahjong/9) |
 | No HK variant | [#10](https://todo.sr.ht/~takeiteasy/cl-mahjong/10) |
 | No MCR variant | [#11](https://todo.sr.ht/~takeiteasy/cl-mahjong/11) |
