@@ -15,7 +15,7 @@
     :kyuushu t :suufon-renda t :suucha-riichi t :suukaikan t
     :nagashi-mangan :mangan :noten-payment 3000
     :riichi-cost 1000 :riichi-min-tiles 4 :renchan :tenpai
-    :uma (15 5 -5 -15) :oka t
+    :uma (15 5 -5 -15) :oka t :initial-dora 1
     :winds (:east :south :west :north))
   "Game-flow options a variant's :options may override.")
 
@@ -156,6 +156,8 @@ POINTS, KYOKU, HONBA and STICKS start the game part way through."
          (stacked (game-walls game))
          (wall (or (first stacked) (make-wall (game-tileset game) :seed (wall-seed game)))))
     (multiple-value-bind (wall hands) (deal-hands game wall dealer)
+      (dotimes (i (1- (opt game :initial-dora)))
+        (setf wall (or (wall-reveal-dora wall) wall)))
       (let ((game (copy-game game)))
         (setf (game-walls game) (rest stacked)
               (game-dealt game) (1+ (game-dealt game))

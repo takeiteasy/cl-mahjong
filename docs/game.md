@@ -99,6 +99,7 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 | `:noten-payment` | 3000 | Total paid from noten to tenpai |
 | `:riichi-cost`, `:riichi-min-tiles` | 1000, 4 | |
 | `:renchan` | `:tenpai` | Dealer repeats when tenpai; `:win-only` |
+| `:initial-dora` | 1 | Dora indicators showing at the start of a deal |
 | `:uma`, `:oka` | `(15 5 -5 -15)`, on | Thousands by place; oka is players x (target - start) to first |
 | `:winds` | east south west north | Seat and round wind kinds |
 
@@ -108,4 +109,4 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 
 ## Limitations
 
-See [PLAN.md](PLAN.md#limitations): the game ignores pao ([#17](https://todo.sr.ht/~takeiteasy/cl-mahjong/17)), sanma payments and uma are four-player ([#6](https://todo.sr.ht/~takeiteasy/cl-mahjong/6)), and legal actions are recomputed on every move ([#19](https://todo.sr.ht/~takeiteasy/cl-mahjong/19)).
+See [PLAN.md](PLAN.md#limitations): the game ignores pao ([#17](https://todo.sr.ht/~takeiteasy/cl-mahjong/17)), sanma has no nukidora ([#22](https://todo.sr.ht/~takeiteasy/cl-mahjong/22)), and legal actions are recomputed on every move ([#19](https://todo.sr.ht/~takeiteasy/cl-mahjong/19)).

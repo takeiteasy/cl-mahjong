@@ -119,4 +119,4 @@ Each payer's share rounds up on its own. `:honba n` is paid per honba by the dis
 
 ## Limitations
 
-See [PLAN.md](PLAN.md#limitations): pao is not applied ([#17](https://todo.sr.ht/~takeiteasy/cl-mahjong/17)), and sanma tsumo payments follow the same multipliers as four players ([#6](https://todo.sr.ht/~takeiteasy/cl-mahjong/6)).
+See [PLAN.md](PLAN.md#limitations): pao is not applied ([#17](https://todo.sr.ht/~takeiteasy/cl-mahjong/17)), sanma tsumo is paid by the two other seats and the missing north is not split ([#23](https://todo.sr.ht/~takeiteasy/cl-mahjong/23)), and the sanma honba value is unchecked ([#24](https://todo.sr.ht/~takeiteasy/cl-mahjong/24)).

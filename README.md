@@ -22,7 +22,8 @@ Mahjong rules engine for Common Lisp. A whole variant (tiles, wall, hand shapes,
 | Patterns, waits, win context | [docs/pattern.md](docs/pattern.md) |
 | Yaku | [docs/yaku.md](docs/yaku.md) |
 | Fu, limits, dora, payments | [docs/scoring.md](docs/scoring.md) |
-| Variants | [docs/variant.md](docs/variant.md) |
+| Variants and deltas | [docs/variant.md](docs/variant.md) |
+| DSL examples (sanma, events) | [docs/dsl.md](docs/dsl.md) |
 | Game flow | [docs/game.md](docs/game.md) |
 | Roadmap and limitations | [docs/PLAN.md](docs/PLAN.md) |
 
