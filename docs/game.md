@@ -131,6 +131,6 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 
 ## Limitations
 
-See [PLAN.md](PLAN.md#limitations): legal actions are recomputed on every move ([#8](https://github.com/takeiteasy/cl-mahjong/issues/8)).
+See [PLAN.md](PLAN.md#limitations): shanten and wait scans use the generic search ([#6](https://github.com/takeiteasy/cl-mahjong/issues/6)).
 
 [^deal]: The deal does not check these wins; see [PLAN.md](PLAN.md#limitations).

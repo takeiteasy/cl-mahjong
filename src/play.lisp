@@ -138,25 +138,40 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
         (and (deal-drawn deal) (list (deal-drawn deal)))
         (remove-if (lambda (tile) (forbidden-discard-p game deal tile)) tiles))))
 
-(defun riichi-candidates (game deal seat candidates)
+(defun riichi-allowed-p (game deal seat)
+  "Whether SEAT may declare riichi with its drawn tile, apart from which tile it discards."
+  (let ((player (deal-player deal seat)))
+    (and (opt game :riichi)
+         (deal-drawn deal)
+         (null (player-riichi player))
+         (player-closed-p player)
+         (>= (aref (deal-points deal) seat) (opt game :riichi-cost))
+         (>= (wall-live-count (deal-wall deal)) (opt game :riichi-min-tiles)))))
+
+(defun riichi-tile-p (game deal seat tile)
+  "Whether SEAT is tenpai after discarding TILE."
+  (let ((player (deal-player deal seat))
+        (tileset (game-tileset game)))
+    (eql 0 (shanten tileset (variant-shapes (game-variant game))
+                    (hand-counts tileset (remove tile (player-tiles player)))
+                    (player-melds player)))))
+
+(defun riichi-reachable-p (game deal seat)
+  "Whether some discard can leave SEAT tenpai; a discard never lowers the shanten."
   (let* ((player (deal-player deal seat))
-         (variant (game-variant game))
          (tileset (game-tileset game))
-         (cache '()))
-    (when (and (opt game :riichi)
-               (deal-drawn deal)
-               (null (player-riichi player))
-               (player-closed-p player)
-               (>= (aref (deal-points deal) seat) (opt game :riichi-cost))
-               (>= (wall-live-count (deal-wall deal)) (opt game :riichi-min-tiles)))
+         (value (shanten tileset (variant-shapes (game-variant game))
+                         (hand-counts tileset (player-tiles player)) (player-melds player))))
+    (and value (<= value 0))))
+
+(defun riichi-candidates (game deal seat candidates)
+  (when (and (riichi-allowed-p game deal seat) (riichi-reachable-p game deal seat))
+    (let ((cache '()))
       (remove-if-not
        (lambda (tile)
-         (let ((id (tile-kind-id tileset tile)))
+         (let ((id (tile-kind-id (game-tileset game) tile)))
            (unless (assoc id cache)
-             (let ((counts (hand-counts tileset (remove tile (player-tiles player)))))
-               (push (cons id (eql 0 (shanten tileset (variant-shapes variant) counts
-                                              (player-melds player))))
-                     cache)))
+             (push (cons id (riichi-tile-p game deal seat tile)) cache))
            (cdr (assoc id cache))))
        candidates))))
 
@@ -216,16 +231,49 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
                               (shouminkan-tiles game deal seat))))))
     actions))
 
+(defun claim-actions (game seat)
+  "The options SEAT may still answer in the current claim."
+  (let ((claim (deal-claim (game-deal game))))
+    (unless (assoc seat (claim-responses claim))
+      (cdr (assoc seat (claim-options claim))))))
+
 (defun legal-actions (game seat)
   "Every action SEAT may take now, or NIL when it is not SEAT's decision."
   (let ((deal (game-deal game)))
     (when (eq (game-phase game) :playing)
       (case (deal-phase deal)
         (:turn (when (= seat (deal-turn deal)) (turn-actions game seat)))
-        ((:claim :chankan)
-         (let ((claim (deal-claim deal)))
-           (unless (assoc seat (claim-responses claim))
-             (cdr (assoc seat (claim-options claim))))))))))
+        ((:claim :chankan) (claim-actions game seat))))))
+
+(defun turn-action-legal-p (game seat action)
+  "Whether ACTION is one of `turn-actions' for SEAT, found without building the others."
+  (let* ((deal (game-deal game))
+         (player (deal-player deal seat))
+         (drawn (deal-drawn deal))
+         (arg (second action)))
+    (flet ((discards-p ()
+             (and (= (length action) 2) (member arg (discard-candidates game deal seat))))
+           (bare-p () (= (length action) 1)))
+      (case (first action)
+        (:discard (discards-p))
+        (:riichi (and (discards-p) (riichi-allowed-p game deal seat)
+                      (riichi-tile-p game deal seat arg)))
+        (:tsumo (and (bare-p) drawn (best-win game deal seat drawn :tsumo t) t))
+        (:kyuushu (and (bare-p) drawn (kyuushu-p game deal seat)))
+        (:kita (and (bare-p) drawn (kita-tile game deal seat) t))
+        (:ankan (and (= (length action) 2) drawn (member arg (ankan-kinds game deal seat))))
+        (:shouminkan (and (= (length action) 2) drawn
+                          (not (eq (player-riichi player) :active))
+                          (member arg (shouminkan-tiles game deal seat))))))))
+
+(defun action-legal-p (game seat action)
+  "Whether ACTION is one of `legal-actions' for SEAT."
+  (let ((deal (game-deal game)))
+    (and (eq (game-phase game) :playing)
+         (consp action)
+         (case (deal-phase deal)
+           (:turn (and (= seat (deal-turn deal)) (turn-action-legal-p game seat action) t))
+           ((:claim :chankan) (and (member action (claim-actions game seat) :test #'equal) t))))))
 
 (defun deciding-seats (game)
   "Seats that still owe an action."
@@ -242,8 +290,7 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
 
 (defun apply-action (game seat action)
   "(values game events). Signals ILLEGAL-ACTION unless ACTION is one of `legal-actions' for SEAT."
-  ;; TODO: recomputes every legal action to validate one; check the action directly (https://github.com/takeiteasy/cl-mahjong/issues/8)
-  (unless (member action (legal-actions game seat) :test #'equal)
+  (unless (action-legal-p game seat action)
     (illegal "~s is not a legal action for seat ~a" action seat))
   (let* ((*events* '())
          (deal (game-deal game))

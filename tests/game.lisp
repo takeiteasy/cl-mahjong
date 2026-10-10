@@ -1129,3 +1129,47 @@ A notation picks a tile of that kind from SEAT's hand, a different one each time
                                                       "357m357p357s3344z" "123m456m789p234s1z")
                                              :draws '("1z") :dealer 3)))))
     (is (cl-mahjong:game-over-p (cl-mahjong:apply-action game 3 '(:tsumo))))))
+
+;;; Validating actions
+
+(defun decision-points (seed)
+  "Every game state of one seeded deal where a seat owes an action."
+  (let ((game (cl-mahjong:start-game 'riichi :seed seed))
+        (states '()))
+    (loop while (eq (cl-mahjong:game-phase game) :playing)
+          do (push game states)
+             (let ((seat (first (cl-mahjong:deciding-seats game))))
+               (setf game (cl-mahjong:apply-action game seat (bot-action game seat)))))
+    (nreverse states)))
+
+(test validation-accepts-exactly-the-legal-actions
+  (dolist (seed '(1 2 3))
+    (dolist (game (decision-points seed))
+      (dotimes (seat 4)
+        (let ((legal (cl-mahjong:legal-actions game seat)))
+          (dolist (action legal)
+            (is (cl-mahjong::action-legal-p game seat action)))
+          (dolist (action (list :discard '() '(:bogus) '(:discard) '(:discard -1)
+                                (list :riichi -1) (list :discard 1000) '(:tsumo 1) '(:pass 1)))
+            (is (eq (and (member action legal :test #'equal) t)
+                    (cl-mahjong::action-legal-p game seat action)))))))))
+
+(test an-illegal-action-signals
+  (let ((game (new-game :draws '("9m"))))
+    (signals cl-mahjong:illegal-action (cl-mahjong:apply-action game 1 '(:discard 0)))
+    (signals cl-mahjong:illegal-action (cl-mahjong:apply-action game 0 '(:discard -1)))
+    (signals cl-mahjong:illegal-action (cl-mahjong:apply-action game 0 '(:riichi)))
+    (signals cl-mahjong:illegal-action (cl-mahjong:apply-action game 0 '(:pass)))))
+
+(test the-riichi-precheck-agrees-with-testing-every-discard
+  (dolist (seed '(1 2 3 4))
+    (dolist (game (decision-points seed))
+      (let* ((deal (cl-mahjong:game-deal game))
+             (seat (cl-mahjong:deal-turn deal)))
+        (when (and (eq (cl-mahjong:deal-phase deal) :turn)
+                   (cl-mahjong::riichi-allowed-p game deal seat))
+          (let ((candidates (cl-mahjong::discard-candidates game deal seat)))
+            (is (equal (remove-if-not (lambda (tile)
+                                        (cl-mahjong::riichi-tile-p game deal seat tile))
+                                      candidates)
+                       (cl-mahjong::riichi-candidates game deal seat candidates)))))))))
