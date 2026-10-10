@@ -1,6 +1,6 @@
 # Validation corpus
 
-The riichi rules are checked against 509 cases recorded from the test suite of the MIT-licensed Python [`mahjong`](https://github.com/MahjongRepository/mahjong) library. 421 run and the rest are skipped with a reason. The corpus passes when every run case matches.
+The riichi rules are checked against 509 cases recorded from the test suite of the MIT-licensed Python [`mahjong`](https://github.com/MahjongRepository/mahjong) library. 479 run and the rest are skipped with a reason. The corpus passes when every run case matches.
 
 ```
 sbcl --noinform --non-interactive --eval '(asdf:test-system "cl-mahjong")'
@@ -11,7 +11,7 @@ sbcl --noinform --non-interactive --eval '(asdf:test-system "cl-mahjong")'
 | Kind | Calls | Checks |
 |---|---|---|
 | `hand` | `evaluate-score` + `best-score` | fu, han, yaku, points, payments, limit; or no score |
-| `scores` | han/fu to payments | points, payments, limit |
+| `scores` | han/fu to payments; nagashi mangan as 5 han 30 fu | points, payments, limit |
 | `shanten` | `shanten` with `:live t` | the number, or an error |
 | `agari` | `decompose` | any split exists |
 | `divide` | `decompose` | the same set of splits |
@@ -20,7 +20,7 @@ One test per upstream file runs in `tests/corpus.lisp` and lists each failing ca
 
 ## Differences from upstream
 
-Each case sets every option, so none inherits `*riichi-options*`.[^mapping]
+Each case names its variant and sets every option, so none inherits `*riichi-options*`. A case sets the kazoe mode and yakuman cap by extending the variant's scoring.[^mapping]
 
 | Upstream | Here |
 |---|---|
@@ -28,6 +28,9 @@ Each case sets every option, so none inherits `*riichi-options*`.[^mapping]
 | Winds default to none | `seat-wind` and `round-wind` may be `NIL` |
 | Red fives count with `has_aka_dora` | `tiles` is passed only then |
 | Renhou is a 5 han yaku | Renhou is a mangan floor; han is not compared |
+| Kazoe and sextuple limits are config | `yakuman` limit `:han`, `:per` and `:max` |
+| `Aotenjou` calculator | `aotenjou` variant |
+| House yaku are config flags | [`house-rules` variant](dsl.md#house-rules) and its options |
 | Short hands imply open sets | Shanten cases add open triplets of absent kinds |
 | Shanten discounts tiles held in full | `:live t`; see [analysis.md](analysis.md#live-shanten) |
 
@@ -35,15 +38,10 @@ Each case sets every option, so none inherits `*riichi-options*`.[^mapping]
 
 | Reason | Cases |
 |---|---|
-| Han of 13 or more scored as multiples (uncapped kazoe) | 25 |
 | Impossible contexts are not validated | 23 |
-| Aotenjou scoring | 18 |
-| Open riichi, paarenchan, nagashi mangan | 13 |
-| Daisharin, daichikurin, daisuurin, daichisei | 4 |
 | Meld tiles absent from the hand | 4 |
 | Pinfu fu rules as options | 1 |
-
-Open riichi, the house yakuman and the fu rules are not part of riichi here; [dsl.md](dsl.md) shows how a variant adds yaku.
+| Aotenjou kokushi with riichi or menzen-tsumo | 2 |
 
 Whole-game checks against recorded games are in [replay.md](replay.md).
 
@@ -64,8 +62,7 @@ See [PLAN.md](PLAN.md#limitations):
 | Skipped | Ticket |
 |---|---|
 | Impossible win contexts are not validated | [#10](https://github.com/takeiteasy/cl-mahjong/issues/10) |
-| Uncapped kazoe, aotenjou and the yakuman cap | [#11](https://github.com/takeiteasy/cl-mahjong/issues/11) |
-| House-rule yaku (open riichi, paarenchan, daisharin family) | [#12](https://github.com/takeiteasy/cl-mahjong/issues/12) |
+| Aotenjou kokushi counts riichi and menzen-tsumo; upstream does not | [#19](https://github.com/takeiteasy/cl-mahjong/issues/19) |
 | Pinfu fu rules are fixed | [#13](https://github.com/takeiteasy/cl-mahjong/issues/13) |
 | Renhou is a mangan floor, not a 5 han yaku | [#14](https://github.com/takeiteasy/cl-mahjong/issues/14) |
 | Upstream yaku class unit tests are not ported | [#15](https://github.com/takeiteasy/cl-mahjong/issues/15) |

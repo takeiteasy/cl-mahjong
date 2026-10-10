@@ -43,6 +43,8 @@ A [variant](variant.md) delta on riichi, used by the [log replay](replay.md).
 |---|---|
 | `akadora-frenzy` | Two red fives per suit |
 | `yaku-festival` | Adds the daisharin yakuman, renhou is a yakuman |
+| `house-rules` | The house-rule yaku below, on |
+| `aotenjou` | `house-rules` scored without limits |
 | `sanma-tonpuu` | Sanma played east only; three levels: riichi, sanma, event |
 | `dora-bomb` | Three starting dora indicators, immediate kan dora |
 
@@ -51,13 +53,14 @@ A [variant](variant.md) delta on riichi, used by the [log replay](replay.md).
   (:red (man 5 2) (pin 5 2) (sou 5 2)))
 
 (defyaku daisharin (:yakuman 1 :closed-only t)
-  (:when (shape seven-pairs)
+  (:when (option daisharin)
+         (shape seven-pairs)
          (every-tile (pin-2 pin-3 pin-4 pin-5 pin-6 pin-7 pin-8))))
 
 (defvariant yaku-festival :extends riichi
   (:add :yaku daisharin)
   (:remove :yaku renhou-mangan)
-  (:set :renhou :yakuman))
+  (:set :renhou :yakuman :daisharin t))
 
 (defvariant sanma-tonpuu :extends sanma
   (:set :length :tonpuu :start-points 40000 :target-points 45000))
@@ -65,6 +68,21 @@ A [variant](variant.md) delta on riichi, used by the [log replay](replay.md).
 (defvariant dora-bomb :extends riichi
   (:set :initial-dora 3 :kan-dora :immediate))
 ```
+
+## House rules
+
+`house-rules` extends riichi with yaku that each need an option or a [context](pattern.md#win-context) field, so they stay off elsewhere.
+
+| Yaku | Value | Needs |
+|---|---|---|
+| `open-riichi`, `double-open-riichi` | 2 / 3 han, replacing riichi / double riichi | `open-riichi` context |
+| `sashikomi` | Yakuman | Option `sashikomi`; a ron in open riichi |
+| `paarenchan` | One yakuman per dealer win | `paarenchan` context; another yaku unless option `paarenchan-without-yaku` |
+| `daisharin` | Yakuman | Option `daisharin`; seven pairs 2-8 of pin |
+| `daisuurin`, `daichikurin` | Yakuman | Option `daisharin` set to `:all`; man / sou |
+| `daichisei` | Yakuman | Option `daichisei`; seven pairs of honors |
+
+The variant sets `sashikomi`, `daisharin :all` and `daichisei`. The [`aotenjou` scoring](scoring.md#aotenjou) extends `riichi` and the `aotenjou` variant extends `house-rules` with it.
 
 ## Pages
 

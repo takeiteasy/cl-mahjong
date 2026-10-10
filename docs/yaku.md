@@ -18,8 +18,8 @@
 
 | Clause | Meaning |
 |---|---|
-| `(:han n [:open m] [:closed-only t])` | `n` han closed, `m` open (default `n`); `:closed-only` never scores with an open meld |
-| `(:yakuman n [:closed-only t] [:double-when pattern] [:pao selector])` | `n` yakuman; doubles when `pattern` holds and the `double-yakuman` option is on; see [Pao](#pao) |
+| `(:han n [:open m] [:closed-only t] [:needs-yaku pattern])` | `n` han closed, `m` open (default `n`); `:closed-only` never scores with an open meld; `:needs-yaku` drops the yaku when `pattern` holds and it is the reading's only yaku |
+| `(:yakuman n [:closed-only t] [:double-when pattern] [:needs-yaku pattern] [:pao selector])` | `n` yakuman, or `(:lambda (hand) ...)` returning the multiple; doubles when `pattern` holds and the `double-yakuman` option is on; see [Pao](#pao) |
 | `(:when pattern...)` | All must hold; see [pattern.md](pattern.md) |
 | `(:implies yaku...)` | When this scores, those are dropped |
 | `(:excludes yaku...)` | Never together; the lower value is dropped, on a tie the later in the list |
@@ -30,7 +30,7 @@ A yaku has `:han` or `:yakuman`, and needs `:when`. `:extends` inherits a yaku; 
 (defyaku sanshoku-3 :extends sanshoku (:han 3))
 ```
 
-Yakuman replace every other yaku in a reading.
+Yakuman replace every other yaku in a reading, unless `:stack-yakuman` is given to `evaluate-yaku` (a scoring with `:aotenjou` does).
 
 ## Pao
 
@@ -47,7 +47,7 @@ Melds record the giver with `make-meld ... :from`; a shouminkan keeps the giver 
 
 | Function | Result |
 |---|---|
-| `(evaluate-yaku ts shapes yaku counts melds context &key options)` | A list of readings |
+| `(evaluate-yaku ts shapes yaku counts melds context &key options stack-yakuman)` | A list of readings |
 
 `yaku` is a list of yaku or their names, like `shapes`. `counts` include the winning tile named by the context ([pattern.md](pattern.md#win-context)). A reading is one decomposition with the winning tile in one group, so a hand with several splits or waits has several readings. Readings that earn no yaku are included.
 
@@ -56,11 +56,13 @@ Melds record the giver with `make-meld ... :from`; a shouminkan keeps the giver 
 | `reading-decomposition`, `reading-win-group`, `reading-wait` | Where the winning tile sits |
 | `reading-hand` | The [win hand](pattern.md#win-hand) |
 | `reading-yaku` | `(name . value)` pairs; `value` is han, or the yakuman multiple in a yakuman reading |
-| `reading-han` | Total han; `0` in a yakuman reading |
+| `reading-han` | Han of the non-yakuman yaku; `0` in a yakuman reading unless `stack-yakuman` |
 | `reading-yakuman` | Total yakuman multiple |
 | `reading-pao` | `(seat . yakuman)` for each liable seat; `NIL` without pao |
 
-Dora do not count towards han; [scoring](scoring.md) adds them and picks the best reading.[^dora]
+Dora do not count towards han; [scoring](scoring.md) adds them and picks the best reading.[^dora] Yakuman that imply their lower yaku (daisangen drops haku, hatsu, chun and shousangen) drop them even when yakuman stack.
+
+House-rule yaku are in [dsl.md](dsl.md#house-rules).
 
 ## Riichi
 

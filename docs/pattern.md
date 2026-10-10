@@ -69,9 +69,11 @@ The caller describes how the hand was won with `make-win-context`.
 | `last-tile` | Won on the last wall tile (haitei when `tsumo`, houtei otherwise) |
 | `rinshan`, `chankan` | Won on a replacement draw / by robbing a kan |
 | `tenhou`, `chiihou`, `renhou` | First-turn wins |
+| `open-riichi` | Riichi declared with the hand revealed |
+| `paarenchan` | Consecutive dealer wins, or `NIL`; `(context paarenchan)` holds when set |
 | `dealer`, `dora-indicators`, `ura-indicators`, `tiles`, `nuki` | Inputs for [scoring](scoring.md#dora) |
 
-`(context flag)` reads the boolean fields.
+`(context flag)` reads the flag fields.
 
 ## Win hand
 

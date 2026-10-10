@@ -18,9 +18,10 @@
 | Clause | Meaning |
 |---|---|
 | `(:fu entry...)` | The fu table; see [Fu](#fu) |
-| `(:limits (name base [:han n])...)` | Base points of each limit; `:han` is the han that reaches it. A `yakuman` limit is required and is the base of one yakuman |
+| `(:limits (name base [:han n])...)` | Base points of each limit; `:han` is the han that reaches it. A `yakuman` limit is required and is the base of one yakuman; see [Kazoe](#kazoe-and-the-yakuman-cap) |
 | `(:floor yaku limit)` | A hand holding `yaku` scores at least `limit`; the yaku's han are not added |
 | `(:kiriage base)` | The base points that round up to the lowest limit when the `kiriage` option is on |
+| `(:aotenjou n)` | Scores without limits, each yakuman counting `n` han; see [Aotenjou](#aotenjou) |
 | `(:dora (:indicator next))` | Indicator to dora: the next kind of the same suit or honor group, wrapping round; or a function `(tileset kind) -> kind id` |
 | `(:payments entry...)` | `(:ron :dealer m :other m)`, `(:tsumo :dealer m :other (from-dealer from-other))`, `(:pao [:ron r] [:honba h])`, `(:round n)`, `(:honba n)`, `(:riichi-stick n)`, `(:absent none\|split)` |
 
@@ -43,7 +44,7 @@
 | `(:concealed n)`, `(:quad n)` | Multipliers for a concealed group / a quad |
 | `(:pair selector n)` | Fu of the pair; every matching entry adds |
 | `(:wait names n)` | Fu for those [waits](pattern.md#waits) |
-| `(:flat yaku n)` | Fixed fu, rounding skipped, when the reading holds `yaku` |
+| `(:flat yaku n [:tsumo m])` | Fixed fu, rounding skipped, when the reading holds `yaku`; `m` on a tsumo |
 | `(:no-tsumo-fu yaku...)` | No tsumo fu when the reading holds one of these |
 | `(:lambda (hand reading) ...)` | Replaces the whole table |
 
@@ -64,8 +65,38 @@ Han are the reading's yaku plus dora, ura dora and red fives. A reading with no 
 |---|---|
 | 1-4 | `fu x 2^(han + 2)` base points, up to the lowest limit |
 | 5 / 6-7 / 8-10 / 11-12 | mangan / haneman / baiman / sanbaiman |
-| 13+ | kazoe yakuman |
+| 13+ | kazoe yakuman, or sanbaiman when the `yakuman` limit has no `:han` |
 | Yakuman reading | `yakuman x` the `yakuman` base |
+
+## Kazoe and the yakuman cap
+
+The `yakuman` limit takes `:han`, `:per` and `:max`.
+
+| Option | Meaning |
+|---|---|
+| `:han n` | Han that score a kazoe yakuman; without it 13 han stay a sanbaiman |
+| `:per n` | Every `n` han from `:han` add a yakuman: 26 han score two |
+| `:max n` | Most yakuman a hand scores, yakuman readings included |
+
+| Limit | 13 han | 26 han | 7 yakuman |
+|---|---|---|---|
+| `(yakuman 8000 :han 13 :max 6)` (riichi) | 1 | 1 | 6 |
+| `(yakuman 8000 :han 13 :per 13)` | 1 | 2 | 7 |
+| `(yakuman 8000)` | sanbaiman | sanbaiman | 7 |
+
+```lisp
+(defscoring uncapped :extends riichi
+  (:limits (yakuman 8000 :han 13 :per 13)))
+```
+
+## Aotenjou
+
+`(:aotenjou n)` drops every limit: base points are `fu x 2^(han + 2)`, with each yakuman worth `n` han on top of the other yaku and dora. Payments follow the table as usual. The `aotenjou` scoring and [variant](dsl.md#house-rules) pay no honba or sticks and score kokushi 40 fu on a ron, 30 on a tsumo.
+
+| Hand | Result |
+|---|---|
+| Kokushi ron, non-dealer | 13 han 40 fu, 5242900 |
+| Same, dealer | 7864400 |
 
 ## Dora
 
@@ -131,7 +162,6 @@ A seat [liable](yaku.md#pao) for a yakuman pays that yakuman as a ron. The rest 
 | Option | Default | Effect |
 |---|---|---|
 | `kiriage` | off | 30 fu 4 han and 60 fu 3 han score mangan |
-| `kazoe-yakuman` | on | 13 han score yakuman; off caps at sanbaiman |
 | `double-wind-fu` | 4 | Most fu a pair earns; 2 pays a double wind pair 2 |
 | `rinshan-tsumo-fu` | on | A win on a replacement draw earns tsumo fu |
 | `renhou` | off | `:yakuman` scores renhou as a yakuman, `:mangan` as a mangan floor |
