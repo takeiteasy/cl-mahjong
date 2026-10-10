@@ -377,24 +377,27 @@ kinds with copies left in the tileset count as partial groups or waits."
     (let ((*remaining* (and (or live visible) (remaining-copies tileset counts melds visible))))
       (best-shanten analysis (resolve-shapes shapes) counts melds))))
 
-(defun ukeire (tileset shapes counts melds &key visible)
+(defun ukeire (tileset shapes counts melds &key live visible)
   "For a 3n+1 hand, (kind . remaining) for each kind that lowers the shanten.
-Remaining copies are the kind's copies minus those in the hand and in VISIBLE, a kind-count vector."
+Remaining copies are the kind's copies minus those in the hand, its melds and VISIBLE, a kind-count
+vector. With LIVE or VISIBLE the shanten is live, and a draw only counts if it lowers that."
   (let ((analysis (analysis-for tileset))
         (shapes (resolve-shapes shapes)))
     (unless (= 1 (mod (check-hand analysis counts melds) 3))
       (bad-hand "Ukeire needs a hand of 3n+1 tiles"))
-    (let ((counts (copy-counts counts))
-          (current (best-shanten analysis shapes counts melds)))
+    (let* ((counts (copy-counts counts))
+           (remaining (remaining-copies tileset counts melds visible))
+           (*remaining* (and (or live visible) remaining))
+           (current (best-shanten analysis shapes counts melds)))
       (when current
         (loop for kind across (tileset-kinds tileset)
               for id = (kind-id kind)
-              for remaining = (- (kind-copies kind) (aref counts id)
-                                 (if visible (aref visible id) 0))
               when (and (not (eq (kind-category kind) :bonus))
-                        (plusp remaining)
+                        (plusp (aref remaining id))
                         (let ((new (progn (incf (aref counts id))
+                                          (when *remaining* (decf (aref *remaining* id)))
                                           (prog1 (best-shanten analysis shapes counts melds)
-                                            (decf (aref counts id))))))
+                                            (decf (aref counts id))
+                                            (when *remaining* (incf (aref *remaining* id)))))))
                           (and new (< new current))))
-                collect (cons kind remaining))))))
+                collect (cons kind (aref remaining id)))))))

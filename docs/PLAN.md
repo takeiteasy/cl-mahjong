@@ -37,6 +37,5 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 | No pao for suukantsu or daiminkan rinshan | [#32](https://todo.sr.ht/~takeiteasy/cl-mahjong/32) |
 | Pao is not applied when a concealed set stood before the last call | [#33](https://todo.sr.ht/~takeiteasy/cl-mahjong/33) |
 | Live shanten counts a last copy once per partial | [#37](https://todo.sr.ht/~takeiteasy/cl-mahjong/37) |
-| `ukeire` ignores live shanten | [#38](https://todo.sr.ht/~takeiteasy/cl-mahjong/38) |
 | Game flow recomputes legal actions and scans every kind for waits | [#19](https://todo.sr.ht/~takeiteasy/cl-mahjong/19) |
 | Pattern selector names are not checked against the tileset | [#16](https://todo.sr.ht/~takeiteasy/cl-mahjong/16) |

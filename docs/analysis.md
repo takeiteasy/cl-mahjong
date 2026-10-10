@@ -34,7 +34,7 @@ A hand has 3n+1 or 3n+2 tiles, counting each meld as 3, and holds no more copies
 | `(decompose ts shapes counts melds)` | List of decompositions, across all shapes |
 | `(complete-p ts shapes counts melds)` | True when any shape completes |
 | `(shanten ts shapes counts melds &key live visible)` | `(values n shape-name)` for the closest shape; `NIL` when no shape applies |
-| `(ukeire ts shapes counts melds &key visible)` | `(kind . remaining)` for each kind that lowers the shanten |
+| `(ukeire ts shapes counts melds &key live visible)` | `(kind . remaining)` for each kind that lowers the shanten |
 
 `shapes` holds shapes or their names.
 
@@ -57,11 +57,11 @@ By default shanten ignores how many copies of a tile are left. `:live t` counts 
 (shanten ts shapes counts '() :live t)    ; => 1
 ```
 
-In sanma, pass the nuki in `visible`. `ukeire` stays structural.
+In sanma, pass the nuki in `visible`. [`ukeire`](#ukeire) takes the same keys.
 
 ## Ukeire
 
-`ukeire` takes a 3n+1 hand. `remaining` is the kind's copies minus those in the hand and in `visible`, a kind-count vector of other tiles seen (discards, dora indicators, other players' melds).
+`ukeire` takes a 3n+1 hand. `remaining` is the kind's copies minus those in the hand, its melds and `visible`, a kind-count vector of other tiles seen (discards, dora indicators, other players' melds). With `:live` or `:visible` a draw counts only when it lowers the [live shanten](#live-shanten), so a draw that completes only a dead partial is left out.
 
 ```lisp
 (ukeire ts shapes counts '() :visible (hand-counts ts discards))

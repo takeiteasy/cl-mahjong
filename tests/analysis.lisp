@@ -261,7 +261,31 @@
       (is (equal '(2) (mapcar #'cdr result))))
     (let* ((counts (hand ts "123m456m789m12p55p"))
            (visible (hand ts "3333p")))
-      (is (null (cl-mahjong:ukeire ts '(standard) counts '() :visible visible))))))
+      (is (not (member :pin-3 (cl-mahjong:ukeire ts '(standard) counts '() :visible visible)
+                       :key (lambda (entry) (cl-mahjong:kind-name (car entry)))))))))
+
+(test ukeire-visible-drops-draws-that-only-complete-a-dead-partial
+  (with-riichi (ts)
+    (let* ((counts (hand ts "123m456m789p1m55s9s"))
+           (names (lambda (visible)
+                    (mapcar (lambda (entry) (cl-mahjong:kind-name (car entry)))
+                            (cl-mahjong:ukeire ts '(standard) counts '() :visible visible)))))
+      (is (member :man-2 (funcall names (hand ts "3m"))))
+      (is (not (member :man-2 (funcall names (hand ts "333m"))))))))
+
+(test ukeire-live-needs-no-visible-tiles
+  (with-riichi (ts)
+    (let ((counts (hand ts "123m456m789m12p55s")))
+      (is (equal (cl-mahjong:ukeire ts '(standard) counts '())
+                 (cl-mahjong:ukeire ts '(standard) counts '() :live t))))))
+
+(test ukeire-counts-tiles-in-melds
+  (with-riichi (ts)
+    (let ((chi (cl-mahjong:make-meld :sequence (list (kind-of ts 'pin 4) (kind-of ts 'pin 5)
+                                                     (kind-of ts 'pin 6))
+                                     :open t)))
+      (is (equal '(3) (mapcar #'cdr (cl-mahjong:ukeire ts '(standard) (hand ts "123m789m46p55s")
+                                                       (list chi))))))))
 
 (test ukeire-skips-kinds-that-do-not-lower-shanten
   (with-riichi (ts)
