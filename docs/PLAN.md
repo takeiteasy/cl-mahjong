@@ -7,13 +7,13 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 | # | Deliverable | Ticket | Status |
 |---|---|---|---|
 | 0 | Skeleton, docs, tracker | n/a | done |
-| 1 | Registry, inheritance, tileset and wall DSL | n/a | done |
-| 2 | Shape DSL, decomposition, shanten | n/a | done |
-| 3 | Pattern language, `defyaku`, riichi yaku | n/a | done |
-| 4 | Scoring DSL | n/a | done |
-| 5 | Game-flow state machine, multiple ron | n/a | done |
-| 6 | Variant deltas, sanma, event examples | n/a | done |
-| 7 | Riichi validation corpus | n/a | done |
+| 1 | Registry, inheritance, tileset and wall DSL | [#1](https://todo.sr.ht/~takeiteasy/cl-mahjong/1) | done |
+| 2 | Shape DSL, decomposition, shanten | [#2](https://todo.sr.ht/~takeiteasy/cl-mahjong/2) | done |
+| 3 | Pattern language, `defyaku`, riichi yaku | [#3](https://todo.sr.ht/~takeiteasy/cl-mahjong/3) | done |
+| 4 | Scoring DSL | [#4](https://todo.sr.ht/~takeiteasy/cl-mahjong/4) | done |
+| 5 | Game-flow state machine, multiple ron | [#5](https://todo.sr.ht/~takeiteasy/cl-mahjong/5), [#18](https://todo.sr.ht/~takeiteasy/cl-mahjong/18) | done |
+| 6 | Variant deltas, sanma, event examples | [#6](https://todo.sr.ht/~takeiteasy/cl-mahjong/6) | done |
+| 7 | Riichi validation corpus | [#7](https://todo.sr.ht/~takeiteasy/cl-mahjong/7) | done |
 | 8 | Tenhou variant and log replay | n/a | done |
 
 ## Limitations
