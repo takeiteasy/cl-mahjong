@@ -51,6 +51,7 @@
    #:meld-kinds
    #:meld-open-p
    #:meld-from
+   #:meld-held
    #:meld-tiles
    #:hand-closed-p
    ;; shape

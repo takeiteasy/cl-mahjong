@@ -138,18 +138,21 @@
     (drop-excluded (drop-implied (if stack-yakuman awards (or yakuman awards))))))
 
 (defun pao-seat (yaku hand)
-  "The seat that fed the last meld completing YAKU, or NIL.
-The matching sets must all be melds and the last of them open."
+  "The seat that fed the last open meld completing YAKU, or NIL.
+Each matching set made or completed after that meld must be a kind its caller already held as a triplet."
   (let ((selector (yaku-pao yaku)))
     (flet ((matches (group)
              (and (member (group-type group) '(:triplet :quad))
                   (funcall selector hand (kind-of-id hand (first (group-kinds group)))))))
       (when selector
         (let* ((melds (win-hand-melds hand))
-               (last (find-if (lambda (meld) (matches (meld-group meld))) melds :from-end t)))
+               (last (find-if (lambda (meld) (and (meld-open-p meld) (matches (meld-group meld))))
+                              melds :from-end t)))
           (and last
-               (meld-open-p last)
-               (notany #'matches (nthcdr (length melds) (hand-groups hand)))
+               (every (lambda (group) (member (first (group-kinds group)) (meld-held last)))
+                      (remove-if-not #'matches
+                                     (append (mapcar #'meld-group (rest (member last melds)))
+                                             (nthcdr (length melds) (hand-groups hand)))))
                (meld-from last)))))))
 
 (defun read-win-hand (hand yaku stack-yakuman)

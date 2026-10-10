@@ -512,6 +512,16 @@ A notation picks a tile of that kind from SEAT's hand, a different one each time
       (is (equal '(37000 21000 21000 21000) (coerce (cl-mahjong:game-points game) 'list)))
       (is (= 0 (cl-mahjong:game-sticks game))))))
 
+(test a-call-records-the-triplets-the-caller-held
+  (let* ((ts (cl-mahjong:find-tileset 'riichi-136))
+         (game (new-game :hands '("123m456m789p234s1z" "78s2456p3m6m8m9m" "246m246p24s66777z"
+                                  "78s135p135s2z3z4z")
+                         :draws '("6z"))))
+    (setf game (act game 0 :discard "6z"))
+    (setf game (act game 2 :pon "6z" "6z"))
+    (is (equal (kind-ids ts "7z")
+               (cl-mahjong:meld-held (first (cl-mahjong:player-melds (seat-player game 2))))))))
+
 (test calls-break-ippatsu
   (let ((game (new-game :draws '("9m" "6z"))))
     (setf game (pass-all (act game 0 :riichi "9m")))

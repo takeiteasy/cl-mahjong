@@ -243,6 +243,25 @@
                                     (meld ts :triplet "666z" :open t :from 2)))))
     (is (null (pao-of ts "234m567p345s678s11p" "2m")))))
 
+(test pao-survives-a-set-held-at-the-last-call
+  (with-riichi (ts)
+    (flet ((pao (&key (held "777z") (concealed "777z"))
+             (pao-of ts (concatenate (quote string) concealed "234m11p") "2m"
+                     :melds (list (meld ts :triplet "555z" :open t :from 1)
+                                  (meld ts :triplet "666z" :open t :from 2 :held held)))))
+      (is (equal '((2 . 1)) (pao)))
+      (is (null (pao :held nil)))
+      (is (null (pao :held "111z"))))
+    (is (equal '((2 . 1))
+               (pao-of ts "234m11p" "2m"
+                       :melds (list (meld ts :triplet "555z" :open t :from 1)
+                                    (meld ts :triplet "666z" :open t :from 2 :held "777z")
+                                    (meld ts :quad "7777z")))))
+    (is (null (pao-of ts "234m11p" "2m"
+                      :melds (list (meld ts :triplet "555z" :open t :from 1)
+                                   (meld ts :triplet "666z" :open t :from 2)
+                                   (meld ts :quad "7777z")))))))
+
 (test pao-is-only-for-yakuman
   (signals cl-mahjong:invalid-definition
     (cl-mahjong::register-definition :yaku 'test-han-pao nil

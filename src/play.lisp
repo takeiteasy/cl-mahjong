@@ -521,6 +521,11 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
   (updating-player (player deal from)
     (incf (player-called-away player))))
 
+(defun held-triplet-kinds (game tiles)
+  "Kind ids of which TILES hold at least three."
+  (let ((ids (tile-kind-ids game tiles)))
+    (remove-if-not (lambda (id) (>= (count id ids) 3)) (remove-duplicates ids))))
+
 (defun execute-call (game seat action)
   (let* ((claim (deal-claim (game-deal game)))
          (tile (claim-tile claim))
@@ -529,7 +534,9 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
          (type (ecase (first action) (:pon :triplet) (:chi :sequence) (:daiminkan :quad)))
          (tiles (cons tile own))
          (kinds (sorted-kind-ids game tiles))
-         (meld (make-meld type kinds :open t :from from :tiles tiles))
+         (remaining (remove-tiles (player-tiles (deal-player (game-deal game) seat)) own))
+         (meld (make-meld type kinds :open t :from from :tiles tiles
+                                     :held (held-triplet-kinds game remaining)))
          (game (updating-deal (deal game)
                  (let ((deal (mark-called-away (add-meld deal seat meld own) from)))
                    (setf (deal-turn deal) seat
@@ -610,7 +617,8 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
                                            (eql (first (meld-kinds meld)) id)))
                        (player-melds player)))
          (quad (make-meld :quad (make-list 4 :initial-element id) :open t
-                          :from (meld-from pon) :tiles (append (meld-tiles pon) (list tile))))
+                          :from (meld-from pon) :held (meld-held pon)
+                                     :tiles (append (meld-tiles pon) (list tile))))
          (game (updating-deal (deal game)
                  (let ((deal (updating-player (player deal seat)
                                (setf (player-melds player) (substitute quad pon (player-melds player))))))

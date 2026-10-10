@@ -19,17 +19,18 @@
          tiles)
     counts))
 
-(defstruct (meld (:constructor %make-meld (type kinds open-p from tiles)))
-  type kinds open-p from tiles)
+(defstruct (meld (:constructor %make-meld (type kinds open-p from tiles held)))
+  type kinds open-p from tiles held)
 
-(defun make-meld (type kinds &key open from tiles)
+(defun make-meld (type kinds &key open from tiles held)
   "TYPE is :sequence, :triplet or :quad; KINDS lists the kind id of every tile.
-FROM is the seat the called tile came from, which decides who is liable for pao, and TILES the tile ids."
+FROM is the seat the called tile came from, which decides who is liable for pao, and TILES the tile ids.
+HELD lists the kind ids the caller already held as a concealed triplet when calling, which keep pao alive."
   (unless (member type '(:sequence :triplet :quad))
     (bad-hand "Unknown meld type ~s" type))
   (unless (= (length kinds) (if (eq type :quad) 4 3))
     (bad-hand "A ~(~a~) meld has ~a tiles, got ~s" type (if (eq type :quad) 4 3) kinds))
-  (%make-meld type kinds (and open t) from tiles))
+  (%make-meld type kinds (and open t) from tiles held))
 
 (defun hand-closed-p (melds)
   "A hand is closed when no meld is open; a closed kan keeps it closed."
