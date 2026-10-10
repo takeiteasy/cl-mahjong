@@ -310,6 +310,15 @@ A notation picks a tile of that kind from SEAT's hand, a different one each time
     (is (= 1 (cl-mahjong:game-kyoku game)))
     (is (= 1 (cl-mahjong:game-honba game)))))
 
+(test a-draw-repeats-the-dealer-with-renchan-draw
+  (variant-with 'draw-renchan :renchan :draw)
+  (let ((game (play-deal (new-game :variant 'draw-renchan
+                                   :hands '("159m159p159s2345z" "123m456m789p234s1z"
+                                            "246m246p246s6677z" "357m357p357s3344z")
+                                   :ura '("1z" "1z" "1z")))))
+    (is (eq :exhaustive (result-of game :type)))
+    (is (= 0 (cl-mahjong:game-kyoku game)))))
+
 ;;; Kuikae
 
 (defparameter *kuikae-hands*
@@ -471,6 +480,10 @@ A notation picks a tile of that kind from SEAT's hand, a different one each time
   (let ((game (new-game :hands (cons "159m159p159s2345z" (rest *tenpai-and-junk*)) :draws '("9m"))))
     (is (not (member :riichi (action-types game 0))))))
 
+(test riichi-can-be-switched-off
+  (variant-with 'no-riichi :riichi nil)
+  (is (not (member :riichi (action-types (new-game :variant 'no-riichi :draws '("9m")) 0)))))
+
 (test riichi-pays-a-stick-and-sets-ippatsu
   (multiple-value-bind (game events) (act (new-game :draws '("9m")) 0 :riichi "9m")
     (is (find :riichi events :key #'first))
@@ -546,9 +559,9 @@ A notation picks a tile of that kind from SEAT's hand, a different one each time
     (is (null (cl-mahjong:legal-actions game 3)))
     (is (not (member 3 (cl-mahjong:deciding-seats game))))))
 
-(defun furiten-game (fourth-draw)
+(defun furiten-game (fourth-draw &optional (variant 'riichi))
   "Seat 3 waits on 6s and 9s; round one ends with seat 3 discarding FOURTH-DRAW, then seat 0 draws 6s."
-  (let ((game (new-game :hands *furiten-hands* :draws (list "2z" "3z" "4z" fourth-draw "6s"))))
+  (let ((game (new-game :variant variant :hands *furiten-hands* :draws (list "2z" "3z" "4z" fourth-draw "6s"))))
     (dolist (seat '(0 1 2 3))
       (setf game (discard-and-pass game seat)))
     (setf game (cl-mahjong:apply-action game 0 (list :discard (drawn-tile game))))
@@ -558,6 +571,11 @@ A notation picks a tile of that kind from SEAT's hand, a different one each time
   (let ((game (furiten-game "9s")))
     (is (null (cl-mahjong:legal-actions game 3)))
     (is (not (member 3 (cl-mahjong:deciding-seats game))))))
+
+(test furiten-can-be-switched-off
+  (variant-with 'no-furiten :furiten nil)
+  (let ((game (furiten-game "9s" 'no-furiten)))
+    (is (member :ron (action-types game 3)))))
 
 (test no-furiten-without-a-wait-in-the-discards
   (let ((game (furiten-game "2p")))
@@ -710,6 +728,12 @@ A notation picks a tile of that kind from SEAT's hand, a different one each time
 
 (test the-extension-ends-after-west-four
   (is (cl-mahjong:game-over-p (dealer-rons-game :kyoku 11 :points '(24000 24000 24000 28000)))))
+
+(test a-full-game-plays-four-winds
+  (variant-with 'full-length :length :full :west-extension nil)
+  (let ((game (cl-mahjong:start-game 'full-length :walls (list (stacked)))))
+    (is (not (cl-mahjong::game-ends-p game #(25000 25000 25000 25000) 15 nil :agari)))
+    (is (cl-mahjong::game-ends-p game #(25000 25000 25000 25000) 16 nil :agari))))
 
 (test tonpuu-ends-after-east-four
   (variant-with 'tonpuu :length :tonpuu)

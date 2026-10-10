@@ -16,7 +16,7 @@
     :nagashi-mangan :mangan :noten-payment 3000
     :riichi-cost 1000 :riichi-min-tiles 4 :renchan :tenpai
     :uma (15 5 -5 -15) :oka t :score-rounding nil :initial-dora 1
-    :bonus-tiles nil :bonus-rinshan t
+    :bonus-tiles nil :bonus-rinshan t :riichi t :furiten t
     :nukidora nil :kita-ippatsu nil :kita-interrupts t :kita-rinshan t :kita-ron t
     :winds (:east :south :west :north))
   "Game-flow options a variant's :options may override.")
@@ -353,12 +353,13 @@ CONCEALED-ONLY just those in COUNTS and NUKI, so a tile whose other copies are i
 
 (defun furiten-p (game deal seat)
   (let ((player (deal-player deal seat)))
-    (or (player-temp-furiten player)
-        (player-riichi-furiten player)
-        (let ((waits (winning-kinds game (hand-counts (game-tileset game) (player-tiles player))
-                                    (player-melds player) :nuki (player-nuki player))))
-          (some (lambda (id) (member id waits))
-                (tile-kind-ids game (player-discards player)))))))
+    (and (opt game :furiten)
+         (or (player-temp-furiten player)
+             (player-riichi-furiten player)
+             (let ((waits (winning-kinds game (hand-counts (game-tileset game) (player-tiles player))
+                                         (player-melds player) :nuki (player-nuki player))))
+               (some (lambda (id) (member id waits))
+                     (tile-kind-ids game (player-discards player))))))))
 
 ;;; Points
 
@@ -440,7 +441,7 @@ scores with uma and oka)."
 (defun game-ends-p (game points kyoku renchan yame)
   "Whether the game is over after a deal that left POINTS and goes on at KYOKU."
   (let* ((seats (game-seats game))
-         (regular (* seats (ecase (opt game :length) (:tonpuu 1) (:hanchan 2))))
+         (regular (* seats (ecase (opt game :length) (:tonpuu 1) (:hanchan 2) (:full 4))))
          (limit (if (opt game :west-extension) (+ regular seats) regular))
          (target (opt game :target-points))
          (top (reduce #'max points))
@@ -550,7 +551,8 @@ scores with uma and oka)."
          (nagashi (and (opt game :nagashi-mangan)
                        (loop for seat below seats
                              when (nagashi-seat-p game (deal-player deal seat)) collect seat)))
-         (renchan (and (eq (opt game :renchan) :tenpai) (member (deal-dealer deal) tenpai) t)))
+         (renchan (or (eq (opt game :renchan) :draw)
+                      (and (eq (opt game :renchan) :tenpai) (member (deal-dealer deal) tenpai) t))))
     (conclude-deal game deal :exhaustive
                    (if nagashi (nagashi-deltas game deal nagashi) (noten-deltas game tenpai))
                    :renchan renchan :yame :tenpai

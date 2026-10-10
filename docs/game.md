@@ -80,7 +80,7 @@ With `:bonus-tiles` a seat sets every bonus tile aside as soon as it holds one, 
 | Condition | Option |
 |---|---|
 | A player below 0 | `:tobi` |
-| East (`:tonpuu`) or east and south (`:hanchan`) played | `:length` |
+| East (`:tonpuu`), east and south (`:hanchan`) or every wind (`:full`) played | `:length` |
 | Nobody at the target after the last round, and a further wind remains | `:west-extension` |
 | The leading dealer wins (or is tenpai) in the last round or the extension | `:agari-yame`, `:tenpai-yame` |
 
@@ -93,7 +93,7 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 | Option | Default | Meaning |
 |---|---|---|
 | `:start-points`, `:target-points` | 25000, 30000 | |
-| `:length` | `:hanchan` | `:tonpuu` or `:hanchan` |
+| `:length` | `:hanchan` | `:tonpuu`, `:hanchan` or `:full` |
 | `:west-extension` | on | Play one more wind below the target |
 | `:tobi`, `:agari-yame`, `:tenpai-yame` | on, on, off | Early game end |
 | `:kuikae` | `:forbid` | Discard forbidden after a call: `:forbid` the kind and the sequence's far end, `:same-kind`, or `nil` |
@@ -105,6 +105,8 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 | `:kyuushu`, `:suufon-renda`, `:suucha-riichi`, `:suukaikan` | on | Abortive draws |
 | `:nagashi-mangan` | `:mangan` | Limit paid for nagashi; `nil` for off |
 | `:noten-payment` | 3000 | Total paid from noten to tenpai |
+| `:riichi` | on | Offer `(:riichi tile)`; off for variants without riichi |
+| `:furiten` | on | A seat with a wait in its discards, or that passed a ron, cannot ron |
 | `:riichi-cost`, `:riichi-min-tiles` | 1000, 4 | |
 | `:bonus-tiles` | off | Set bonus tiles aside; see [below](#bonus-tiles) |
 | `:bonus-rinshan` | on | A win on a bonus replacement scores rinshan |
@@ -113,7 +115,7 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 | `:kita-interrupts` | on | A kita counts as an interruption: no later double riichi, first-turn win or kyuushu |
 | `:kita-rinshan` | on | A tsumo on the kita replacement draw scores rinshan |
 | `:kita-ron` | on | Other seats may ron on the north as it is set aside; passing makes them furiten |
-| `:renchan` | `:tenpai` | Dealer repeats when tenpai; `:win-only` |
+| `:renchan` | `:tenpai` | Dealer repeats when tenpai; `:win-only`; `:draw` also repeats on any exhaustive draw |
 | `:initial-dora` | 1 | Dora indicators showing at the start of a deal |
 | `:uma`, `:oka` | `(15 5 -5 -15)`, on | Thousands by place; oka is players x (target - start) to first |
 | `:score-rounding` | off | `:half-away` rounds each other seat's points to thousands, a half going away from zero, and gives first place the negated sum |
