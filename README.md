@@ -26,6 +26,7 @@ Mahjong rules engine for Common Lisp. A whole variant (tiles, wall, hand shapes,
 | DSL examples (sanma, events) | [docs/dsl.md](docs/dsl.md) |
 | Game flow | [docs/game.md](docs/game.md) |
 | Validation corpus | [docs/corpus.md](docs/corpus.md) |
+| Tenhou log replay | [docs/replay.md](docs/replay.md) |
 | Roadmap and limitations | [docs/PLAN.md](docs/PLAN.md) |
 
 ## Tests

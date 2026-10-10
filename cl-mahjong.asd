@@ -23,6 +23,7 @@
                (:file "src/play")
                (:file "variants/riichi")
                (:file "variants/sanma")
+               (:file "variants/tenhou")
                (:file "variants/events"))
   :in-order-to ((asdf:test-op (asdf:test-op "cl-mahjong/tests"))))
 
@@ -44,7 +45,9 @@
                (:file "tests/game")
                (:file "tests/sanma")
                (:file "tests/events")
-               (:file "tests/corpus"))
+               (:file "tests/tenhou")
+               (:file "tests/corpus")
+               (:file "tests/replay"))
   :perform (asdf:test-op (op component)
              (declare (ignore op component))
              (unless (uiop:symbol-call :cl-mahjong/tests :run-tests)

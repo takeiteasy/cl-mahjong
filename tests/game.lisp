@@ -7,43 +7,56 @@
 (defparameter *junk-hands*
   '("123m456m789p234s1z" "159m159p159s2345z" "246m246p246s6677z" "357m357p357s3344z"))
 
-(defun stacked (&key (hands *junk-hands*) draws last rinshan dora ura (dealer 0))
-  "A riichi-136 wall: HANDS are the four seats' notations, DRAWS single-tile notations in draw order."
-  (let* ((ts (cl-mahjong:find-tileset 'riichi-136))
-         (order (make-array 136 :initial-element nil))
-         (pool (make-hash-table))
-         (used '()))
-    (labels ((take (id)
-               (let ((available (multiple-value-bind (list found) (gethash id pool)
-                                  (if found
-                                      list
-                                      (reverse (cl-mahjong:tiles-of-kind
-                                                ts (cl-mahjong:tileset-kind ts id)))))))
-                 (unless available (error "No tile of kind ~a left" id))
-                 (setf (gethash id pool) (rest available))
-                 (push (first available) used)
-                 (first available)))
-             (place (index notation)
-               (setf (aref order index) (take (first (kind-ids ts notation))))))
+(defun stack-wall (&key hands draws last rinshan dora ura (dealer 0))
+  "A riichi-136 wall from tile ids: HANDS per seat, then DRAWS in draw order, LAST the final live tile, and
+RINSHAN, DORA and URA by dead wall slot. Everything unplaced fills the gaps."
+  (let ((ts (cl-mahjong:find-tileset 'riichi-136))
+        (order (make-array 136 :initial-element nil))
+        (used '()))
+    (flet ((place (index tile)
+             (setf (aref order index) tile)
+             (push tile used)))
       (loop for hand in hands
             for seat from 0
             for slot = (mod (- seat dealer) 4)
-            do (loop for id in (kind-ids ts hand)
+            do (loop for tile in hand
                      for j from 0
-                     do (setf (aref order (if (< j 12)
-                                              (+ (* 16 (floor j 4)) (* 4 slot) (mod j 4))
-                                              (+ 48 slot)))
-                              (take id))))
-      (loop for notation in draws for index from 52 do (place index notation))
+                     do (place (if (< j 12)
+                                   (+ (* 16 (floor j 4)) (* 4 slot) (mod j 4))
+                                   (+ 48 slot))
+                               tile)))
+      (loop for tile in draws for index from 52 do (place index tile))
       (when last (place 121 last))
-      (loop for notation in rinshan for slot from 0 do (place (+ 122 slot) notation))
-      (loop for notation in dora for slot from 4 by 2 do (place (+ 122 slot) notation))
-      (loop for notation in ura for slot from 5 by 2 do (place (+ 122 slot) notation))
+      (loop for tile in rinshan for slot from 0 do (place (+ 122 slot) tile))
+      (loop for tile in dora for slot from 4 by 2 do (place (+ 122 slot) tile))
+      (loop for tile in ura for slot from 5 by 2 do (place (+ 122 slot) tile))
       (let ((rest (loop for tile below 136 unless (member tile used) collect tile)))
         (dotimes (index 136)
           (unless (aref order index)
             (setf (aref order index) (pop rest))))))
     (cl-mahjong:make-wall ts :tiles (coerce order 'list))))
+
+(defun stacked (&key (hands *junk-hands*) draws last rinshan dora ura (dealer 0))
+  "A riichi-136 wall: HANDS are the four seats' notations, DRAWS single-tile notations in draw order."
+  (let* ((ts (cl-mahjong:find-tileset 'riichi-136))
+         (pool (make-hash-table))
+         (used '()))
+    (flet ((take (id)
+             (let ((available (multiple-value-bind (list found) (gethash id pool)
+                                (if found
+                                    list
+                                    (reverse (cl-mahjong:tiles-of-kind
+                                              ts (cl-mahjong:tileset-kind ts id)))))))
+               (unless available (error "No tile of kind ~a left" id))
+               (setf (gethash id pool) (rest available))
+               (push (first available) used)
+               (first available))))
+      (flet ((tiles (notations)
+               (mapcar (lambda (notation) (take (first (kind-ids ts notation)))) notations)))
+        (stack-wall :hands (mapcar (lambda (hand) (mapcar #'take (kind-ids ts hand))) hands)
+                    :draws (tiles draws) :last (first (tiles (and last (list last))))
+                    :rinshan (tiles rinshan) :dora (tiles dora) :ura (tiles ura)
+                    :dealer dealer)))))
 
 (defun new-game (&rest args &key (variant 'riichi) seed &allow-other-keys)
   (let ((wall-args (loop for (key value) on args by #'cddr

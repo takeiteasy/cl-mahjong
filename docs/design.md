@@ -39,7 +39,7 @@ An event ruleset is a variant that extends another and changes a few rules.
 | Path | Content |
 |---|---|
 | `src/` | engine: registry, random, tileset, [wall](wall.md), hand, [shapes](shape.md), [analysis](analysis.md), win, [patterns](pattern.md), [yaku](yaku.md), [scoring](scoring.md), [variant](variant.md), [game](game.md) (state and `play`: actions) |
-| `variants/` | `riichi`, `sanma`, event rulesets (`events`); see [dsl.md](dsl.md) |
+| `variants/` | `riichi`, `sanma`, `tenhou`, event rulesets (`events`); see [dsl.md](dsl.md) |
 | `tests/` | fiveam suites |
 
 [^trusted]: Sandboxed loading of untrusted rule files is listed under Limitations in [PLAN.md](PLAN.md).

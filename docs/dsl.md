@@ -22,6 +22,15 @@ A [tileset](tileset.md) delta, then a [variant](variant.md) delta on riichi.
 
 A tsumo is paid by the two other seats at the normal multipliers.[^sanma] Each honba is worth 200: the discarder pays it on a ron, each payer pays 100 on a tsumo.
 
+## Tenhou
+
+A [variant](variant.md) delta on riichi, used by the [log replay](replay.md).
+
+```lisp
+(defvariant tenhou :extends riichi
+  (:set :double-yakuman nil :uma (20 10 -10 -20)))
+```
+
 ## Event rulesets
 
 | Variant | Changes |

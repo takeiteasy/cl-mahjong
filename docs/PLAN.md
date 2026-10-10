@@ -14,6 +14,7 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 | 5 | Game-flow state machine, multiple ron | [#5](https://todo.sr.ht/~takeiteasy/cl-mahjong/5), [#18](https://todo.sr.ht/~takeiteasy/cl-mahjong/18) | done |
 | 6 | Variant deltas, sanma, event examples | [#6](https://todo.sr.ht/~takeiteasy/cl-mahjong/6) | done |
 | 7 | Riichi validation corpus | [#7](https://todo.sr.ht/~takeiteasy/cl-mahjong/7) | done |
+| 8 | Tenhou variant and log replay | [#9](https://todo.sr.ht/~takeiteasy/cl-mahjong/9), [#21](https://todo.sr.ht/~takeiteasy/cl-mahjong/21) | built; no real logs run yet |
 
 ## Limitations
 
@@ -26,8 +27,8 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 | Pinfu fu rules are fixed | [#29](https://todo.sr.ht/~takeiteasy/cl-mahjong/29) |
 | Renhou is a mangan floor, not a 5 han yaku | [#30](https://todo.sr.ht/~takeiteasy/cl-mahjong/30) |
 | Upstream yaku class unit tests are not ported | [#31](https://todo.sr.ht/~takeiteasy/cl-mahjong/31) |
-| No Tenhou log replay validation | [#9](https://todo.sr.ht/~takeiteasy/cl-mahjong/9) |
-| No WRC or Tenhou rules variants | [#20](https://todo.sr.ht/~takeiteasy/cl-mahjong/20), [#21](https://todo.sr.ht/~takeiteasy/cl-mahjong/21) |
+| Tenhou replay has not been run on real logs | [#9](https://todo.sr.ht/~takeiteasy/cl-mahjong/9) |
+| No WRC rules variant | [#20](https://todo.sr.ht/~takeiteasy/cl-mahjong/20) |
 | No sanma nukidora (kita) | [#22](https://todo.sr.ht/~takeiteasy/cl-mahjong/22) |
 | Sanma tsumo does not split the missing north share | [#23](https://todo.sr.ht/~takeiteasy/cl-mahjong/23) |
 | No HK variant | [#10](https://todo.sr.ht/~takeiteasy/cl-mahjong/10) |
