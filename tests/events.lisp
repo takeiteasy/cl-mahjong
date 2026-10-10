@@ -41,3 +41,75 @@
   (multiple-value-bind (game events) (cl-mahjong:start-game 'riichi :seed 1)
     (declare (ignore game))
     (is (= 1 (length (getf (rest (find :deal-start events :key #'first)) :dora))))))
+
+(test house-yaku-need-their-options
+  (with-riichi (ts)
+    (let ((variant (cl-mahjong:find-variant 'house-rules)))
+      (is (zerop (cl-mahjong:reading-yakuman
+                  (best ts "22334455667788p" "8p"
+                        :yaku (cl-mahjong:variant-yaku variant)
+                        :options cl-mahjong:*riichi-options*)))))))
+
+(test daisharin-in-other-suits-needs-the-all-option
+  (with-riichi (ts)
+    (let ((variant (cl-mahjong:find-variant 'house-rules)))
+      (flet ((scored (notation win daisharin)
+               (names (best ts notation win :yaku (cl-mahjong:variant-yaku variant)
+                                            :options (list* :daisharin daisharin
+                                                            cl-mahjong:*riichi-options*)))))
+        (is (equal '(:daisuurin) (scored "22334455667788m" "8m" :all)))
+        (is (not (member :daisuurin (scored "22334455667788m" "8m" t))))
+        (is (equal '(:daisharin) (scored "22334455667788p" "8p" t)))))))
+
+(test open-riichi-replaces-riichi
+  (with-riichi (ts)
+    (let ((reading (best ts "123444s234456m66p" "4s"
+                         :yaku (cl-mahjong:variant-yaku (cl-mahjong:find-variant 'house-rules))
+                         :context-args '(:riichi t :open-riichi t))))
+      (is (equal '(:open-riichi) (names reading)))
+      (is (= 2 (cl-mahjong:reading-han reading))))))
+
+(test sashikomi-is-a-ron-in-open-riichi
+  (with-riichi (ts)
+    (flet ((scored (&rest context)
+             (best ts "123444s234456m66p" "4s"
+                   :yaku (cl-mahjong:variant-yaku (cl-mahjong:find-variant 'house-rules))
+                   :options (list* :sashikomi t cl-mahjong:*riichi-options*)
+                   :context-args (list* :riichi t :open-riichi t context))))
+      (is (equal '(:sashikomi) (names (scored))))
+      (is (not (member :sashikomi (names (scored :tsumo t))))))))
+
+(test paarenchan-scores-a-yakuman-per-dealer-win
+  (with-riichi (ts)
+    (let ((yaku (cl-mahjong:variant-yaku (cl-mahjong:find-variant 'house-rules))))
+      (let ((reading (best ts "111222777p44455s" "7p" :yaku yaku
+                                                      :options cl-mahjong:*riichi-options*
+                                                      :context-args '(:tsumo t :paarenchan 4))))
+        (is (equal '(:paarenchan :suuankou) (names reading)))
+        (is (= 5 (cl-mahjong:reading-yakuman reading)))))))
+
+(test paarenchan-needs-another-yaku-unless-the-option-is-set
+  (with-riichi (ts)
+    (let ((yaku (cl-mahjong:variant-yaku (cl-mahjong:find-variant 'house-rules))))
+      (flet ((scored (without-yaku)
+               (best ts "12367778p678s456m" "7p"
+                     :yaku yaku
+                     :options (list* :paarenchan-without-yaku without-yaku
+                                     cl-mahjong:*riichi-options*)
+                     :context-args '(:paarenchan 1))))
+        (is (null (cl-mahjong:reading-yaku (scored nil))))
+        (is (equal '(:paarenchan) (names (scored t))))))))
+
+(test aotenjou-variant-stacks-daisharin-with-tsumo
+  (with-riichi (ts)
+    (let* ((variant (cl-mahjong:find-variant 'aotenjou))
+           (score (cl-mahjong:best-score
+                   (cl-mahjong:evaluate-score
+                    (cl-mahjong:variant-scoring variant) ts (cl-mahjong:variant-shapes variant)
+                    (cl-mahjong:variant-yaku variant) (hand ts "22334455667788p")
+                    nil (context ts "7p" :tsumo t)
+                    :options (cl-mahjong:variant-options variant)))))
+      (is (= 14 (cl-mahjong:score-han score)))
+      (is (equal '(:daisharin :menzen-tsumo)
+                 (sort (mapcar #'car (cl-mahjong:reading-yaku (cl-mahjong:score-reading score)))
+                       #'string<))))))

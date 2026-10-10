@@ -10,7 +10,9 @@
     (:chankan . win-context-chankan)
     (:tenhou . win-context-tenhou)
     (:chiihou . win-context-chiihou)
-    (:renhou . win-context-renhou)))
+    (:renhou . win-context-renhou)
+    (:open-riichi . win-context-open-riichi)
+    (:paarenchan . win-context-paarenchan)))
 
 (defparameter *group-types* '(:sequence :triplet :quad :pair :single))
 

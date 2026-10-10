@@ -1,7 +1,7 @@
 (in-package #:cl-mahjong)
 
 (defstruct scoring
-  spec name fu limits floors kiriage indicator payments)
+  spec name fu limits floors kiriage aotenjou indicator payments)
 
 (defstruct fu-table
   (base 0) (round 1) (closed-ron 0) (tsumo 0) (open-minimum 0) (concealed 1) (quad 1)
@@ -14,7 +14,7 @@
 (defstruct (score (:constructor make-score (reading fu han dora limit base points payments)))
   reading fu han dora limit base points payments)
 
-(defparameter *scoring-clauses* '(:name :fu :limits :floor :kiriage :dora :payments))
+(defparameter *scoring-clauses* '(:name :fu :limits :floor :kiriage :aotenjou :dora :payments))
 
 (defparameter *scoring-containers* '(:fu :limits :dora :payments))
 
@@ -50,11 +50,13 @@
 
 (defun entry-key (entry)
   "Entries with the same key replace each other when a scoring extends another."
-  (key-form (if (and (eq (first entry) :fu) (member (second entry) '(:group :pair :wait :flat)))
-                (butlast entry)
-                (case (first entry)
-                  ((:fu :limits :dora :payments :floor) (list (first entry) (second entry)))
-                  (t (list (first entry)))))))
+  (key-form (cond ((and (eq (first entry) :fu) (eq (second entry) :flat))
+                   (list :fu :flat (third entry)))
+                  ((and (eq (first entry) :fu) (member (second entry) '(:group :pair :wait)))
+                   (butlast entry))
+                  (t (case (first entry)
+                       ((:fu :limits :dora :payments :floor) (list (first entry) (second entry)))
+                       (t (list (first entry))))))))
 
 (defun merge-scoring-spec (parent clauses)
   (let ((entries (copy-list parent)))
@@ -85,6 +87,15 @@
     (cons (compile-group-test '(:group) (cons types (butlast (rest args))))
           (count-arg (car (last args)) ":group" 0))))
 
+(defun build-flat (args)
+  "(yaku fu tsumo-fu) from `yaku fu [:tsumo fu]'."
+  (unless (and (>= (length args) 2) (symbolp (first args)))
+    (invalid ":flat takes a yaku and an amount, got ~s" args))
+  (let ((options (clause-options (cddr args) ":flat" '(:tsumo))))
+    (list (keyword-of (first args))
+          (count-arg (second args) ":flat" 0)
+          (and (getf options :tsumo) (count-arg (getf options :tsumo) ":flat :tsumo" 0)))))
+
 (defun build-fu (entries name)
   (when (null entries)
     (invalid "Scoring ~(~a~) needs a :fu clause" name))
@@ -108,10 +119,7 @@
                    (invalid ":wait takes wait names and an amount, got ~s" args))
            (push (cons (names-arg (first args) ":wait") (count-arg (second args) ":wait" 0))
                  (fu-table-waits table)))
-          (:flat (unless (= 2 (length args))
-                   (invalid ":flat takes a yaku and an amount, got ~s" args))
-           (push (cons (keyword-of (first args)) (count-arg (second args) ":flat" 0))
-                 (fu-table-flats table)))
+          (:flat (push (build-flat args) (fu-table-flats table)))
           (:no-tsumo-fu (setf (fu-table-no-tsumo-fu table) (names-arg args ":no-tsumo-fu")))
           (:lambda (unless (and args (listp (first args)))
                      (invalid ":fu :lambda needs a parameter list, got ~s" args))
@@ -123,18 +131,27 @@
           (fu-table-flats table) (nreverse (fu-table-flats table)))
     table))
 
+(defun limit-option (options key)
+  (and (getf options key)
+       (count-arg (getf options key) (format nil ":limits ~(~s~)" key) 1)))
+
 (defun build-limits (entries name)
-  "Limits as (name base han) sorted by base."
+  "Limits as (name base han per max) sorted by base."
   (let ((limits (mapcar (lambda (entry)
                           (unless (and (symbolp (first entry)) (rest entry))
                             (invalid ":limits takes (name base [:han n]), got ~s" entry))
-                          (let ((options (clause-options (cddr entry) ":limits" '(:han))))
+                          (let ((options (clause-options (cddr entry) ":limits" '(:han :per :max))))
                             (list (keyword-of (first entry))
                                   (count-arg (second entry) ":limits" 1)
-                                  (and (getf options :han) (count-arg (getf options :han) ":limits :han" 1)))))
+                                  (limit-option options :han)
+                                  (limit-option options :per)
+                                  (limit-option options :max))))
                         entries)))
     (unless (assoc :yakuman limits)
       (invalid "Scoring ~(~a~) needs a yakuman limit" name))
+    (let ((yakuman (assoc :yakuman limits)))
+      (when (and (fourth yakuman) (not (third yakuman)))
+        (invalid "The yakuman limit of ~(~a~) takes :per only with :han" name)))
     (stable-sort limits #'< :key #'second)))
 
 (defun build-floors (entries limits)
@@ -201,12 +218,14 @@
 (defun build-scoring (spec)
   (let* ((name (keyword-of (second (assoc :name spec))))
          (kiriage (entries-of spec :kiriage))
+         (aotenjou (entries-of spec :aotenjou))
          (limits (build-limits (entries-of spec :limits) name)))
     (make-scoring :spec spec :name name
                   :fu (build-fu (entries-of spec :fu) name)
                   :limits limits
                   :floors (build-floors (entries-of spec :floor) limits)
                   :kiriage (and kiriage (amount-arg (first kiriage) ":kiriage" 1))
+                  :aotenjou (and aotenjou (amount-arg (first aotenjou) ":aotenjou" 1))
                   :indicator (build-indicator (entries-of spec :dora))
                   :payments (build-payments (entries-of spec :payments) name))))
 
@@ -255,7 +274,9 @@
          (flat (find-if (lambda (flat) (member (car flat) names)) (fu-table-flats table)))
          (closed (win-hand-closed-p hand)))
     (cond ((fu-table-fn table) (funcall (fu-table-fn table) hand reading))
-          (flat (cdr flat))
+          (flat (if (and (third flat) (win-context-tsumo (win-hand-context hand)))
+                    (third flat)
+                    (second flat)))
           (t (let ((fu (round-up (+ (fu-table-base table)
                                     (if (and closed (not (win-context-tsumo (win-hand-context hand))))
                                         (fu-table-closed-ron table)
@@ -303,15 +324,24 @@
 
 ;;; Base points
 
+(defun yakuman-multiple (limit han yakuman)
+  "How many yakuman a hand is worth: YAKUMAN, or the kazoe multiple of HAN, capped by the yakuman LIMIT."
+  (destructuring-bind (name base kazoe-han per max) limit
+    (declare (ignore name base))
+    (let ((multiple (cond ((plusp yakuman) yakuman)
+                          (per (1+ (floor (- han kazoe-han) per)))
+                          (t 1))))
+      (if max (min max multiple) multiple))))
+
 (defun base-points (scoring han fu yakuman options)
   "(values base limit-name)."
   (let* ((limits (scoring-limits scoring))
-         (yakuman-limit (assoc :yakuman limits)))
-    (if (plusp yakuman)
-        (values (* yakuman (second yakuman-limit)) :yakuman)
-        (let* ((usable (if (getf options :kazoe-yakuman) limits (remove yakuman-limit limits)))
-               (reached (find-if (lambda (limit) (and (third limit) (>= han (third limit))))
-                                 usable :from-end t))
+         (yakuman-limit (assoc :yakuman limits))
+         (kazoe (and (third yakuman-limit) (>= han (third yakuman-limit)))))
+    (if (or (plusp yakuman) kazoe)
+        (values (* (yakuman-multiple yakuman-limit han yakuman) (second yakuman-limit)) :yakuman)
+        (let* ((reached (find-if (lambda (limit) (and (third limit) (>= han (third limit))))
+                                 limits :from-end t))
                (formula (* fu (expt 2 (+ han 2))))
                (lowest (first limits)))
           (cond (reached (values (second reached) (first reached)))
@@ -417,32 +447,38 @@ Each liable seat pays its yakuman as a ron; PAYMENTS gains a :pao list of (seat 
                       0))
              (aka (count-aka hand))
              (nuki (length (win-context-nuki context)))
-             (han (if (plusp yakuman)
-                      0
-                      (+ dora ura aka nuki
-                         (loop for (name . value) in (reading-yaku reading)
-                               unless (member name floored) sum value))))
+             (aotenjou (scoring-aotenjou scoring))
+             (han (cond (aotenjou
+                         (+ dora ura aka nuki (reading-han reading) (* yakuman aotenjou)))
+                        ((plusp yakuman) 0)
+                        (t (+ dora ura aka nuki
+                              (loop for (name . value) in (reading-yaku reading)
+                                    unless (member name floored) sum value)))))
              (fu (reading-fu (scoring-fu scoring) reading)))
-        (multiple-value-bind (base limit) (base-points scoring han fu yakuman options)
-          (multiple-value-bind (base limit) (apply-floors scoring names base limit)
-            (multiple-value-bind (payments total)
-                (if (reading-pao reading)
-                    (pao-payments (scoring-payments scoring) (reading-pao reading)
-                                  (second (assoc :yakuman (scoring-limits scoring)))
-                                  base (win-context-dealer context) (win-context-tsumo context)
-                                  honba players)
-                    (payments-for (scoring-payments scoring) base (win-context-dealer context)
-                                  (win-context-tsumo context) honba players))
-              (make-score reading fu han (list :dora dora :ura ura :aka aka :nuki nuki) limit base
-                          (+ total (* riichi-sticks (payment-table-stick (scoring-payments scoring))))
-                          payments))))))))
+        (multiple-value-bind (base limit)
+            (if aotenjou
+                (values (* fu (expt 2 (+ han 2))) nil)
+                (multiple-value-call #'apply-floors scoring names
+                  (base-points scoring han fu yakuman options)))
+          (multiple-value-bind (payments total)
+              (if (and (reading-pao reading) (not aotenjou))
+                  (pao-payments (scoring-payments scoring) (reading-pao reading)
+                                (second (assoc :yakuman (scoring-limits scoring)))
+                                base (win-context-dealer context) (win-context-tsumo context)
+                                honba players)
+                  (payments-for (scoring-payments scoring) base (win-context-dealer context)
+                                (win-context-tsumo context) honba players))
+            (make-score reading fu han (list :dora dora :ura ura :aka aka :nuki nuki) limit base
+                        (+ total (* riichi-sticks (payment-table-stick (scoring-payments scoring))))
+                        payments)))))))
 
 (defun evaluate-score (scoring tileset shapes yaku counts melds context
                        &key options (honba 0) (riichi-sticks 0) (players 4))
   "The score of every reading of a winning hand that has a yaku; see `evaluate-yaku' for the arguments.
 HONBA and RIICHI-STICKS are counts; PLAYERS decides who pays a tsumo."
   (let ((scoring (resolve-scoring scoring)))
-    (loop for reading in (evaluate-yaku tileset shapes yaku counts melds context :options options)
+    (loop for reading in (evaluate-yaku tileset shapes yaku counts melds context :options options
+                                        :stack-yakuman (and (scoring-aotenjou scoring) t))
           for score = (reading-score scoring reading :honba honba :riichi-sticks riichi-sticks
                                                      :players players)
           when score collect score)))

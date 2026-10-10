@@ -102,13 +102,32 @@
       (is (equal '(11 :sanbaiman 24000) (limit 7)))
       (is (equal '(13 :yakuman 32000) (limit 9))))))
 
-(test kazoe-yakuman-is-an-option
+(cl-mahjong:defscoring test-kazoe-sanbaiman :extends riichi
+  (:limits (yakuman 8000)))
+
+(cl-mahjong:defscoring test-kazoe-multiple :extends riichi
+  (:limits (yakuman 8000 :han 13 :per 13 :max 3)))
+
+(test kazoe-stops-at-sanbaiman-without-a-yakuman-han
   (with-riichi (ts)
-    (let ((score (best-scored ts *sanshoku-hand* "7m"
-                              :context-args (list :dora-indicators (dora-rich ts 9))
-                              :options '(:kuitan t))))
+    (let ((score (best-scored ts *sanshoku-hand* "7m" :scoring 'test-kazoe-sanbaiman
+                              :context-args (list :dora-indicators (dora-rich ts 9)))))
       (is (eq :sanbaiman (cl-mahjong:score-limit score)))
       (is (= 24000 (cl-mahjong:score-points score))))))
+
+(test kazoe-multiples-and-the-yakuman-cap
+  (flet ((base (scoring han yakuman)
+           (cl-mahjong::base-points (cl-mahjong::find-scoring scoring) han 30 yakuman nil)))
+    (is (equal '(8000 :yakuman) (multiple-value-list (base 'riichi 13 0))))
+    (is (equal '(8000 :yakuman) (multiple-value-list (base 'riichi 40 0))))
+    (is (equal '(6000 :sanbaiman) (multiple-value-list (base 'test-kazoe-sanbaiman 40 0))))
+    (is (= 16000 (base 'test-kazoe-multiple 26 0)))
+    (is (= 16000 (base 'test-kazoe-multiple 38 0)))
+    (is (= 24000 (base 'test-kazoe-multiple 39 0)))
+    (is (= 24000 (base 'test-kazoe-multiple 100 0)))
+    (is (= 24000 (base 'test-kazoe-multiple 13 7)))
+    (is (= 48000 (base 'riichi 13 6)))
+    (is (= 48000 (base 'riichi 13 7)))))
 
 (test kiriage-is-an-option
   (with-riichi (ts)
@@ -358,3 +377,23 @@
     (invalid 'test-pao-bad-honba :honba 'nobody)
     (invalid 'test-pao-bad-key :colour 'red)
     (invalid 'test-pao-bad-value :ron 3)))
+
+(test aotenjou-scores-without-limits-and-stacks-yakuman
+  (with-riichi (ts)
+    (let ((options (list* :double-yakuman nil cl-mahjong:*riichi-options*)))
+      (is-points '(40 13 5242900)
+                 (ts "19m19p119s1234567z" "1s" :scoring 'aotenjou :options options))
+      (is-points '(40 13 7864400)
+                 (ts "19m19p119s1234567z" "1s" :scoring 'aotenjou :options options
+                                                :context-args '(:dealer t)))
+      (is (= 30 (cl-mahjong:score-fu
+                 (best-scored ts "19m19p119s1234567z" "1s" :scoring 'aotenjou :options options
+                                                           :context-args '(:tsumo t))))))))
+
+(test aotenjou-pays-no-honba-or-sticks
+  (with-riichi (ts)
+    (let ((options (list* :double-yakuman nil cl-mahjong:*riichi-options*)))
+      (is (= 5242900
+             (cl-mahjong:score-points
+              (best-scored ts "19m19p119s1234567z" "1s" :scoring 'aotenjou :options options
+                                                        :honba 3 :riichi-sticks 2)))))))
