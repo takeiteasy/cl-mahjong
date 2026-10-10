@@ -48,17 +48,21 @@ class MeldTest(unittest.TestCase):
         self.assertEqual(("daiminkan", [72, 73, 74, 75], 74), convert.decode_meld(encode_daiminkan(74)))
         self.assertEqual(("ankan", [72, 73, 74, 75], None), convert.decode_meld(encode_ankan(72)))
 
-    def test_nuki_is_rejected(self):
-        with self.assertRaises(ValueError):
-            convert.decode_meld(32)
+    def test_kita(self):
+        self.assertEqual(("kita", [121], None), convert.decode_meld(31008))
+
+    def test_sanma_tile_ids_skip_man_two_to_eight(self):
+        self.assertEqual([0, 3, 4, 7, 24, 107],
+                         [convert.sanma_tile(tile) for tile in (0, 3, 32, 35, 52, 135)])
 
 
 class GameTest(unittest.TestCase):
     def test_rejects_other_rules(self):
-        for kind in (169 | 0x02, 169 | 0x04, 169 ^ 0x08, 169 | 0x10):
+        for kind in (169 | 0x02, 169 | 0x04, 169 ^ 0x08):
             with self.assertRaises(ValueError):
                 convert.check_rules({"type": str(kind)})
         self.assertEqual(169, convert.check_rules({"type": "169"}))
+        self.assertEqual(185, convert.check_rules({"type": "185"}))
 
     def test_converts_a_tsumo(self):
         hands = " ".join(f'hai{seat}="{",".join(str(seat * 13 + i) for i in range(13))}"' for seat in range(4))
@@ -76,18 +80,40 @@ class GameTest(unittest.TestCase):
         self.assertEqual([28900, 23700, 23700, 23700], game["owari"]["points"])
         self.assertEqual(30000, game["owari"]["scores"][0])
 
+    def test_converts_a_sanma_game_with_kita(self):
+        hands = " ".join(f'hai{seat}="{",".join(str(36 + seat * 13 + i) for i in range(13))}"'
+                         for seat in range(3))
+        text = (f'<mjloggm><GO type="185"/><INIT seed="0,0,0,1,2,100" ten="350,350,350,0" oya="0" '
+                f'{hands} hai3=""/><T121/><N who="0" m="31008" /><T52/><D52/><U40/><E40/><V41/><F41/>'
+                '<AGARI ba="0,0" hai="1" ten="30,3900,1" yaku="0,1,8,1,52,1" who="0" fromWho="0" '
+                'sc="350,39,350,-20,350,-19,0,0" owari="389,40.0,330,0.0,330,-20.0,0,0.0"/></mjloggm>')
+        game = convert.convert(text, "2023010100gm")
+        deal = game["deals"][0]
+        self.assertEqual(":tenhou-sanma", str(game["variant"]))
+        self.assertEqual(3, len(deal["hands"]))
+        self.assertEqual(3, convert.convert(text.replace('seed="0,0', 'seed="4,0'), "2023010100gm")["deals"][0]["kyoku"])
+        self.assertEqual([8, 8 + 13, 8 + 26], [hand[0] for hand in deal["hands"]])
+        self.assertEqual([93], deal["draws"][:1])
+        self.assertEqual([24], deal["rinshan"])
+        self.assertEqual([":kita", 0, 93], [str(deal["events"][0][0]), *deal["events"][0][1:]])
+        self.assertEqual([3900, -2000, -1900], deal["result"]["wins"][0]["deltas"])
+        self.assertEqual([38900, 33000, 33000], game["owari"]["points"])
+
     def test_double_ron_takes_ura_from_the_riichi_winner(self):
         deal = {}
         wins = [{"from": 1, "ura": []}, {"from": 1, "ura": [60]}]
-        convert.finish_deal(deal, {}, wins, "AGARI")
+        convert.finish_deal(deal, {}, wins, "AGARI", 4)
         self.assertEqual([60], deal["ura"])
 
 
 class ScoringEraTest(unittest.TestCase):
     def test_picks_the_variant_by_final_score_precision_and_date(self):
-        self.assertEqual(":tenhou-2021", convert.scoring_variant("2013010100gm", [60000, -20000]))
-        self.assertEqual(":tenhou", convert.scoring_variant("2013010100gm", [56100, -20000]))
-        self.assertEqual(":tenhou", convert.scoring_variant("2023010100gm", [60000, -20000]))
+        self.assertEqual(":tenhou-2021", convert.scoring_variant("2013010100gm", [60000, -20000], 4))
+        self.assertEqual(":tenhou", convert.scoring_variant("2013010100gm", [56100, -20000], 4))
+        self.assertEqual(":tenhou", convert.scoring_variant("2023010100gm", [60000, -20000], 4))
+        self.assertEqual(":tenhou-sanma", convert.scoring_variant("2023010100gm", [60000, -20000], 3))
+        with self.assertRaises(ValueError):
+            convert.scoring_variant("2013010100gm", [60000, -20000], 3)
 
 
 class ReadLogTest(unittest.TestCase):

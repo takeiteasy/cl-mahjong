@@ -2,7 +2,8 @@
 
 ;; seat-wind and round-wind are honor kind names such as :east.
 ;; dora-indicators and ura-indicators are tile ids; tiles are the tile ids of the whole hand,
-;; melds and the winning tile included, so red fives can be counted.
+;; melds and the winning tile included, so red fives can be counted. nuki are the tile ids set
+;; aside as dora.
 (defstruct win-context
   win-tile
   tsumo riichi double-riichi ippatsu
@@ -11,7 +12,7 @@
   tenhou chiihou renhou
   dealer
   dora-indicators ura-indicators
-  tiles)
+  tiles nuki)
 
 (defstruct (win-hand (:constructor make-win-hand
                          (tileset decomposition counts melds context options

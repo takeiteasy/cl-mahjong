@@ -99,3 +99,29 @@
       (cl-mahjong:make-wall ts :tiles (loop for i below 135 collect i)))
     (signals cl-mahjong:invalid-definition
       (cl-mahjong:make-wall ts :tiles (cons 0 (loop for i below 135 collect i))))))
+
+(test nuki-draws-have-their-own-budget
+  (let ((wall (cl-mahjong:make-wall (cl-mahjong:find-tileset 'sanma-108) :seed 1)))
+    (dotimes (i 4)
+      (setf wall (nth-value 1 (cl-mahjong:wall-draw-nuki wall))))
+    (is (null (cl-mahjong:wall-draw-nuki wall)))
+    (dotimes (i 4)
+      (setf wall (nth-value 1 (cl-mahjong:wall-draw-replacement wall))))
+    (is (null (cl-mahjong:wall-draw-replacement wall)))
+    (is (= (- 94 8) (cl-mahjong:wall-live-count wall)))
+    (is (= 14 (length (cl-mahjong:wall-dead-tiles wall))))
+    (is (= (- 108 8) (length (all-tiles wall))))))
+
+(test nuki-slots-cycle-through-refilled-tiles
+  (let* ((ts (cl-mahjong:find-tileset 'sanma-108))
+         (wall (cl-mahjong:make-wall ts :tiles (loop for i below 108 collect i))))
+    (multiple-value-bind (tile next) (cl-mahjong:wall-draw-nuki wall)
+      (is (= 94 tile))
+      (setf wall next))
+    (dotimes (i 3)
+      (setf wall (nth-value 1 (cl-mahjong:wall-draw-replacement wall))))
+    (is (= 93 (cl-mahjong:wall-draw-nuki wall)))))
+
+(test no-nuki-without-the-clause
+  (let ((wall (cl-mahjong:make-wall (cl-mahjong:find-tileset 'riichi-136) :seed 1)))
+    (is (null (cl-mahjong:wall-draw-nuki wall)))))

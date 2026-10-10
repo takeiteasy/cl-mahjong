@@ -27,3 +27,15 @@
   (let* ((game (cl-mahjong:start-game 'tenhou :walls (list (stacked))))
          (standings (cl-mahjong::standings game #(18700 25700 4500 51100) 0)))
     (is (equal '(-21300 5700 -45500 61100) (coerce (getf standings :scores) 'list)))))
+
+(test tenhou-sanma-is-sanma-with-tenhou-rules
+  (let ((variant (cl-mahjong:find-variant 'tenhou-sanma)))
+    (is (= 3 (cl-mahjong:variant-players variant)))
+    (is (null (cl-mahjong:variant-option variant :double-yakuman)))
+    (is (eq t (cl-mahjong:variant-option variant :tenpai-yame)))
+    (is (eq t (cl-mahjong:variant-option variant :nukidora)))))
+
+(test tenhou-sanma-standings-use-sanma-uma
+  (let* ((game (cl-mahjong:start-game 'tenhou-sanma :seed 1))
+         (standings (cl-mahjong::standings game #(42000 39800 23200) 0)))
+    (is (equal '(37000 -200 -36800) (coerce (getf standings :scores) 'list)))))

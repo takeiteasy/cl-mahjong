@@ -6,9 +6,8 @@
 The ranking page (default https://tenhou.net/ranking.html) links DL zips
 like /0/log/mjlog_pf4-20_n30.zip (4-player houou) and
 /0/log/mjlog_pf3-20_n31.zip (3-player houou). By default the latest 4-player
-zip is fetched, matching what convert.py accepts (4-player hanchan with red
-fives and open tanyao); --mode 3p or both also fetches sanma logs, which
-convert.py reports and skips.
+zip is fetched, matching what convert.py accepts (hanchan with red
+fives and open tanyao); --mode 3p or both also fetches sanma logs.
 
 Extracted .mjlog/.xml files can be fed to convert.py:
 
@@ -120,7 +119,7 @@ def main():
     parser.add_argument("--ranking-url", default=DEFAULT_RANKING_URL,
                         help="page to scrape DL links from")
     parser.add_argument("--mode", choices=("both", "4p", "3p"), default="4p",
-                        help="which houou logs to fetch (default: 4p, the only mode convert.py accepts)")
+                        help="which houou logs to fetch (default: 4p)")
     parser.add_argument("--count", type=int, default=1,
                         help="newest zips to fetch per mode (default: 1)")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT,

@@ -18,7 +18,7 @@ Seats are numbered from 0, the first dealer. `deciding-seats` lists who owes an 
 | `:deal-over` | The deal ended; `game-result` says how; call `next-deal` |
 | `:game-over` | `game-final` holds the standings |
 
-During a deal, `deal-phase` of `game-deal` is `:turn` (one seat acts), `:claim` (seats answer a discard) or `:chankan` (seats answer a kan).
+During a deal, `deal-phase` of `game-deal` is `:turn` (one seat acts), `:claim` (seats answer a discard) or `:chankan` (seats answer a kan or a kita).
 
 ## Actions
 
@@ -30,6 +30,7 @@ During a deal, `deal-phase` of `game-deal` is `:turn` (one seat acts), `:claim` 
 | `(:ankan kind)` | Four of a kind in hand; in riichi only if the waits do not change |
 | `(:shouminkan tile)` | Add a tile to an open triplet |
 | `(:kyuushu)` | First turn, nine terminal or honor kinds |
+| `(:kita)` | Set a north aside as dora and draw a replacement; needs `:nukidora`; in riichi only the drawn north |
 | `(:ron)` | The discard (or added kan tile) completes a hand with a yaku and you are not furiten |
 | `(:pon tile tile)`, `(:chi tile tile)`, `(:daiminkan tile tile tile)` | Tiles from your hand used with the discard |
 | `(:pass)` | Decline a claim |
@@ -43,9 +44,10 @@ Each event is `(type . plist)`.
 | Event | Fields |
 |---|---|
 | `:deal-start` | `:kyoku :dealer :honba :dora` |
-| `:draw` | `:seat :tile`, `:rinshan` for a replacement draw |
+| `:draw` | `:seat :tile`, `:rinshan` for a replacement draw, `:kita` after a kita |
 | `:discard` | `:seat :tile :riichi` |
 | `:call` | `:type :seat :tiles`, `:from` for open calls |
+| `:kita` | `:seat :tile` |
 | `:riichi` | `:seat`, once the discard passes |
 | `:dora` | `:tile`, a new indicator |
 | `:win` | `:seat :from :han :fu :limit :points :yaku :pao :score`; `:pao` lists `(seat . amount)` for liable seats |
@@ -62,6 +64,7 @@ Each event is `(type . plist)`.
 | Kuikae | A call is offered only while a legal discard remains |
 | Calls | None on the last discard, none in riichi |
 | Kan | Needs a replacement tile and a live wall tile; a closed kan can only be robbed for kokushi |
+| Kita | Needs a live wall tile and a [`:nuki` slot](wall.md#layout); the north stays out of the hand and melds and counts as dora in scoring ([scoring.md](scoring.md#dora)) |
 | Multiple ron | Honba and sticks go to the nearest winner |
 | Deal end | `game-result` holds `:type` (`:tsumo :ron :exhaustive :abortive`), `:deltas`, and details such as `:winners` or `:reason` |
 
@@ -98,6 +101,11 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 | `:nagashi-mangan` | `:mangan` | Limit paid for nagashi; `nil` for off |
 | `:noten-payment` | 3000 | Total paid from noten to tenpai |
 | `:riichi-cost`, `:riichi-min-tiles` | 1000, 4 | |
+| `:nukidora` | off | Offer `(:kita)` for a north |
+| `:kita-ippatsu` | off | A kita keeps ippatsu; off breaks every seat's ippatsu |
+| `:kita-interrupts` | on | A kita counts as an interruption: no later double riichi, first-turn win or kyuushu |
+| `:kita-rinshan` | on | A tsumo on the kita replacement draw scores rinshan |
+| `:kita-ron` | on | Other seats may ron on the north as it is set aside; passing makes them furiten |
 | `:renchan` | `:tenpai` | Dealer repeats when tenpai; `:win-only` |
 | `:initial-dora` | 1 | Dora indicators showing at the start of a deal |
 | `:uma`, `:oka` | `(15 5 -5 -15)`, on | Thousands by place; oka is players x (target - start) to first |
@@ -110,4 +118,4 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 
 ## Limitations
 
-See [PLAN.md](PLAN.md#limitations): sanma has no nukidora ([#22](https://todo.sr.ht/~takeiteasy/cl-mahjong/22)), and legal actions are recomputed on every move ([#19](https://todo.sr.ht/~takeiteasy/cl-mahjong/19)).
+See [PLAN.md](PLAN.md#limitations): wait checks ignore tiles set aside as nukidora ([#35](https://todo.sr.ht/~takeiteasy/cl-mahjong/35)), and legal actions are recomputed on every move ([#19](https://todo.sr.ht/~takeiteasy/cl-mahjong/19)).

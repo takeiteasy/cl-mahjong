@@ -28,10 +28,10 @@
 (defun tile-sigs (game tiles)
   (sort (mapcar (lambda (tile) (tile-sig game tile)) tiles) #'<))
 
-(defun log-wall (deal)
+(defun log-wall (deal tileset)
   (stack-wall :hands (getf deal :hands) :draws (getf deal :draws) :rinshan (getf deal :rinshan)
               :dora (cons (getf deal :dora) (getf deal :dora-added)) :ura (getf deal :ura)
-              :dealer (getf deal :dealer)))
+              :dealer (getf deal :dealer) :tileset tileset))
 
 ;;; Matching logged actions to legal ones
 
@@ -83,6 +83,11 @@
            (values (legal-ankan game seat (fourth event)) t))
           ((and event (call-event-p event :shouminkan) (= seat (second event)))
            (values (legal-tile-action game seat :shouminkan (fourth event)) t))
+          ((and event (eq (first event) :kita) (= seat (second event)))
+           (values (or (find (list :kita) (cl-mahjong:legal-actions game seat) :test #'equal)
+                       (diverge "seat ~a cannot kita; legal: ~s" seat
+                                (cl-mahjong:legal-actions game seat)))
+                   t))
           ((and (null event) (eq (getf result :type) :tsumo)) (list :tsumo))
           ((and (null event) (eq (getf result :reason) :kyuushu)) (list :kyuushu))
           (t (diverge "seat ~a is to act, the log has ~s and then ~s ~s"
@@ -150,8 +155,9 @@
       (expect "fu" (getf expected :fu) (getf engine :fu)))
     (expect "yaku" (yaku-strings (getf expected :yaku))
             (yaku-strings (mapcar #'car (getf engine :yaku))))
+    ;; Tenhou logs no liable seat when it dealt in: it pays the whole ron either way.
     (expect "liable seats" (and (getf expected :pao) (list (getf expected :pao)))
-            (mapcar #'car (getf engine :pao)))))
+            (remove (getf engine :from) (mapcar #'car (getf engine :pao))))))
 
 (defun verify-result (game log deal)
   (let* ((result (getf deal :result))
@@ -210,10 +216,12 @@
   (handler-case
       (let* ((deals (getf data :deals))
              (opening (first deals))
+             (tileset (cl-mahjong:variant-tileset (cl-mahjong:find-variant variant)))
              (game nil)
              (events nil))
         (setf (values game events)
-              (cl-mahjong:start-game variant :walls (mapcar #'log-wall deals)
+              (cl-mahjong:start-game variant :walls (mapcar (lambda (deal) (log-wall deal tileset))
+                                                            deals)
                                              :points (getf opening :points) :kyoku (getf opening :kyoku)
                                              :honba (getf opening :honba) :sticks (getf opening :sticks)))
         (loop for (deal . more) on deals
@@ -273,7 +281,7 @@
          (results (make-array (length files)))
          (next (list 0)))
     ;; Workers only read the registry once the variants are compiled.
-    (dolist (name '(tenhou tenhou-2021))
+    (dolist (name '(tenhou tenhou-2021 tenhou-sanma))
       (cl-mahjong:find-variant name))
     (flet ((work ()
              (loop for index = (sb-ext:atomic-incf (car next))
@@ -322,6 +330,7 @@
            (choose (list) (nth (cl-mahjong::rng-below rng (length list)) list))
            (chance (n) (zerop (cl-mahjong::rng-below rng n))))
       (cond ((of :tsumo :ron) (first (of :tsumo :ron)))
+            ((and (of :kita) (chance 2)) (list :kita))
             ((and (of :riichi) (chance 2)) (choose (of :riichi)))
             ((and (of :pon :chi :daiminkan :ankan :shouminkan :kyuushu) (chance 3))
              (choose (of :pon :chi :daiminkan :ankan :shouminkan :kyuushu)))
@@ -333,6 +342,7 @@
   (destructuring-bind (type &key seat tile riichi tiles &allow-other-keys) event
     (ecase type
       (:discard (list :discard seat tile riichi))
+      (:kita (list :kita seat tile))
       (:call (let ((call (getf (rest event) :type)))
                (case call
                  (:shouminkan (list :call seat call (car (last tiles))))
@@ -386,7 +396,8 @@
                        events (append events new)))))
     (flet ((tiles-of (type &optional rinshan)
              (loop for (kind . plist) in events
-                   when (and (eq kind type) (eq (and (getf plist :rinshan) t) rinshan))
+                   when (and (eq kind type)
+                             (eq (and (or (getf plist :rinshan) (getf plist :kita)) t) rinshan))
                      collect (getf plist :tile))))
       (values game
               (append header
@@ -394,7 +405,7 @@
                             :dora-added (tiles-of :dora)
                             :ura (cl-mahjong:wall-ura-indicators (cl-mahjong::deal-wall (cl-mahjong:game-deal game)))
                             :events (loop for event in events
-                                          when (member (first event) '(:discard :call))
+                                          when (member (first event) '(:discard :call :kita))
                                             collect (recorded-event event))
                             :result (recorded-result game events seats (reverse signalled))))))))
 
@@ -419,6 +430,13 @@
     (dolist (*greedy* '(nil t))
       (let ((data (record-game 'tenhou seed)))
         (is (null (replay-game data)) "seed ~a greedy ~a: ~a" seed *greedy* (replay-game data))))))
+
+(test sanma-self-play-games-replay
+  (dolist (seed '(1 2 3 4))
+    (dolist (*greedy* '(nil t))
+      (let ((data (record-game 'tenhou-sanma seed)))
+        (is (null (replay-game data 'tenhou-sanma))
+            "seed ~a greedy ~a: ~a" seed *greedy* (replay-game data 'tenhou-sanma))))))
 
 (test replay-reports-the-first-divergence
   (let* ((data (record-game 'tenhou 1))

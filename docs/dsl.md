@@ -8,7 +8,9 @@ A [tileset](tileset.md) delta, then a [variant](variant.md) delta on riichi.
 
 ```lisp
 (deftileset sanma-108 :extends riichi-136
-  (:remove (man 2 8)))
+  (:remove (man 2 8))
+  (:wall (:dead-wall 14) (:replacement 0 1 2 3)
+         (:dora 4 6 8 10 12) (:ura 5 7 9 11 13) (:nuki 4)))
 
 (defscoring sanma :extends riichi
   (:payments (:honba 200)))
@@ -17,10 +19,11 @@ A [tileset](tileset.md) delta, then a [variant](variant.md) delta on riichi.
   (:players 3) (:tileset sanma-108) (:scoring sanma)
   (:set :chi nil :winds (:east :south :west)
         :start-points 35000 :target-points 40000 :uma (15 0 -15)
-        :noten-payment 2000 :suufon-renda nil :suucha-riichi nil))
+        :noten-payment 2000 :suufon-renda nil :suucha-riichi nil
+        :riichi-min-tiles 3 :nukidora t))
 ```
 
-A tsumo is paid by the two other seats at the normal multipliers.[^sanma] Each honba is worth 200: the discarder pays it on a ron, each payer pays 100 on a tsumo.
+A tsumo is paid by the two other seats at the normal multipliers.[^sanma] Each honba is worth 200: the discarder pays it on a ron, each payer pays 100 on a tsumo. A north can be set aside with `(:kita)`; see [game.md](game.md#actions).
 
 ## Tenhou
 
@@ -29,6 +32,9 @@ A [variant](variant.md) delta on riichi, used by the [log replay](replay.md).
 ```lisp
 (defvariant tenhou :extends riichi
   (:set :double-yakuman nil :uma (20 10 -10 -20)))
+
+(defvariant tenhou-sanma :extends sanma
+  (:set :double-yakuman nil :uma (20 0 -20)))
 ```
 
 ## Event rulesets

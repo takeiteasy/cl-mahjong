@@ -44,6 +44,9 @@
 (defun corpus-variant (players)
   (cl-mahjong:find-variant (if (= players 3) 'sanma 'riichi)))
 
+(defun north-tiles (tileset count)
+  (subseq (cl-mahjong:tiles-of-kind tileset (cl-mahjong:find-kind tileset 'north)) 0 count))
+
 (defun hand-notation (case)
   (apply #'concatenate 'string (getf case :hand) (mapcar #'second (getf case :melds))))
 
@@ -55,7 +58,9 @@
                          :dora-indicators (corpus-tiles tileset (getf case :dora))
                          :ura-indicators (corpus-tiles tileset (getf case :ura))
                          :tiles (and (getf case :aka) (corpus-tiles tileset (hand-notation case)))
-                         (getf case :context))))
+                         :nuki (north-tiles tileset (or (getf (getf case :context) :nuki) 0))
+                         (loop for (key value) on (getf case :context) by #'cddr
+                               unless (eq key :nuki) append (list key value)))))
     (cl-mahjong:evaluate-score (cl-mahjong:variant-scoring variant) tileset
                                (cl-mahjong:variant-shapes variant) (cl-mahjong:variant-yaku variant)
                                (hand tileset (getf case :hand))

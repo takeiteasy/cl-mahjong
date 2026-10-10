@@ -5,7 +5,8 @@
   tileset tiles dead dora-revealed
   (live-start 0 :type fixnum)
   (live-end 0 :type fixnum)
-  (replacements-drawn 0 :type fixnum))
+  (replacements-drawn 0 :type fixnum)
+  (nuki-drawn 0 :type fixnum))
 
 (defun stacked-tiles (tileset tiles)
   (let ((count (tileset-tile-count tileset)))
@@ -48,20 +49,37 @@
         (incf (wall-live-start new))
         (values (svref (wall-tiles wall) (wall-live-start wall)) new))))
 
+(defun take-dead-slot (wall)
+  "(values tile new-wall): the dead wall slot after those already drawn, cycling; the last live tile refills it."
+  (let* ((slots (wall-layout-replacement (tileset-wall-layout (wall-tileset wall))))
+         (slot (nth (mod (+ (wall-replacements-drawn wall) (wall-nuki-drawn wall)) (length slots))
+                    slots))
+         (new (copy-wall wall))
+         (dead (copy-seq (wall-dead wall))))
+    (decf (wall-live-end new))
+    (setf (svref dead slot) (svref (wall-tiles wall) (wall-live-end new))
+          (wall-dead new) dead)
+    (values (svref (wall-dead wall) slot) new)))
+
 (defun wall-draw-replacement (wall)
   "Draw from the next :replacement slot; the last live tile refills the slot.
 Returns (values nil wall) when no slot or live tile is left."
-  (let* ((slots (wall-layout-replacement (tileset-wall-layout (wall-tileset wall))))
-         (slot (nth (wall-replacements-drawn wall) slots)))
-    (if (or (null slot) (wall-exhausted-p wall))
+  (let ((slots (wall-layout-replacement (tileset-wall-layout (wall-tileset wall)))))
+    (if (or (>= (wall-replacements-drawn wall) (length slots)) (wall-exhausted-p wall))
         (values nil wall)
-        (let ((new (copy-wall wall))
-              (dead (copy-seq (wall-dead wall))))
-          (decf (wall-live-end new))
-          (setf (svref dead slot) (svref (wall-tiles wall) (wall-live-end new))
-                (wall-dead new) dead)
+        (multiple-value-bind (tile new) (take-dead-slot wall)
           (incf (wall-replacements-drawn new))
-          (values (svref (wall-dead wall) slot) new)))))
+          (values tile new)))))
+
+(defun wall-draw-nuki (wall)
+  "Draw the replacement for a set-aside tile, up to the layout's :nuki count.
+Returns (values nil wall) when none is left."
+  (if (or (>= (wall-nuki-drawn wall) (wall-layout-nuki (tileset-wall-layout (wall-tileset wall))))
+          (wall-exhausted-p wall))
+      (values nil wall)
+      (multiple-value-bind (tile new) (take-dead-slot wall)
+        (incf (wall-nuki-drawn new))
+        (values tile new))))
 
 (defun wall-reveal-dora (wall)
   "New wall with one more dora indicator revealed, or NIL when all are."

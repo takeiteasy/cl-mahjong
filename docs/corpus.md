@@ -1,6 +1,6 @@
 # Validation corpus
 
-The riichi rules are checked against 509 cases recorded from the test suite of the MIT-licensed Python [`mahjong`](https://github.com/MahjongRepository/mahjong) library. 378 run and the rest are skipped with a reason. The corpus passes when every run case matches.
+The riichi rules are checked against 509 cases recorded from the test suite of the MIT-licensed Python [`mahjong`](https://github.com/MahjongRepository/mahjong) library. 396 run and the rest are skipped with a reason. The corpus passes when every run case matches.
 
 ```
 sbcl --noinform --non-interactive --eval '(asdf:test-system "cl-mahjong")'
@@ -37,8 +37,7 @@ Each case sets every option, so none inherits `*riichi-options*`.[^mapping]
 |---|---|
 | Han of 13 or more scored as multiples (uncapped kazoe) | 25 |
 | Shanten of hands holding four of a kind | 25 |
-| Nuki dora | 22 |
-| Impossible contexts are not validated | 19 |
+| Impossible contexts are not validated | 23 |
 | Aotenjou scoring | 18 |
 | Open riichi, paarenchan, nagashi mangan | 13 |
 | Daisharin, daichikurin, daisuurin, daichisei | 4 |
@@ -66,7 +65,6 @@ See [PLAN.md](PLAN.md#limitations):
 | Skipped | Ticket |
 |---|---|
 | Impossible win contexts are not validated | [#25](https://todo.sr.ht/~takeiteasy/cl-mahjong/25) |
-| Sanma has no nukidora | [#22](https://todo.sr.ht/~takeiteasy/cl-mahjong/22) |
 | Uncapped kazoe, aotenjou and the yakuman cap | [#26](https://todo.sr.ht/~takeiteasy/cl-mahjong/26) |
 | Shanten does not discount tiles held in full | [#27](https://todo.sr.ht/~takeiteasy/cl-mahjong/27) |
 | House-rule yaku (open riichi, paarenchan, daisharin family) | [#28](https://todo.sr.ht/~takeiteasy/cl-mahjong/28) |

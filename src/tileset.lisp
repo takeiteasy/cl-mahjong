@@ -5,9 +5,10 @@
   (first 0 :type fixnum)
   name category suit rank group copies)
 
-(defstruct (wall-layout (:constructor make-wall-layout (dead-wall replacement dora ura)))
+(defstruct (wall-layout (:constructor make-wall-layout (dead-wall replacement dora ura nuki)))
   (dead-wall 0 :type fixnum)
-  replacement dora ura)
+  replacement dora ura
+  (nuki 0 :type fixnum))
 
 (defstruct (tileset (:constructor make-tileset
                         (spec ranks kinds index tile-kinds tile-attrs wall-layout)))
@@ -88,12 +89,13 @@
 (defun build-wall-layout (spec tile-count)
   (let ((clauses (getf spec :wall)))
     (dolist (clause clauses)
-      (unless (member (first clause) '(:dead-wall :replacement :dora :ura))
+      (unless (member (first clause) '(:dead-wall :replacement :dora :ura :nuki))
         (invalid "Unknown :wall clause ~s" (first clause))))
     (let ((dead (or (second (assoc :dead-wall clauses)) 0))
           (replacement (rest (assoc :replacement clauses)))
           (dora (rest (assoc :dora clauses)))
-          (ura (rest (assoc :ura clauses))))
+          (ura (rest (assoc :ura clauses)))
+          (nuki (or (second (assoc :nuki clauses)) 0)))
       (unless (and (integerp dead) (<= 0 dead) (< dead tile-count))
         (invalid ":dead-wall must be between 0 and ~a, got ~s" (1- tile-count) dead))
       (let ((positions (append replacement dora ura)))
@@ -101,7 +103,11 @@
           (invalid "Wall positions must lie inside the ~a-tile dead wall: ~s" dead positions))
         (unless (= (length positions) (length (remove-duplicates positions)))
           (invalid "Wall positions overlap: ~s" positions)))
-      (make-wall-layout dead replacement dora ura))))
+      (unless (and (integerp nuki) (<= 0 nuki))
+        (invalid ":nuki must be a non-negative integer, got ~s" nuki))
+      (when (and (plusp nuki) (null replacement))
+        (invalid ":nuki needs :replacement slots to draw from"))
+      (make-wall-layout dead replacement dora ura nuki))))
 
 (defun build-tileset (spec)
   (let* ((drafts (draft-kinds spec))

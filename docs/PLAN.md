@@ -28,7 +28,8 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 | Renhou is a mangan floor, not a 5 han yaku | [#30](https://todo.sr.ht/~takeiteasy/cl-mahjong/30) |
 | Upstream yaku class unit tests are not ported | [#31](https://todo.sr.ht/~takeiteasy/cl-mahjong/31) |
 | No WRC rules variant | [#20](https://todo.sr.ht/~takeiteasy/cl-mahjong/20) |
-| No sanma nukidora (kita) | [#22](https://todo.sr.ht/~takeiteasy/cl-mahjong/22) |
+| Wait checks ignore tiles set aside as nukidora | [#35](https://todo.sr.ht/~takeiteasy/cl-mahjong/35) |
+| Sanma logs before 2022-01-23 are not replayed | [#36](https://todo.sr.ht/~takeiteasy/cl-mahjong/36) |
 | Sanma tsumo does not split the missing north share | [#23](https://todo.sr.ht/~takeiteasy/cl-mahjong/23) |
 | No HK variant | [#10](https://todo.sr.ht/~takeiteasy/cl-mahjong/10) |
 | No MCR variant | [#11](https://todo.sr.ht/~takeiteasy/cl-mahjong/11) |

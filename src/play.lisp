@@ -92,15 +92,15 @@
                 (or (not kokushi-only)
                     (find :kokushi (reading-yaku (score-reading score)) :key #'car)))))))
 
-(defun seat-claim-options (game seat tile from &key kan ankan)
-  "Legal responses of SEAT to TILE discarded (or added to a kan) by FROM, or NIL when it has none.
+(defun seat-claim-options (game seat tile from &key kan ankan kita)
+  "Legal responses of SEAT to TILE discarded (or added to a kan, or set aside as KITA) by FROM, or NIL when it has none.
 A closed kan, ANKAN, can only be robbed for a kokushi win."
   (let* ((deal (game-deal game))
          (player (deal-player deal seat))
          (options '()))
     (when (ron-option-p game deal seat tile :chankan kan :kokushi-only ankan)
       (push (list :ron) options))
-    (unless (or kan (eq (player-riichi player) :active))
+    (unless (or kan kita (eq (player-riichi player) :active))
       (setf options (append (reverse (open-call-options game player tile)) options))
       (when (= seat (seat-after game from))
         (setf options (append (reverse (chi-options game player tile)) options))))
@@ -108,6 +108,25 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
       (append (nreverse options) (list (list :pass))))))
 
 ;;; Legal actions
+
+(defun nuki-possible-p (game)
+  "A set-aside tile needs a live wall tile and a nuki slot for its replacement."
+  (let ((wall (deal-wall (game-deal game))))
+    (and (opt game :nukidora)
+         (not (wall-exhausted-p wall))
+         (wall-draw-nuki wall)
+         t)))
+
+(defun kita-tile (game deal seat)
+  "The north SEAT would set aside: the drawn one if it is north, else any in hand. NIL when it may not."
+  (let* ((player (deal-player deal seat))
+         (north (find-kind (game-tileset game) 'north))
+         (drawn (deal-drawn deal)))
+    (when (and north (nuki-possible-p game))
+      (let ((norths (tiles-of-kind-in game (player-tiles player) (kind-id north))))
+        (cond ((member drawn norths) drawn)
+              ((eq (player-riichi player) :active) nil)
+              (t (first norths)))))))
 
 (defun forbidden-discard-p (game deal tile)
   (member (tile-kind-id (game-tileset game) tile) (deal-forbidden deal)))
@@ -188,6 +207,7 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
                     (mapcar (lambda (tile) (list :riichi tile))
                             (riichi-candidates game deal seat candidates))
                     (and (kyuushu-p game deal seat) (list (list :kyuushu)))
+                    (and (kita-tile game deal seat) (list (list :kita)))
                     (mapcar (lambda (id) (list :ankan id)) (ankan-kinds game deal seat))
                     (unless (eq (player-riichi player) :active)
                       (mapcar (lambda (tile) (list :shouminkan tile))
@@ -231,6 +251,7 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
                     (:riichi (discard-tile game seat (second action) t))
                     (:tsumo (declare-tsumo game seat))
                     (:kyuushu (abort-deal game :kyuushu))
+                    (:kita (declare-kita game seat))
                     (:ankan (declare-ankan game seat (second action)))
                     (:shouminkan (declare-shouminkan game seat (second action))))
                   (respond game seat action))))
@@ -417,6 +438,8 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
            (finish-shouminkan game (claim-from claim) (claim-tile claim)))
           ((eq (claim-kind claim) :ankan)
            (finish-ankan game (claim-from claim) (claim-tile claim)))
+          ((eq (claim-kind claim) :kita)
+           (finish-kita game (claim-from claim) (claim-tile claim)))
           (t (let ((call (find-call claim)))
                (if call
                    (let* ((game (establish-riichi game (claim-from claim)))
@@ -599,3 +622,42 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
                    deal))))
     (emit :call :type :shouminkan :seat seat :tiles (meld-tiles quad))
     (after-kan game seat t)))
+
+;;; Nukidora
+
+(defun declare-kita (game seat)
+  (let* ((game (reveal-pending-dora game))
+         (tile (kita-tile game (game-deal game) seat))
+         (game (updating-deal (deal game)
+                 (updating-player (player deal seat)
+                   (setf (player-tiles player) (remove tile (player-tiles player))))))
+         (options (and (opt game :kita-ron)
+                       (loop for other below (game-seats game)
+                             unless (= other seat)
+                               append (let ((options (seat-claim-options game other tile seat
+                                                                         :kita t)))
+                                        (and options (list (cons other options))))))))
+    (if (null options)
+        (finish-kita game seat tile)
+        (updating-deal (deal game)
+          (let ((deal (copy-deal deal)))
+            (setf (deal-phase deal) :chankan
+                  (deal-claim deal) (make-claim :kind :kita :tile tile :from seat
+                                                :options options))
+            deal)))))
+
+(defun finish-kita (game seat tile)
+  (let ((game (updating-deal (deal game)
+                (let ((deal (updating-player (player deal seat)
+                              (setf (player-nuki player) (append (player-nuki player)
+                                                                 (list tile))))))
+                  (unless (opt game :kita-ippatsu)
+                    (setf deal (break-ippatsu deal)))
+                  (when (opt game :kita-interrupts)
+                    (setf (deal-interrupted deal) t))
+                  (setf (deal-claim deal) nil
+                        (deal-phase deal) :turn
+                        (deal-turn deal) seat)
+                  deal))))
+    (emit :kita :seat seat :tile tile)
+    (nuki-draw game seat)))

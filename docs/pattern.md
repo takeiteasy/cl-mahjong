@@ -69,7 +69,7 @@ The caller describes how the hand was won with `make-win-context`.
 | `last-tile` | Won on the last wall tile (haitei when `tsumo`, houtei otherwise) |
 | `rinshan`, `chankan` | Won on a replacement draw / by robbing a kan |
 | `tenhou`, `chiihou`, `renhou` | First-turn wins |
-| `dealer`, `dora-indicators`, `ura-indicators`, `tiles` | Inputs for [scoring](scoring.md#dora) |
+| `dealer`, `dora-indicators`, `ura-indicators`, `tiles`, `nuki` | Inputs for [scoring](scoring.md#dora) |
 
 `(context flag)` reads the boolean fields.
 

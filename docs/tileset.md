@@ -13,7 +13,9 @@
          (:dora 4 6 8 10 12) (:ura 5 7 9 11 13)))
 
 (deftileset sanma-108 :extends riichi-136
-  (:remove (man 2 8)))
+  (:remove (man 2 8))
+  (:wall (:dead-wall 14) (:replacement 0 1 2 3)
+         (:dora 4 6 8 10 12) (:ura 5 7 9 11 13) (:nuki 4)))
 
 (find-tileset 'sanma-108)   ; compiled on first use, then cached
 ```

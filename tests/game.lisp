@@ -7,38 +7,53 @@
 (defparameter *junk-hands*
   '("123m456m789p234s1z" "159m159p159s2345z" "246m246p246s6677z" "357m357p357s3344z"))
 
-(defun stack-wall (&key hands draws last rinshan dora ura (dealer 0))
-  "A riichi-136 wall from tile ids: HANDS per seat, then DRAWS in draw order, LAST the final live tile, and
-RINSHAN, DORA and URA by dead wall slot. Everything unplaced fills the gaps."
-  (let ((ts (cl-mahjong:find-tileset 'riichi-136))
-        (order (make-array 136 :initial-element nil))
-        (used '()))
+(defun stack-wall (&key hands draws last rinshan dora ura (dealer 0) (tileset 'riichi-136))
+  "A wall of TILESET from tile ids: HANDS per seat, then DRAWS in draw order, LAST the final live tile, and
+RINSHAN (every replacement draw, kita included), DORA and URA by dead wall slot. Everything unplaced fills the gaps."
+  (let* ((ts (if (symbolp tileset) (cl-mahjong:find-tileset tileset) tileset))
+         (layout (cl-mahjong::tileset-wall-layout ts))
+         (count (cl-mahjong:tileset-tile-count ts))
+         (live (- count (cl-mahjong::wall-layout-dead-wall layout)))
+         (seats (length hands))
+         (slots (cl-mahjong::wall-layout-replacement layout))
+         (order (make-array count :initial-element nil))
+         (used '()))
     (flet ((place (index tile)
              (setf (aref order index) tile)
-             (push tile used)))
+             (push tile used))
+           (dead (position) (+ live position)))
       (loop for hand in hands
             for seat from 0
-            for slot = (mod (- seat dealer) 4)
+            for slot = (mod (- seat dealer) seats)
             do (loop for tile in hand
                      for j from 0
                      do (place (if (< j 12)
-                                   (+ (* 16 (floor j 4)) (* 4 slot) (mod j 4))
-                                   (+ 48 slot))
+                                   (+ (* 4 seats (floor j 4)) (* 4 slot) (mod j 4))
+                                   (+ (* 12 seats) slot))
                                tile)))
-      (loop for tile in draws for index from 52 do (place index tile))
-      (when last (place 121 last))
-      (loop for tile in rinshan for slot from 0 do (place (+ 122 slot) tile))
-      (loop for tile in dora for slot from 4 by 2 do (place (+ 122 slot) tile))
-      (loop for tile in ura for slot from 5 by 2 do (place (+ 122 slot) tile))
-      (let ((rest (loop for tile below 136 unless (member tile used) collect tile)))
-        (dotimes (index 136)
+      (loop for tile in draws for index from (* 13 seats) do (place index tile))
+      (when last (place (1- live) last))
+      ;; A drawn slot is refilled from the end of the live wall, so later draws come from there.
+      (loop for tile in rinshan
+            for k from 0
+            do (place (if (< k (length slots)) (dead (nth k slots)) (- live 1 (- k (length slots))))
+                      tile))
+      (loop for tile in dora
+            for position in (cl-mahjong::wall-layout-dora layout)
+            do (place (dead position) tile))
+      (loop for tile in ura
+            for position in (cl-mahjong::wall-layout-ura layout)
+            do (place (dead position) tile))
+      (let ((rest (loop for tile below count unless (member tile used) collect tile)))
+        (dotimes (index count)
           (unless (aref order index)
             (setf (aref order index) (pop rest))))))
     (cl-mahjong:make-wall ts :tiles (coerce order 'list))))
 
-(defun stacked (&key (hands *junk-hands*) draws last rinshan dora ura (dealer 0))
-  "A riichi-136 wall: HANDS are the four seats' notations, DRAWS single-tile notations in draw order."
-  (let* ((ts (cl-mahjong:find-tileset 'riichi-136))
+(defun stacked (&key (hands *junk-hands*) draws last rinshan dora ura (dealer 0)
+                  (tileset (cl-mahjong:find-tileset 'riichi-136)))
+  "A wall of TILESET: HANDS are the seats' notations, DRAWS single-tile notations in draw order."
+  (let* ((ts tileset)
          (pool (make-hash-table))
          (used '()))
     (flet ((take (id)
@@ -56,13 +71,14 @@ RINSHAN, DORA and URA by dead wall slot. Everything unplaced fills the gaps."
         (stack-wall :hands (mapcar (lambda (hand) (mapcar #'take (kind-ids ts hand))) hands)
                     :draws (tiles draws) :last (first (tiles (and last (list last))))
                     :rinshan (tiles rinshan) :dora (tiles dora) :ura (tiles ura)
-                    :dealer dealer)))))
+                    :dealer dealer :tileset ts)))))
 
 (defun new-game (&rest args &key (variant 'riichi) seed &allow-other-keys)
   (let ((wall-args (loop for (key value) on args by #'cddr
-                         unless (member key '(:variant :seed)) append (list key value))))
+                         unless (member key '(:variant :seed)) append (list key value)))
+        (tileset (cl-mahjong:variant-tileset (cl-mahjong:find-variant variant))))
     (cl-mahjong:start-game variant :seed seed
-                                   :walls (list (apply #'stacked wall-args)))))
+                                   :walls (list (apply #'stacked :tileset tileset wall-args)))))
 
 (defun tileset-of (game)
   (cl-mahjong:variant-tileset (cl-mahjong:game-variant game)))
@@ -490,7 +506,7 @@ A notation picks a tile of that kind from SEAT's hand, a different one each time
              (names (mapcar #'car (cl-mahjong:reading-yaku (cl-mahjong:score-reading score)))))
         (is (subsetp '("DOUBLE-RIICHI" "IPPATSU" "MENZEN-TSUMO") (mapcar #'string names)
                      :test #'string=))
-        (is (equal '(:dora 0 :ura 1 :aka 0) (cl-mahjong:score-dora score)))
+        (is (equal '(:dora 0 :ura 1 :aka 0 :nuki 0) (cl-mahjong:score-dora score)))
         (is (= 5 (cl-mahjong:score-han score)))
         (is (= 13000 (cl-mahjong:score-points score))))
       (is (equal '(37000 21000 21000 21000) (coerce (cl-mahjong:game-points game) 'list)))

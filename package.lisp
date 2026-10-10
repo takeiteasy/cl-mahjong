@@ -36,6 +36,7 @@
    #:make-wall
    #:wall-draw
    #:wall-draw-replacement
+   #:wall-draw-nuki
    #:wall-reveal-dora
    #:wall-dora-indicators
    #:wall-ura-indicators
@@ -86,6 +87,7 @@
    #:win-context-dora-indicators
    #:win-context-ura-indicators
    #:win-context-tiles
+   #:win-context-nuki
    #:win-hand-tileset
    #:win-hand-decomposition
    #:win-hand-counts
@@ -158,9 +160,12 @@
    #:deal-turn
    #:deal-phase
    #:deal-drawn
+   #:deal-rinshan
+   #:deal-interrupted
    #:player-tiles
    #:player-melds
    #:player-discards
+   #:player-nuki
    #:player-riichi
    #:player-double-riichi
    #:player-ippatsu

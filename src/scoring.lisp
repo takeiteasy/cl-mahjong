@@ -281,8 +281,11 @@
       (first (or following family)))))
 
 (defun hand-kind-count (hand id)
-  (+ (aref (win-hand-counts hand) id)
-     (loop for meld in (win-hand-melds hand) sum (count id (meld-kinds meld)))))
+  (let ((tileset (win-hand-tileset hand)))
+    (+ (aref (win-hand-counts hand) id)
+       (loop for meld in (win-hand-melds hand) sum (count id (meld-kinds meld)))
+       (count id (win-context-nuki (win-hand-context hand))
+              :key (lambda (tile) (tile-kind-id tileset tile))))))
 
 (defun count-dora (scoring hand indicators)
   (let ((tileset (win-hand-tileset hand)))
@@ -403,9 +406,10 @@ Each liable seat pays its yakuman as a ron; PAYMENTS gains a :pao list of (seat 
                       (count-dora scoring hand (win-context-ura-indicators context))
                       0))
              (aka (count-aka hand))
+             (nuki (length (win-context-nuki context)))
              (han (if (plusp yakuman)
                       0
-                      (+ dora ura aka
+                      (+ dora ura aka nuki
                          (loop for (name . value) in (reading-yaku reading)
                                unless (member name floored) sum value))))
              (fu (reading-fu (scoring-fu scoring) reading)))
@@ -419,7 +423,7 @@ Each liable seat pays its yakuman as a ron; PAYMENTS gains a :pao list of (seat 
                                   honba players)
                     (payments-for (scoring-payments scoring) base (win-context-dealer context)
                                   (win-context-tsumo context) honba players))
-              (make-score reading fu han (list :dora dora :ura ura :aka aka) limit base
+              (make-score reading fu han (list :dora dora :ura ura :aka aka :nuki nuki) limit base
                           (+ total (* riichi-sticks (payment-table-stick (scoring-payments scoring))))
                           payments))))))))
 

@@ -152,8 +152,6 @@ def unsupported_config(config, han=0):
         raise Skip("nagashi mangan is not supported")
     if config["paarenchan"]:
         raise Skip("paarenchan is not supported")
-    if config["num_nuki_dora"]:
-        raise Skip("nuki dora is not supported")
     if options["kazoe_limit"] not in (KAZOE_LIMITED, KAZOE_SANBAIMAN) and han >= 13:
         raise Skip("unlimited kazoe is not supported")
     if not options["fu_for_open_pinfu"] or options["fu_for_pinfu_tsumo"]:
@@ -201,6 +199,10 @@ def context_args(config):
     out["seat-wind"] = kw(WINDS[config["player_wind"]]) if config["player_wind"] else None
     out["round-wind"] = kw(WINDS[config["round_wind"]]) if config["round_wind"] else None
     out["dealer"] = config["is_dealer"]
+    if config["num_nuki_dora"] < 0:
+        raise Skip("impossible contexts are not validated")
+    if config["num_nuki_dora"]:
+        out["nuki"] = config["num_nuki_dora"]
     return out
 
 

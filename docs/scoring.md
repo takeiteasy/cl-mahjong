@@ -76,6 +76,7 @@ The context carries the dora inputs.
 | `dora-indicators` | Tile ids of the revealed indicators; a kan dora is one more |
 | `ura-indicators` | Tile ids; counted only with riichi or double riichi |
 | `tiles` | Tile ids of the whole hand, melds and winning tile included; red fives are counted from these |
+| `nuki` | Tile ids set aside as dora; each is one han, and counts again when the dora kind is its own |
 | `dealer` | The winner is the dealer |
 
 Dora count over the concealed tiles and every meld, so a quad of a dora kind counts four. Sanma's man 1 and 9 follow each other because the next kind is taken from the tileset.
@@ -119,7 +120,7 @@ A seat [liable](yaku.md#pao) for a yakuman pays that yakuman as a ron. The rest 
 |---|---|
 | `score-reading` | The scored [reading](yaku.md#evaluation) |
 | `score-fu`, `score-han` | Fu; han including dora |
-| `score-dora` | `(:dora n :ura n :aka n)` |
+| `score-dora` | `(:dora n :ura n :aka n :nuki n)` |
 | `score-limit`, `score-base` | Limit name or `NIL`; base points |
 | `score-points`, `score-payments` | What the winner receives, honba and sticks included; who pays what |
 

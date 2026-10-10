@@ -4,7 +4,7 @@
     convert.py IN_DIR OUT_DIR
 
 Logs are not included in this repository; download your own (see docs/replay.md).
-Only 4-player hanchan with red fives and open tanyao are accepted.
+Only hanchan with red fives and open tanyao are accepted, 4-player or sanma.
 """
 import argparse
 import gzip
@@ -87,7 +87,7 @@ def decode_meld(m):
         added = kind * 4 + ((m >> 5) & 3)
         return "shouminkan", [added], None
     if m & 32:
-        raise ValueError("nuki dora (sanma) is not supported")
+        return "kita", [m >> 8], None
     called = m >> 8
     kind = called // 4
     tiles = [kind * 4 + k for k in range(4)]
@@ -100,12 +100,21 @@ def attrs(text):
 
 def check_rules(go):
     kind = int(go["type"])
-    if kind & SANMA or kind & NO_AKA or kind & NO_KUITAN or not kind & HANCHAN:
-        raise ValueError(f"unsupported game type {kind}; need 4-player hanchan, aka and kuitan")
+    if kind & NO_AKA or kind & NO_KUITAN or not kind & HANCHAN:
+        raise ValueError(f"unsupported game type {kind}; need a hanchan with aka and kuitan")
     return kind
 
 
-def win(tag):
+def sanma_tile(tile):
+    """The sanma-108 id of a Tenhou tile id: sanma has no man 2 to 8, which are tile ids 4 to 31."""
+    return tile if tile < 4 else tile - 28
+
+
+def identity(tile):
+    return tile
+
+
+def win(tag, seats, tile):
     yaku, han, yakuman = [], 0, False
     pairs = ints(tag.get("yaku", ""))
     for id_, count in zip(pairs[::2], pairs[1::2]):
@@ -123,95 +132,108 @@ def win(tag):
         "fu": fu, "points": points, "limit": Sym(":" + LIMITS[limit]) if LIMITS[limit] else None,
         "han": None if yakuman else han, "yaku": [Sym(":" + name) for name in sorted(set(yaku))],
         "pao": int(tag["paoWho"]) if "paoWho" in tag and int(tag["paoWho"]) != seat else None,
-        "deltas": [d * 100 for d in sc[1::2]],
-        "ura": ints(tag.get("doraHaiUra", "")),
+        "deltas": [d * 100 for d in sc[1::2]][:seats],
+        "ura": [tile(t) for t in ints(tag.get("doraHaiUra", ""))],
     }
 
 
-def owari(tag):
+def owari(tag, seats):
     parts = tag["owari"].split(",")
-    return {"points": [int(p) * 100 for p in parts[0::2]],
-            "scores": [round(float(s) * 1000) for s in parts[1::2]]}
+    return {"points": [int(p) * 100 for p in parts[0::2]][:seats],
+            "scores": [round(float(s) * 1000) for s in parts[1::2]][:seats]}
 
 
 ROUNDING_ENDED = "20220123"
 
 
-def scoring_variant(name, scores):
+def scoring_variant(name, scores, seats):
     """Tenhou rounded final scores to whole thousands until January 2022, then kept one decimal."""
     exact = any(score % 1000 for score in scores) or name[:8] >= ROUNDING_ENDED
+    if seats == 3:
+        if not exact:
+            raise ValueError("sanma logs before 2022-01-23 are not supported")
+        return Sym(":tenhou-sanma")
     return Sym(":tenhou" if exact else ":tenhou-2021")
 
 
-def finish_deal(deal, tag, wins, kind):
+def finish_deal(deal, tag, wins, kind, seats):
     if kind == "AGARI":
         deal["result"] = {"type": Sym(":tsumo" if wins[0]["from"] is None else ":ron"), "wins": wins}
         deal["ura"] = next((win["ura"] for win in wins if win["ura"]), [])
     else:
         reason = RYUUKYOKU.get(tag["type"]) if "type" in tag else None
-        revealed = [seat for seat in range(4) if f"hai{seat}" in tag]
+        revealed = [seat for seat in range(seats) if f"hai{seat}" in tag]
         abortive = reason is not None and reason != "nagashi"
         deal["result"] = {"type": Sym(":abortive" if abortive else ":exhaustive"),
                           "reason": Sym(":" + reason) if reason else None,
                           "seats": revealed,
                           "tenpai": [] if abortive else revealed,
-                          "deltas": [d * 100 for d in ints(tag["sc"])[1::2]]}
+                          "deltas": [d * 100 for d in ints(tag["sc"])[1::2]][:seats]}
 
 
 def convert(text, name):
     game = {"id": name, "deals": []}
     deal = None
     wins = []
-    riichi = [False] * 4
+    seats = 4
+    tile = identity
+    riichi = []
     rinshan_next = None
     tags = [(m.group(1), attrs(m.group(2))) for m in TAG.finditer(text)]
     for tag_name, tag in tags:
         if tag_name == "GO":
             game["type"] = check_rules(tag)
+            if game["type"] & SANMA:
+                seats, tile = 3, sanma_tile
         elif tag_name == "INIT":
             seed = ints(tag["seed"])
-            deal = {"kyoku": seed[0], "honba": seed[1], "sticks": seed[2],
-                    "dealer": int(tag["oya"]), "points": [p * 100 for p in ints(tag["ten"])],
-                    "dora": seed[5], "hands": [ints(tag[f"hai{seat}"]) for seat in range(4)],
+            deal = {"kyoku": seed[0] // 4 * seats + seed[0] % 4, "honba": seed[1], "sticks": seed[2],
+                    "dealer": int(tag["oya"]), "points": [p * 100 for p in ints(tag["ten"])][:seats],
+                    "dora": tile(seed[5]), "hands": [[tile(t) for t in ints(tag[f"hai{seat}"])]
+                                                     for seat in range(seats)],
                     "draws": [], "rinshan": [], "dora-added": [], "ura": [], "events": [],
                     "result": None}
             game["deals"].append(deal)
-            wins, riichi, rinshan_next = [], [False] * 4, None
+            wins, riichi, rinshan_next = [], [False] * seats, None
         elif re.fullmatch(r"[TUVW]\d+", tag_name):
             seat = DRAW_LETTERS.index(tag_name[0])
-            tile = int(tag_name[1:])
+            drawn = tile(int(tag_name[1:]))
             if rinshan_next == seat:
-                deal["rinshan"].append(tile)
+                deal["rinshan"].append(drawn)
                 rinshan_next = None
             else:
-                deal["draws"].append(tile)
+                deal["draws"].append(drawn)
         elif re.fullmatch(r"[DEFG]\d+", tag_name):
             seat = DISCARD_LETTERS.index(tag_name[0])
-            deal["events"].append([Sym(":discard"), seat, int(tag_name[1:]), riichi[seat]])
+            deal["events"].append([Sym(":discard"), seat, tile(int(tag_name[1:])), riichi[seat]])
             riichi[seat] = False
         elif tag_name == "REACH" and tag["step"] == "1":
             riichi[int(tag["who"])] = True
         elif tag_name == "N":
             seat = int(tag["who"])
             kind, tiles, called = decode_meld(int(tag["m"]))
-            deal["events"].append([Sym(":call"), seat, Sym(":" + kind)] + tiles)
-            if kind in ("daiminkan", "ankan", "shouminkan"):
+            tiles = [tile(t) for t in tiles]
+            if kind == "kita":
+                deal["events"].append([Sym(":kita"), seat] + tiles)
+            else:
+                deal["events"].append([Sym(":call"), seat, Sym(":" + kind)] + tiles)
+            if kind in ("daiminkan", "ankan", "shouminkan", "kita"):
                 rinshan_next = seat
         elif tag_name == "DORA":
-            deal["dora-added"].append(int(tag["hai"]))
+            deal["dora-added"].append(tile(int(tag["hai"])))
         elif tag_name == "AGARI":
-            wins.append(win(tag))
+            wins.append(win(tag, seats, tile))
             if "owari" in tag:
-                game["owari"] = owari(tag)
+                game["owari"] = owari(tag, seats)
         elif tag_name == "RYUUKYOKU":
-            finish_deal(deal, tag, [], "RYUUKYOKU")
+            finish_deal(deal, tag, [], "RYUUKYOKU", seats)
             if "owari" in tag:
-                game["owari"] = owari(tag)
+                game["owari"] = owari(tag, seats)
         if tag_name == "AGARI":
-            finish_deal(deal, tag, wins, "AGARI")
+            finish_deal(deal, tag, wins, "AGARI", seats)
     if "owari" not in game:
         raise ValueError("the log has no final result (owari)")
-    game["variant"] = scoring_variant(name, game["owari"]["scores"])
+    game["variant"] = scoring_variant(name, game["owari"]["scores"], seats)
     return game
 
 

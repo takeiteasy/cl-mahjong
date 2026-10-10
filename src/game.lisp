@@ -16,6 +16,7 @@
     :nagashi-mangan :mangan :noten-payment 3000
     :riichi-cost 1000 :riichi-min-tiles 4 :renchan :tenpai
     :uma (15 5 -5 -15) :oka t :score-rounding nil :initial-dora 1
+    :nukidora nil :kita-ippatsu nil :kita-interrupts t :kita-rinshan t :kita-ron t
     :winds (:east :south :west :north))
   "Game-flow options a variant's :options may override.")
 
@@ -28,7 +29,7 @@
 ;;; State
 
 (defstruct (player (:constructor make-player (tiles)))
-  tiles melds discards
+  tiles melds discards nuki
   (called-away 0)
   riichi double-riichi ippatsu temp-furiten riichi-furiten)
 
@@ -207,6 +208,12 @@ POINTS, KYOKU, HONBA and STICKS start the game part way through."
     (emit :draw :seat seat :tile tile :rinshan t)
     (take-tile game seat tile wall t)))
 
+(defun nuki-draw (game seat)
+  "SEAT's replacement draw for a tile set aside as dora."
+  (multiple-value-bind (tile wall) (wall-draw-nuki (deal-wall (game-deal game)))
+    (emit :draw :seat seat :tile tile :kita t :rinshan (opt game :kita-rinshan))
+    (take-tile game seat tile wall (opt game :kita-rinshan))))
+
 ;;; Scoring a win
 
 (defun first-turn-p (deal player)
@@ -237,6 +244,7 @@ POINTS, KYOKU, HONBA and STICKS start the game part way through."
              :chiihou (and tsumo first-turn (not dealer))
              :renhou (and (not tsumo) (not chankan) first-turn (not dealer))
              :dealer dealer
+             :nuki (player-nuki player)
              :dora-indicators (wall-dora-indicators wall)
              :ura-indicators (wall-ura-indicators wall)
              :tiles (append tiles (loop for meld in (player-melds player)
