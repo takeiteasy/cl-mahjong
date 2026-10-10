@@ -20,6 +20,12 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 | Limitation | Ticket |
 |---|---|
 | Impossible win contexts are not validated | [#25](https://todo.sr.ht/~takeiteasy/cl-mahjong/25) |
+| Uncapped kazoe, aotenjou and the yakuman cap are not supported | [#26](https://todo.sr.ht/~takeiteasy/cl-mahjong/26) |
+| Shanten does not discount tiles held in full | [#27](https://todo.sr.ht/~takeiteasy/cl-mahjong/27) |
+| No house-rule yaku (open riichi, paarenchan, daisharin family) | [#28](https://todo.sr.ht/~takeiteasy/cl-mahjong/28) |
+| Pinfu fu rules are fixed | [#29](https://todo.sr.ht/~takeiteasy/cl-mahjong/29) |
+| Renhou is a mangan floor, not a 5 han yaku | [#30](https://todo.sr.ht/~takeiteasy/cl-mahjong/30) |
+| Upstream yaku class unit tests are not ported | [#31](https://todo.sr.ht/~takeiteasy/cl-mahjong/31) |
 | No Tenhou log replay validation | [#9](https://todo.sr.ht/~takeiteasy/cl-mahjong/9) |
 | No WRC or Tenhou rules variants | [#20](https://todo.sr.ht/~takeiteasy/cl-mahjong/20), [#21](https://todo.sr.ht/~takeiteasy/cl-mahjong/21) |
 | No sanma nukidora (kita) | [#22](https://todo.sr.ht/~takeiteasy/cl-mahjong/22) |
