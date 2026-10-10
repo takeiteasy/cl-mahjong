@@ -19,7 +19,9 @@
 
 (defparameter *known-failures*
   '(("aotenjou::test_aotenjou_kokushi_tsumo#1" . "upstream drops menzen-tsumo from kokushi")
-    ("aotenjou::test_aotenjou_kokushi_with_ura_dora#1" . "upstream drops riichi from kokushi"))
+    ("aotenjou::test_aotenjou_kokushi_with_ura_dora#1" . "upstream drops riichi from kokushi")
+    ("hand_dividing::test_fix_not_correct_kan_handling#1"
+     . "upstream's hand holds only three of the kan's four tiles, so it finds no win; the hand left here is complete"))
   "Alist of case id to why this implementation deliberately differs.")
 
 ;;; Building inputs

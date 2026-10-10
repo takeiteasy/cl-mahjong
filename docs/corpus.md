@@ -1,6 +1,6 @@
 # Validation corpus
 
-The riichi rules are checked against 512 cases recorded from the test suite of the MIT-licensed Python [`mahjong`](https://github.com/MahjongRepository/mahjong) library and `tools/riichi-corpus/tests_extra.py`. 506 run and the rest are skipped with a reason. The corpus passes when every run case matches.
+The riichi rules are checked against 512 cases recorded from the test suite of the MIT-licensed Python [`mahjong`](https://github.com/MahjongRepository/mahjong) library and `tools/riichi-corpus/tests_extra.py`. 509 run and the rest are skipped with a reason. The corpus passes when every run case matches.
 
 ```
 sbcl --noinform --non-interactive --eval '(asdf:test-system "cl-mahjong")'
@@ -37,9 +37,10 @@ Each case names its variant and sets every option, so none inherits `*riichi-opt
 
 | Reason | Cases |
 |---|---|
-| Meld tiles absent from the hand | 4 |
+| Negative tile counts | 1 |
 | Haitei without tsumo, houtei with tsumo[^lasttile] | 2 |
 | Aotenjou kokushi with riichi or menzen-tsumo[^kokushi] | 2 |
+| A kan with three tiles in upstream's hand[^kan] | 1 |
 
 Whole-game checks against recorded games are in [replay.md](replay.md).
 
@@ -55,5 +56,6 @@ The script clones the library at the pinned commit, runs its tests and `tests_ex
 
 [^mapping]: Hands are written as notation with `0` for a red five. A case lists the concealed tiles with the winning tile, its melds, dora and ura indicators, honba and sticks. The mapping lives in `tools/riichi-corpus/generate.py`.
 [^kokushi]: Upstream's aotenjou kokushi ignores riichi and menzen-tsumo yet counts ura dora. Here every yaku stacks, so those two cases differ by one han.
+[^kan]: Upstream's hand lacks the kan's fourth tile and reports no win. Melds are separate here, so what remains of the hand is a win.
 [^lasttile]: `last-tile` is one flag that means haitei with tsumo and houtei without, so those two contexts cannot be written.
 [^pin]: The pinned commit and the upstream MIT notice are in the header of `tests/corpus/riichi.sexp`.

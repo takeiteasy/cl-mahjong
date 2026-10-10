@@ -117,9 +117,8 @@ def without_melds(tiles, melds):
                 remaining.remove(tile)
                 continue
             same = sorted((t for t in remaining if t // 4 == tile // 4), key=lambda t: t in AKA)
-            if not same:
-                raise Skip("meld tiles are not in the hand")
-            remaining.remove(same[0])
+            if same:
+                remaining.remove(same[0])
     return remaining
 
 
@@ -324,9 +323,9 @@ def divide_entry(record):
     counts = list(inp["tiles_34"])
     for meld in melds:
         for tile in meld["tiles"]:
-            counts[tile // 4] -= 1
+            counts[tile // 4] = max(0, counts[tile // 4] - 1)
     if min(counts) < 0:
-        raise Skip("meld tiles are not in the hand")
+        raise Skip("negative tile counts cannot be written")
     return {"kind": kw("divide"), "hand": tiles34(counts), "melds": meld_entries(melds, False),
             "expect": [sorted(sorted(block) for block in division) for division in record["result"]]}
 
