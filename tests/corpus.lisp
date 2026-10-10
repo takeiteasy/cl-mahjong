@@ -18,9 +18,9 @@
 (defparameter *corpus* (read-corpus))
 
 (defparameter *known-failures*
-  '(("aotenjou::test_aotenjou_kokushi_tsumo#1" . "#19")
-    ("aotenjou::test_aotenjou_kokushi_with_ura_dora#1" . "#19"))
-  "Alist of case id to the ticket that tracks it.")
+  '(("aotenjou::test_aotenjou_kokushi_tsumo#1" . "upstream drops menzen-tsumo from kokushi")
+    ("aotenjou::test_aotenjou_kokushi_with_ura_dora#1" . "upstream drops riichi from kokushi"))
+  "Alist of case id to why this implementation deliberately differs.")
 
 ;;; Building inputs
 
@@ -213,7 +213,7 @@
       (when (string= file (corpus-file-of case))
         (let ((known (cdr (assoc (getf case :id) *known-failures* :test #'string=))))
           (cond ((getf case :skip) (skip (format nil "~a: ~a" (getf case :id) (getf case :skip))))
-                (known (skip (format nil "~a: known failure ~a" (getf case :id) known)))
+                (known (skip (format nil "~a: known difference: ~a" (getf case :id) known)))
                 (t (incf checked)
                    (let ((differences (check-case case)))
                      (when differences

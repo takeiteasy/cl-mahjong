@@ -41,7 +41,7 @@ Each case names its variant and sets every option, so none inherits `*riichi-opt
 | Impossible contexts are not validated | 23 |
 | Meld tiles absent from the hand | 4 |
 | Pinfu fu rules as options | 1 |
-| Aotenjou kokushi with riichi or menzen-tsumo | 2 |
+| Aotenjou kokushi with riichi or menzen-tsumo[^kokushi] | 2 |
 
 Whole-game checks against recorded games are in [replay.md](replay.md).
 
@@ -62,10 +62,10 @@ See [PLAN.md](PLAN.md#limitations):
 | Skipped | Ticket |
 |---|---|
 | Impossible win contexts are not validated | [#10](https://github.com/takeiteasy/cl-mahjong/issues/10) |
-| Aotenjou kokushi counts riichi and menzen-tsumo; upstream does not | [#19](https://github.com/takeiteasy/cl-mahjong/issues/19) |
 | Pinfu fu rules are fixed | [#13](https://github.com/takeiteasy/cl-mahjong/issues/13) |
 | Renhou is a mangan floor, not a 5 han yaku | [#14](https://github.com/takeiteasy/cl-mahjong/issues/14) |
 | Upstream yaku class unit tests are not ported | [#15](https://github.com/takeiteasy/cl-mahjong/issues/15) |
 
 [^mapping]: Hands are written as notation with `0` for a red five. A case lists the concealed tiles with the winning tile, its melds, dora and ura indicators, honba and sticks. The mapping lives in `tools/riichi-corpus/generate.py`.
+[^kokushi]: Upstream's aotenjou kokushi ignores riichi and menzen-tsumo yet counts ura dora. Here every yaku stacks, so those two cases differ by one han.
 [^pin]: The pinned commit and the upstream MIT notice are in the header of `tests/corpus/riichi.sexp`.
