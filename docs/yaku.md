@@ -38,8 +38,10 @@ Yakuman replace every other yaku in a reading, unless `:stack-yakuman` is given 
 
 | Hand | Liable seat |
 |---|---|
-| The last open meld completes the yakuman, and every matching set made or completed after it is a kind its caller already held as a concealed triplet | The `from` of that meld |
-| A matching set was not held then (a concealed set built or completed later, or a ron on a shanpon), or the last matching meld is a closed kan | Nobody |
+| Every triplet or quad matching `selector` is a meld and the last one is open | The `from` of that meld |
+| One matching set is concealed, or the last matching meld is a closed kan | Nobody |
+
+With option `pao-held` a concealed matching set does not block pao when its caller already held it as a triplet at the last call; a set built or completed later, or a ron on a shanpon, still does.
 
 Melds record the giver with `make-meld ... :from` and the triplets the caller held with `:held`, a list of kind ids.[^held] A shouminkan keeps the giver and `:held` of its pon. How a liable seat pays is in [Scoring](scoring.md#pao).
 
@@ -80,6 +82,7 @@ House-rule yaku are in [dsl.md](dsl.md#house-rules).
 | `kuitan` | on | Tanyao scores with open melds |
 | `double-yakuman` | on | Yakuman with `:double-when` can double |
 | `renhou` | off | `:yakuman` scores renhou as a yakuman, `:mangan` as `renhou-mangan`, a 5 han yaku that [scoring](scoring.md) treats as a mangan floor, `:han` as `renhou-han`, a 5 han yaku that stacks with the others |
+| `pao-held` | off | A concealed set held at the last call keeps [pao](#pao) |
 
 | Han (closed / open) | Yaku |
 |---|---|

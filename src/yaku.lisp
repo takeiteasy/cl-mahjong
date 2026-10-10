@@ -151,7 +151,8 @@
 
 (defun selected-pao-seat (selector hand)
   "The seat that fed the last open meld matching SELECTOR, or NIL.
-Each matching set made or completed after that meld must be a kind its caller already held as a triplet."
+Every matching set made or completed after that meld must be a kind its caller already held as a
+triplet, which the option `pao-held' allows; without it no such set may exist."
   (flet ((matches (group)
            (and (member (group-type group) '(:triplet :quad))
                 (funcall selector hand (kind-of-id hand (first (group-kinds group)))))))
@@ -159,7 +160,9 @@ Each matching set made or completed after that meld must be a kind its caller al
            (last (find-if (lambda (meld) (and (meld-open-p meld) (matches (meld-group meld))))
                           melds :from-end t)))
       (and last
-           (every (lambda (group) (member (first (group-kinds group)) (meld-held last)))
+           (every (lambda (group)
+                    (and (getf (win-hand-options hand) :pao-held)
+                         (member (first (group-kinds group)) (meld-held last))))
                   (remove-if-not #'matches
                                  (append (mapcar #'meld-group (rest (member last melds)))
                                          (nthcdr (length melds) (hand-groups hand)))))
