@@ -9,7 +9,7 @@
 
 ;; ron and tsumo are (dealer . other) multipliers of the base points.
 (defstruct payment-table
-  ron tsumo (round 1) (honba 0) (stick 0) (pao-ron :split) (pao-honba :discarder) (absent :none))
+  ron tsumo (round 1) (honba 0) (stick 0) (pao-ron :split) (pao-honba :discarder) (pao-rinshan :none) (absent :none))
 
 (defstruct (score (:constructor make-score (reading fu han dora limit base points payments)))
   reading fu han dora limit base points payments)
@@ -185,11 +185,13 @@
   (first (keyword-list (list value) allowed what)))
 
 (defun build-pao (args table)
-  (let ((options (clause-options args ":pao" '(:ron :honba))))
+  (let ((options (clause-options args ":pao" '(:ron :honba :rinshan))))
     (setf (payment-table-pao-ron table)
           (choice-arg (getf options :ron :split) '(:split :liable) ":pao :ron")
           (payment-table-pao-honba table)
-          (choice-arg (getf options :honba :discarder) '(:discarder :liable :split) ":pao :honba"))))
+          (choice-arg (getf options :honba :discarder) '(:discarder :liable :split) ":pao :honba")
+          (payment-table-pao-rinshan table)
+          (choice-arg (getf options :rinshan :none) '(:none :tsumo :ron) ":pao :rinshan"))))
 
 (defun build-payments (entries name)
   (let ((table (make-payment-table)))
@@ -392,6 +394,18 @@
                        (values (list :dealer dealer-paid :other other-paid)
                                (+ dealer-paid (* other-paid (- players 2)))))))))))))
 
+(defun rinshan-pao-giver (scoring context)
+  "The seat that pays a rinshan win on its daiminkan whole, or NIL."
+  (and (win-context-rinshan context)
+       (not (eq :none (payment-table-pao-rinshan (scoring-payments scoring))))
+       (win-context-kan-from context)))
+
+(defun giver-payments (table giver base dealer tsumo honba players)
+  "(values payments total) like `payments-for', with GIVER paying the whole total."
+  (multiple-value-bind (payments total) (payments-for table base dealer tsumo honba players)
+    (declare (ignore payments))
+    (values (list :ron total :from giver) total)))
+
 (defun pao-payments (table pao yakuman-base base dealer tsumo honba players)
   "(values payments total) like `payments-for' when the seats of PAO, an alist of (seat . yakuman), are liable.
 Each liable seat pays its yakuman as a ron; PAYMENTS gains a :pao list of (seat . amount)."
@@ -464,13 +478,18 @@ Each liable seat pays its yakuman as a ron; PAYMENTS gains a :pao list of (seat 
                 (multiple-value-call #'apply-floors scoring names
                   (base-points scoring han fu yakuman options)))
           (multiple-value-bind (payments total)
-              (if (and (reading-pao reading) (not aotenjou))
-                  (pao-payments (scoring-payments scoring) (reading-pao reading)
-                                (second (assoc :yakuman (scoring-limits scoring)))
-                                base (win-context-dealer context) (win-context-tsumo context)
-                                honba players)
-                  (payments-for (scoring-payments scoring) base (win-context-dealer context)
-                                (win-context-tsumo context) honba players))
+              (cond ((rinshan-pao-giver scoring context)
+                     (giver-payments (scoring-payments scoring)
+                                     (rinshan-pao-giver scoring context) base
+                                     (win-context-dealer context) (win-context-tsumo context)
+                                     honba players))
+                    ((and (reading-pao reading) (not aotenjou))
+                     (pao-payments (scoring-payments scoring) (reading-pao reading)
+                                   (second (assoc :yakuman (scoring-limits scoring)))
+                                   base (win-context-dealer context) (win-context-tsumo context)
+                                   honba players))
+                    (t (payments-for (scoring-payments scoring) base (win-context-dealer context)
+                                     (win-context-tsumo context) honba players)))
             (make-score reading fu han (list :dora dora :ura ura :aka aka :nuki nuki) limit base
                         (+ total (* riichi-sticks (payment-table-stick (scoring-payments scoring))))
                         payments)))))))
@@ -479,9 +498,17 @@ Each liable seat pays its yakuman as a ron; PAYMENTS gains a :pao list of (seat 
                        &key options (honba 0) (riichi-sticks 0) (players 4))
   "The score of every reading of a winning hand that has a yaku; see `evaluate-yaku' for the arguments.
 HONBA and RIICHI-STICKS are counts; PLAYERS decides who pays a tsumo."
-  (let ((scoring (resolve-scoring scoring)))
-    (loop for reading in (evaluate-yaku tileset shapes yaku counts melds context :options options
-                                        :stack-yakuman (and (scoring-aotenjou scoring) t))
+  (let* ((scoring (resolve-scoring scoring))
+         (as-ron (and (eq :ron (payment-table-pao-rinshan (scoring-payments scoring)))
+                      (rinshan-pao-giver scoring context)))
+         (read-context (if as-ron
+                           (let ((copy (copy-win-context context)))
+                             (setf (win-context-tsumo copy) nil)
+                             copy)
+                           context)))
+    (loop for reading in (evaluate-yaku-as read-context tileset shapes yaku counts melds context
+                                           :options options
+                                           :stack-yakuman (and (scoring-aotenjou scoring) t))
           for score = (reading-score scoring reading :honba honba :riichi-sticks riichi-sticks
                                                      :players players)
           when score collect score)))

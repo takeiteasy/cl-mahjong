@@ -120,6 +120,7 @@ Each payer's share rounds up on its own. `:honba n` is paid per honba by the dis
 |---|---|
 | `(:ron n)` | Paid by the discarder |
 | `(:dealer n :other m)` | Tsumo; `:dealer` is `NIL` when the winner deals |
+| `(:ron n :from seat)` | Paid whole by `seat`, the [rinshan pao](#rinshan-pao) giver |
 | `:pao ((seat . n)...)` | Added when a seat is [liable](#pao); the other amounts are what remains |
 
 ## Pao
@@ -137,6 +138,21 @@ A seat [liable](yaku.md#pao) for a yakuman pays that yakuman as a ron. The rest 
 ```lisp
 (defscoring strict :extends riichi
   (:payments (:pao :ron liable :honba liable)))
+```
+
+### Rinshan pao
+
+`:rinshan` makes the seat whose discard made a daiminkan pay the whole hand when the kan's replacement draw wins.[^rinshan]
+
+| `:rinshan` | Win is scored as | The giver pays |
+|---|---|---|
+| `none` (default) | A tsumo | Nothing extra |
+| `tsumo` | A tsumo | Every share of the tsumo and the honba |
+| `ron` | A ron: ron fu, no menzen-tsumo, rinshan still scores | The ron and the honba |
+
+```lisp
+(defscoring giver-pays :extends riichi
+  (:payments (:pao :rinshan tsumo)))
 ```
 
 ## Results
@@ -184,3 +200,5 @@ A sanma tsumo is paid by the two other seats. `(:absent split)` splits the missi
 ```
 
 The `sanma-split` variant uses it.
+
+[^rinshan]: It replaces any yakuman pao on the hand, which is not also charged.

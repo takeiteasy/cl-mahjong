@@ -352,6 +352,44 @@
     (is (equal '(:dealer nil :other 0 :pao ((3 . 48000)))
                (cl-mahjong:score-payments (pao-score ts :tsumo t :dealer t))))))
 
+(defun rinshan-pao-scoring (mode)
+  (let ((name (intern (format nil "TEST-RINSHAN-PAO-~a" mode) :cl-mahjong/tests)))
+    (cl-mahjong::register-definition
+     :scoring name 'riichi `((:name ,name) (:payments (:pao :rinshan ,mode))))
+    name))
+
+(defun rinshan-pao-score (ts mode &key dealer (honba 0) (kan-from 2) (rinshan t))
+  (best-scored ts "234m567p345s11p" "2m"
+               :melds (list (meld ts :quad "5555z" :open t :from 2))
+               :context-args (list :tsumo t :rinshan rinshan :kan-from kan-from :dealer dealer)
+               :honba honba :scoring (rinshan-pao-scoring mode)))
+
+(test rinshan-pao-makes-the-daiminkan-giver-pay-the-whole-tsumo
+  (with-riichi (ts)
+    (let ((score (rinshan-pao-score ts :tsumo)))
+      (is (equal '(:ron 2700 :from 2) (cl-mahjong:score-payments score)))
+      (is (= 2700 (cl-mahjong:score-points score))))
+    (is (equal '(:ron 4500 :from 2)
+               (cl-mahjong:score-payments (rinshan-pao-score ts :tsumo :dealer t :honba 2))))))
+
+(test rinshan-pao-ron-scores-the-win-as-a-ron
+  (with-riichi (ts)
+    (let ((score (rinshan-pao-score ts :ron)))
+      (is (equal '(:ron 2600 :from 2) (cl-mahjong:score-payments score)))
+      (is (member :rinshan (mapcar #'car (cl-mahjong:reading-yaku (cl-mahjong:score-reading score))))))
+    (is (equal '(:ron 4500 :from 2)
+               (cl-mahjong:score-payments (rinshan-pao-score ts :ron :dealer t :honba 2))))))
+
+(test rinshan-pao-needs-a-rinshan-win-on-a-daiminkan
+  (with-riichi (ts)
+    (is (equal '(:dealer 1300 :other 700)
+               (cl-mahjong:score-payments (rinshan-pao-score ts :none))))
+    (dolist (mode '(:tsumo :ron))
+      (is (equal '(:dealer 1300 :other 700)
+                 (cl-mahjong:score-payments (rinshan-pao-score ts mode :kan-from nil))))
+      (is (equal '(:dealer 700 :other 400)
+                 (cl-mahjong:score-payments (rinshan-pao-score ts mode :rinshan nil)))))))
+
 (test pao-honba-follows-the-scoring
   (with-riichi (ts)
     (flet ((payments (scoring)

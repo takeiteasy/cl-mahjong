@@ -262,6 +262,21 @@
                                    (meld ts :triplet "666z" :open t :from 2)
                                    (meld ts :quad "7777z")))))))
 
+(test pao-kan-is-the-seat-of-the-latest-daiminkan
+  (with-riichi (ts)
+    (cl-mahjong:defyaku test-suukantsu-pao :extends suukantsu (:yakuman 1 :pao kan))
+    (flet ((pao (yaku kan-from)
+             (pao-of ts "11p" "1p"
+                     :yaku (list yaku)
+                     :melds (list (meld ts :quad "1111m" :open t :from 1)
+                                  (meld ts :quad "2222m" :open t :from 3)
+                                  (meld ts :quad "3333m")
+                                  (meld ts :quad "4444m" :open t :from 2))
+                     :context-args (list :kan-from kan-from))))
+      (is (equal '((2 . 1)) (pao 'test-suukantsu-pao 2)))
+      (is (null (pao 'test-suukantsu-pao nil)))
+      (is (null (pao 'suukantsu 2))))))
+
 (test pao-is-only-for-yakuman
   (signals cl-mahjong:invalid-definition
     (cl-mahjong::register-definition :yaku 'test-han-pao nil

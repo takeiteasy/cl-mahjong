@@ -29,6 +29,5 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 | No bot interface | [#4](https://github.com/takeiteasy/cl-mahjong/issues/4) |
 | Rule files must be trusted Lisp; no sandboxed loading | [#5](https://github.com/takeiteasy/cl-mahjong/issues/5) |
 | Shanten uses generic shape search, no fast path | [#6](https://github.com/takeiteasy/cl-mahjong/issues/6) |
-| No pao for suukantsu or daiminkan rinshan | [#16](https://github.com/takeiteasy/cl-mahjong/issues/16) |
 | Game flow recomputes legal actions and scans every kind for waits | [#8](https://github.com/takeiteasy/cl-mahjong/issues/8) |
 | Pattern selector names are not checked against the tileset | [#7](https://github.com/takeiteasy/cl-mahjong/issues/7) |

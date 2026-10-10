@@ -43,6 +43,13 @@ Yakuman replace every other yaku in a reading, unless `:stack-yakuman` is given 
 
 Melds record the giver with `make-meld ... :from` and the triplets the caller held with `:held`, a list of kind ids.[^held] A shouminkan keeps the giver and `:held` of its pon. How a liable seat pays is in [Scoring](scoring.md#pao).
 
+`:pao kan` makes the seat that fed the latest daiminkan liable, the context's [`kan-from`](pattern.md#win-context). A shouminkan or ankan after it clears the seat. `suukantsu` has no pao; a yaku extending it adds one:
+
+```lisp
+(defyaku suukantsu-pao :extends suukantsu
+  (:yakuman 1 :pao kan))
+```
+
 ## Evaluation
 
 | Function | Result |

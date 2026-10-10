@@ -543,6 +543,7 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
                          (deal-phase deal) :turn
                          (deal-drawn deal) nil
                          (deal-rinshan deal) nil
+                         (deal-kan-from deal) (if (eq type :quad) from (deal-kan-from deal))
                          (deal-claim deal) nil
                          (deal-forbidden deal)
                          (and (not (eq type :quad)) (kuikae-kinds game type tile kinds)))
@@ -586,6 +587,7 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
          (game (updating-deal (deal game)
                  (let ((deal (add-meld deal seat meld tiles)))
                    (setf (deal-claim deal) nil
+                         (deal-kan-from deal) nil
                          (deal-phase deal) :turn
                          (deal-turn deal) seat)
                    deal))))
@@ -625,6 +627,7 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
                    (setf deal (break-ippatsu deal))
                    (setf (deal-interrupted deal) t
                          (deal-kans deal) (1+ (deal-kans deal))
+                         (deal-kan-from deal) nil
                          (deal-claim deal) nil
                          (deal-phase deal) :turn
                          (deal-turn deal) seat)

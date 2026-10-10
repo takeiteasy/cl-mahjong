@@ -68,6 +68,7 @@ The caller describes how the hand was won with `make-win-context`.
 | `riichi`, `double-riichi`, `ippatsu` | Riichi state |
 | `last-tile` | Won on the last wall tile (haitei when `tsumo`, houtei otherwise) |
 | `rinshan`, `chankan` | Won on a replacement draw / by robbing a kan |
+| `kan-from` | Seat that discarded for the latest kan, or `NIL` if it was not a daiminkan |
 | `tenhou`, `chiihou`, `renhou` | First-turn wins |
 | `open-riichi` | Riichi declared with the hand revealed |
 | `paarenchan` | Consecutive dealer wins, or `NIL`; `(context paarenchan)` holds when set |

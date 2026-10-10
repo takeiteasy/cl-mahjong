@@ -36,7 +36,7 @@
 (defstruct claim kind tile from options responses)
 
 (defstruct deal
-  wall players dealer turn phase drawn rinshan forbidden claim
+  wall players dealer turn phase drawn rinshan kan-from forbidden claim
   (kans 0) (pending-dora 0) interrupted points (sticks 0))
 
 ;; kyoku counts rounds from east 1; the dealer is kyoku mod players.
@@ -244,6 +244,7 @@ POINTS, KYOKU, HONBA and STICKS start the game part way through."
              :chiihou (and tsumo first-turn (not dealer))
              :renhou (and (not tsumo) (not chankan) first-turn (not dealer))
              :dealer dealer
+             :kan-from (deal-kan-from deal)
              :nuki (player-nuki player)
              :dora-indicators (wall-dora-indicators wall)
              :ura-indicators (wall-ura-indicators wall)
@@ -302,9 +303,11 @@ CONCEALED-ONLY just those in COUNTS and NUKI, so a tile whose other copies are i
     new))
 
 (defun win-deltas (game deal score winner from)
-  "Alist of (seat . points) for a win; FROM is the discarder, or NIL for a tsumo."
-  (let ((payments (score-payments score))
-        (dealer (deal-dealer deal)))
+  "Alist of (seat . points) for a win; FROM is the discarder, or NIL for a tsumo.
+A score whose payments name a :from seat is paid whole by that seat."
+  (let* ((payments (score-payments score))
+         (dealer (deal-dealer deal))
+         (from (or from (getf (cddr payments) :from))))
     (cons (cons winner (score-points score))
           (append (if from
                       (list (cons from (- (second payments))))

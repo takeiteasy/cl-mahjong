@@ -76,10 +76,16 @@
                                    (compile-pattern (getf options :double-when)))
                  :needs-yaku (and (getf options :needs-yaku)
                                   (compile-pattern (getf options :needs-yaku)))
-                 :pao (and (getf options :pao) (compile-selector (getf options :pao)))
+                 :pao (pao-selector (getf options :pao))
                  :patterns (compile-patterns (getf spec :when))
                  :implies (name-list (getf spec :implies) ":implies")
                  :excludes (name-list (getf spec :excludes) ":excludes")))))
+
+(defun pao-selector (form)
+  "FORM is a tile selector, or `kan' for the seat that fed the latest daiminkan."
+  (cond ((null form) nil)
+        ((and (symbolp form) (eq (keyword-of form) :kan)) :kan)
+        (t (compile-selector form))))
 
 (defun xor (a b)
   (if a (not b) b))
@@ -138,22 +144,26 @@
     (drop-excluded (drop-implied (if stack-yakuman awards (or yakuman awards))))))
 
 (defun pao-seat (yaku hand)
-  "The seat that fed the last open meld completing YAKU, or NIL.
-Each matching set made or completed after that meld must be a kind its caller already held as a triplet."
   (let ((selector (yaku-pao yaku)))
-    (flet ((matches (group)
-             (and (member (group-type group) '(:triplet :quad))
-                  (funcall selector hand (kind-of-id hand (first (group-kinds group)))))))
-      (when selector
-        (let* ((melds (win-hand-melds hand))
-               (last (find-if (lambda (meld) (and (meld-open-p meld) (matches (meld-group meld))))
-                              melds :from-end t)))
-          (and last
-               (every (lambda (group) (member (first (group-kinds group)) (meld-held last)))
-                      (remove-if-not #'matches
-                                     (append (mapcar #'meld-group (rest (member last melds)))
-                                             (nthcdr (length melds) (hand-groups hand)))))
-               (meld-from last)))))))
+    (cond ((null selector) nil)
+          ((eq selector :kan) (win-context-kan-from (win-hand-context hand)))
+          (t (selected-pao-seat selector hand)))))
+
+(defun selected-pao-seat (selector hand)
+  "The seat that fed the last open meld matching SELECTOR, or NIL.
+Each matching set made or completed after that meld must be a kind its caller already held as a triplet."
+  (flet ((matches (group)
+           (and (member (group-type group) '(:triplet :quad))
+                (funcall selector hand (kind-of-id hand (first (group-kinds group)))))))
+    (let* ((melds (win-hand-melds hand))
+           (last (find-if (lambda (meld) (and (meld-open-p meld) (matches (meld-group meld))))
+                          melds :from-end t)))
+      (and last
+           (every (lambda (group) (member (first (group-kinds group)) (meld-held last)))
+                  (remove-if-not #'matches
+                                 (append (mapcar #'meld-group (rest (member last melds)))
+                                         (nthcdr (length melds) (hand-groups hand)))))
+           (meld-from last)))))
 
 (defun read-win-hand (hand yaku stack-yakuman)
   (let* ((awards (settle-awards hand (remove nil (mapcar (lambda (item) (award hand item)) yaku))
@@ -175,6 +185,12 @@ Each matching set made or completed after that meld must be a kind its caller al
 COUNTS include the winning tile named by CONTEXT. A reading's yaku are (name . value) pairs,
 value being han, or the yakuman multiple when `reading-yakuman' is positive.
 STACK-YAKUMAN keeps the other yaku of a yakuman reading, and `reading-han' counts them."
+  (evaluate-yaku-as context tileset shapes yaku counts melds context
+                    :options options :stack-yakuman stack-yakuman))
+
+(defun evaluate-yaku-as (read-context tileset shapes yaku counts melds context
+                         &key options stack-yakuman)
+  "`evaluate-yaku' for CONTEXT, with the hand read under READ-CONTEXT once CONTEXT is checked."
   (let ((shapes (resolve-shapes shapes))
         (yaku (resolve-yaku yaku)))
     (unless (and (win-context-win-tile context)
@@ -184,4 +200,5 @@ STACK-YAKUMAN keeps the other yaku of a yakuman reading, and `reading-han' count
     (loop for decomposition in (decompose tileset shapes counts melds)
           for shape = (find (decomposition-shape decomposition) shapes :key #'shape-name)
           append (mapcar (lambda (hand) (read-win-hand hand yaku stack-yakuman))
-                         (expand-wins tileset shape decomposition counts melds context options)))))
+                         (expand-wins tileset shape decomposition counts melds read-context
+                                      options)))))

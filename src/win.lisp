@@ -4,13 +4,14 @@
 ;; dora-indicators and ura-indicators are tile ids; tiles are the tile ids of the whole hand,
 ;; melds and the winning tile included, so red fives can be counted. nuki are the tile ids set
 ;; aside as dora. paarenchan is the number of consecutive dealer wins, or NIL.
+;; kan-from is the seat that discarded for the latest kan when that kan was a daiminkan, else NIL.
 (defstruct win-context
   win-tile
   tsumo riichi double-riichi ippatsu
   seat-wind round-wind
   last-tile rinshan chankan
   tenhou chiihou renhou
-  open-riichi paarenchan
+  open-riichi paarenchan kan-from
   dealer
   dora-indicators ura-indicators
   tiles nuki)

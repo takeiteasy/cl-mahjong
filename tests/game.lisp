@@ -1022,6 +1022,43 @@ A notation picks a tile of that kind from SEAT's hand, a different one each time
 
 ;;; Pao
 
+(defun rinshan-pao-variant (mode)
+  (let ((name (intern (format nil "RINSHAN-PAO-~a" mode) :cl-mahjong/tests)))
+    (cl-mahjong::register-definition
+     :scoring name 'riichi `((:name ,name) (:payments (:pao :rinshan ,mode))))
+    (cl-mahjong::register-definition :variant name 'riichi `((:name ,name) (:scoring ,name)))
+    name))
+
+(defun rinshan-pao-game (mode)
+  "Seat 1 calls a daiminkan on seat 0's haku and wins on the replacement draw."
+  (let ((game (cl-mahjong:start-game
+               (rinshan-pao-variant mode)
+               :walls (list (stacked :hands *kan-hands* :draws '("5z") :rinshan '("9m"))))))
+    (setf game (act game 0 :discard "5z"))
+    (setf game (act game 1 :daiminkan "5z" "5z" "5z"))
+    (act game 1 :tsumo)))
+
+(test rinshan-pao-is-paid-by-the-daiminkan-giver
+  (flet ((delta (game seat) (or (cdr (assoc seat (result-of game :deltas))) 0)))
+    (let ((game (rinshan-pao-game :tsumo)))
+      (is (equal '(-2700 2700 0 0) (loop for seat below 4 collect (delta game seat)))))
+    (let ((game (rinshan-pao-game :ron)))
+      (is (equal '(-2600 2600 0 0) (loop for seat below 4 collect (delta game seat)))))
+    (let ((game (rinshan-pao-game :none)))
+      (is (equal '(-1300 2700 -700 -700) (loop for seat below 4 collect (delta game seat)))))))
+
+(test kan-from-follows-the-latest-kan
+  (let ((game (new-game :hands '("123m456m789p234s1z" "555z999m456p789s1p" "246m246p246s6677z"
+                                 "357m357p357s3344z")
+                        :draws '("5z") :rinshan '("9m" "2s"))))
+    (is (null (cl-mahjong::deal-kan-from (cl-mahjong:game-deal game))))
+    (setf game (act game 0 :discard "5z"))
+    (setf game (act game 1 :daiminkan "5z" "5z" "5z"))
+    (is (= 0 (cl-mahjong::deal-kan-from (cl-mahjong:game-deal game))))
+    (setf game (cl-mahjong:apply-action
+                game 1 (list :ankan (first (kind-ids (tileset-of game) "9m")))))
+    (is (null (cl-mahjong::deal-kan-from (cl-mahjong:game-deal game))))))
+
 (defun pao-deltas (winner from &key tsumo)
   (let* ((ts (cl-mahjong:find-tileset 'riichi-136))
          (game (cl-mahjong:start-game 'riichi :seed 1))
