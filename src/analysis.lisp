@@ -274,7 +274,7 @@ head slots when each takes its own copy from COPIES; stops early at BOUND."
        (share-copies (replace copies *remaining*) open-sets open-heads waits seeds table bound))))
 
 (defun sets-shanten (analysis shape counts needed)
-  ;; TODO: generic block search is exponential in the worst case; a table-driven fast path for the standard shape is tracked in #15
+  ;; TODO: generic block search is exponential in the worst case; a table-driven fast path for the standard shape is tracked in https://github.com/takeiteasy/cl-mahjong/issues/6
   (let* ((counts (copy-counts counts))
          (prev (analysis-prev analysis))
          (next (analysis-next analysis))

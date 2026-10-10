@@ -268,7 +268,7 @@ POINTS, KYOKU, HONBA and STICKS start the game part way through."
   "Kind ids that complete the hand of COUNTS and MELDS.
 NUKI are the player's own tiles set aside. Copies in the hand, melds and NUKI are used up, or with
 CONCEALED-ONLY just those in COUNTS and NUKI, so a tile whose other copies are in a meld still waits."
-  ;; TODO: one decomposition per tile kind; derive waits from the shanten search (#19)
+  ;; TODO: one decomposition per tile kind; derive waits from the shanten search (https://github.com/takeiteasy/cl-mahjong/issues/8)
   (let* ((tileset (game-tileset game))
          (shapes (variant-shapes (game-variant game)))
          (counts (copy-counts counts))

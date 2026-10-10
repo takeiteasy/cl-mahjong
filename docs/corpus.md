@@ -63,13 +63,12 @@ See [PLAN.md](PLAN.md#limitations):
 
 | Skipped | Ticket |
 |---|---|
-| Impossible win contexts are not validated | [#25](https://todo.sr.ht/~takeiteasy/cl-mahjong/25) |
-| Uncapped kazoe, aotenjou and the yakuman cap | [#26](https://todo.sr.ht/~takeiteasy/cl-mahjong/26) |
-| Shanten does not discount tiles held in full | [#27](https://todo.sr.ht/~takeiteasy/cl-mahjong/27) |
-| House-rule yaku (open riichi, paarenchan, daisharin family) | [#28](https://todo.sr.ht/~takeiteasy/cl-mahjong/28) |
-| Pinfu fu rules are fixed | [#29](https://todo.sr.ht/~takeiteasy/cl-mahjong/29) |
-| Renhou is a mangan floor, not a 5 han yaku | [#30](https://todo.sr.ht/~takeiteasy/cl-mahjong/30) |
-| Upstream yaku class unit tests are not ported | [#31](https://todo.sr.ht/~takeiteasy/cl-mahjong/31) |
+| Impossible win contexts are not validated | [#10](https://github.com/takeiteasy/cl-mahjong/issues/10) |
+| Uncapped kazoe, aotenjou and the yakuman cap | [#11](https://github.com/takeiteasy/cl-mahjong/issues/11) |
+| House-rule yaku (open riichi, paarenchan, daisharin family) | [#12](https://github.com/takeiteasy/cl-mahjong/issues/12) |
+| Pinfu fu rules are fixed | [#13](https://github.com/takeiteasy/cl-mahjong/issues/13) |
+| Renhou is a mangan floor, not a 5 han yaku | [#14](https://github.com/takeiteasy/cl-mahjong/issues/14) |
+| Upstream yaku class unit tests are not ported | [#15](https://github.com/takeiteasy/cl-mahjong/issues/15) |
 
 [^mapping]: Hands are written as notation with `0` for a red five. A case lists the concealed tiles with the winning tile, its melds, dora and ura indicators, honba and sticks. The mapping lives in `tools/riichi-corpus/generate.py`.
 [^pin]: The pinned commit and the upstream MIT notice are in the header of `tests/corpus/riichi.sexp`.

@@ -44,7 +44,7 @@
                     (or (eq (kind-group kind) :dragon)
                         (seat-wind-p hand kind)
                         (round-wind-p hand kind))))
-          ;; TODO: a misspelt name never matches; checking names against the tileset is tracked in #16
+          ;; TODO: a misspelt name never matches; checking names against the tileset is tracked in https://github.com/takeiteasy/cl-mahjong/issues/7
           (t (lambda (hand kind)
                (declare (ignore hand))
                (or (eq (kind-suit kind) key) (eq (kind-name kind) key))))))))

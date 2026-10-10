@@ -241,7 +241,7 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
 
 (defun apply-action (game seat action)
   "(values game events). Signals ILLEGAL-ACTION unless ACTION is one of `legal-actions' for SEAT."
-  ;; TODO: recomputes every legal action to validate one; check the action directly (#19)
+  ;; TODO: recomputes every legal action to validate one; check the action directly (https://github.com/takeiteasy/cl-mahjong/issues/8)
   (unless (member action (legal-actions game seat) :test #'equal)
     (illegal "~s is not a legal action for seat ~a" action seat))
   (let* ((*events* '())

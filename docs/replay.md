@@ -56,7 +56,7 @@ All 11,463 houou logs (2011 to 2026) replay exactly. All 2,107 sanma houou logs 
 
 ## Limitations
 
-See [PLAN.md](PLAN.md#limitations): sanma logs before 2022-01-23 are not replayed ([#36](https://todo.sr.ht/~takeiteasy/cl-mahjong/36)), and legal actions are recomputed on every move ([#19](https://todo.sr.ht/~takeiteasy/cl-mahjong/19)).
+See [PLAN.md](PLAN.md#limitations): sanma logs before 2022-01-23 are not replayed ([#18](https://github.com/takeiteasy/cl-mahjong/issues/18)), and legal actions are recomputed on every move ([#8](https://github.com/takeiteasy/cl-mahjong/issues/8)).
 
 [^terms]: Tenhou publishes logs for fair play on Tenhou and asks that general mahjong software contact support@c-egg.com first, so converted logs are not committed.
 [^ids]: After a call the engine keeps one tile per kind and red flag, so its tile ids drift from the log's.

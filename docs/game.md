@@ -118,4 +118,4 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 
 ## Limitations
 
-See [PLAN.md](PLAN.md#limitations): wait checks ignore tiles set aside as nukidora ([#35](https://todo.sr.ht/~takeiteasy/cl-mahjong/35)), and legal actions are recomputed on every move ([#19](https://todo.sr.ht/~takeiteasy/cl-mahjong/19)).
+See [PLAN.md](PLAN.md#limitations): legal actions are recomputed on every move ([#8](https://github.com/takeiteasy/cl-mahjong/issues/8)).

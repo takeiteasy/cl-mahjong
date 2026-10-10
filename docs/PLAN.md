@@ -7,34 +7,34 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 | # | Deliverable | Ticket | Status |
 |---|---|---|---|
 | 0 | Skeleton, docs, tracker | n/a | done |
-| 1 | Registry, inheritance, tileset and wall DSL | [#1](https://todo.sr.ht/~takeiteasy/cl-mahjong/1) | done |
-| 2 | Shape DSL, decomposition, shanten | [#2](https://todo.sr.ht/~takeiteasy/cl-mahjong/2) | done |
-| 3 | Pattern language, `defyaku`, riichi yaku | [#3](https://todo.sr.ht/~takeiteasy/cl-mahjong/3) | done |
-| 4 | Scoring DSL | [#4](https://todo.sr.ht/~takeiteasy/cl-mahjong/4) | done |
-| 5 | Game-flow state machine, multiple ron | [#5](https://todo.sr.ht/~takeiteasy/cl-mahjong/5), [#18](https://todo.sr.ht/~takeiteasy/cl-mahjong/18) | done |
-| 6 | Variant deltas, sanma, event examples | [#6](https://todo.sr.ht/~takeiteasy/cl-mahjong/6) | done |
-| 7 | Riichi validation corpus | [#7](https://todo.sr.ht/~takeiteasy/cl-mahjong/7) | done |
+| 1 | Registry, inheritance, tileset and wall DSL | sr.ht #1 | done |
+| 2 | Shape DSL, decomposition, shanten | sr.ht #2 | done |
+| 3 | Pattern language, `defyaku`, riichi yaku | sr.ht #3 | done |
+| 4 | Scoring DSL | sr.ht #4 | done |
+| 5 | Game-flow state machine, multiple ron | sr.ht #5, sr.ht #18 | done |
+| 6 | Variant deltas, sanma, event examples | sr.ht #6 | done |
+| 7 | Riichi validation corpus | sr.ht #7 | done |
 | 8 | Tenhou variant and log replay | n/a | done |
 
 ## Limitations
 
 | Limitation | Ticket |
 |---|---|
-| Impossible win contexts are not validated | [#25](https://todo.sr.ht/~takeiteasy/cl-mahjong/25) |
-| Uncapped kazoe, aotenjou and the yakuman cap are not supported | [#26](https://todo.sr.ht/~takeiteasy/cl-mahjong/26) |
-| No house-rule yaku (open riichi, paarenchan, daisharin family) | [#28](https://todo.sr.ht/~takeiteasy/cl-mahjong/28) |
-| Pinfu fu rules are fixed | [#29](https://todo.sr.ht/~takeiteasy/cl-mahjong/29) |
-| Renhou is a mangan floor, not a 5 han yaku | [#30](https://todo.sr.ht/~takeiteasy/cl-mahjong/30) |
-| Upstream yaku class unit tests are not ported | [#31](https://todo.sr.ht/~takeiteasy/cl-mahjong/31) |
-| No WRC rules variant | [#20](https://todo.sr.ht/~takeiteasy/cl-mahjong/20) |
-| Sanma logs before 2022-01-23 are not replayed | [#36](https://todo.sr.ht/~takeiteasy/cl-mahjong/36) |
-| No HK variant | [#10](https://todo.sr.ht/~takeiteasy/cl-mahjong/10) |
-| No MCR variant | [#11](https://todo.sr.ht/~takeiteasy/cl-mahjong/11) |
-| No CLI; the library has no UI | [#12](https://todo.sr.ht/~takeiteasy/cl-mahjong/12) |
-| No bot interface | [#13](https://todo.sr.ht/~takeiteasy/cl-mahjong/13) |
-| Rule files must be trusted Lisp; no sandboxed loading | [#14](https://todo.sr.ht/~takeiteasy/cl-mahjong/14) |
-| Shanten uses generic shape search, no fast path | [#15](https://todo.sr.ht/~takeiteasy/cl-mahjong/15) |
-| No pao for suukantsu or daiminkan rinshan | [#32](https://todo.sr.ht/~takeiteasy/cl-mahjong/32) |
-| Pao is not applied when a concealed set stood before the last call | [#33](https://todo.sr.ht/~takeiteasy/cl-mahjong/33) |
-| Game flow recomputes legal actions and scans every kind for waits | [#19](https://todo.sr.ht/~takeiteasy/cl-mahjong/19) |
-| Pattern selector names are not checked against the tileset | [#16](https://todo.sr.ht/~takeiteasy/cl-mahjong/16) |
+| Impossible win contexts are not validated | [#10](https://github.com/takeiteasy/cl-mahjong/issues/10) |
+| Uncapped kazoe, aotenjou and the yakuman cap are not supported | [#11](https://github.com/takeiteasy/cl-mahjong/issues/11) |
+| No house-rule yaku (open riichi, paarenchan, daisharin family) | [#12](https://github.com/takeiteasy/cl-mahjong/issues/12) |
+| Pinfu fu rules are fixed | [#13](https://github.com/takeiteasy/cl-mahjong/issues/13) |
+| Renhou is a mangan floor, not a 5 han yaku | [#14](https://github.com/takeiteasy/cl-mahjong/issues/14) |
+| Upstream yaku class unit tests are not ported | [#15](https://github.com/takeiteasy/cl-mahjong/issues/15) |
+| No WRC rules variant | [#9](https://github.com/takeiteasy/cl-mahjong/issues/9) |
+| Sanma logs before 2022-01-23 are not replayed | [#18](https://github.com/takeiteasy/cl-mahjong/issues/18) |
+| No HK variant | [#1](https://github.com/takeiteasy/cl-mahjong/issues/1) |
+| No MCR variant | [#2](https://github.com/takeiteasy/cl-mahjong/issues/2) |
+| No CLI; the library has no UI | [#3](https://github.com/takeiteasy/cl-mahjong/issues/3) |
+| No bot interface | [#4](https://github.com/takeiteasy/cl-mahjong/issues/4) |
+| Rule files must be trusted Lisp; no sandboxed loading | [#5](https://github.com/takeiteasy/cl-mahjong/issues/5) |
+| Shanten uses generic shape search, no fast path | [#6](https://github.com/takeiteasy/cl-mahjong/issues/6) |
+| No pao for suukantsu or daiminkan rinshan | [#16](https://github.com/takeiteasy/cl-mahjong/issues/16) |
+| Pao is not applied when a concealed set stood before the last call | [#17](https://github.com/takeiteasy/cl-mahjong/issues/17) |
+| Game flow recomputes legal actions and scans every kind for waits | [#8](https://github.com/takeiteasy/cl-mahjong/issues/8) |
+| Pattern selector names are not checked against the tileset | [#7](https://github.com/takeiteasy/cl-mahjong/issues/7) |
