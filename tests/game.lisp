@@ -1047,6 +1047,13 @@ A notation picks a tile of that kind from SEAT's hand, a different one each time
     (let ((game (rinshan-pao-game :none)))
       (is (equal '(-1300 2700 -700 -700) (loop for seat below 4 collect (delta game seat)))))))
 
+(test the-win-event-lists-the-rinshan-pao-giver
+  (flet ((pao (mode)
+           (getf (rest (win-event (nth-value 1 (rinshan-pao-game mode)))) :pao)))
+    (is (equal '((0 . 2700)) (pao :tsumo)))
+    (is (equal '((0 . 2600)) (pao :ron)))
+    (is (null (pao :none)))))
+
 (test kan-from-follows-the-latest-kan
   (let ((game (new-game :hands '("123m456m789p234s1z" "555z999m456p789s1p" "246m246p246s6677z"
                                  "357m357p357s3344z")

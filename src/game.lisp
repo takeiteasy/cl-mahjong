@@ -302,6 +302,12 @@ CONCEALED-ONLY just those in COUNTS and NUKI, so a tile whose other copies are i
     (loop for (seat . delta) in deltas do (incf (aref new seat) delta))
     new))
 
+(defun liable-seats (payments)
+  "(seat . amount) for each seat liable under PAYMENTS: yakuman pao, or the whole payment of a rinshan pao."
+  (or (getf (cddr payments) :pao)
+      (let ((giver (getf (cddr payments) :from)))
+        (and giver (list (cons giver (second payments)))))))
+
 (defun win-deltas (game deal score winner from)
   "Alist of (seat . points) for a win; FROM is the discarder, or NIL for a tsumo.
 A score whose payments name a :from seat is paid whole by that seat."
@@ -416,7 +422,7 @@ scores with uma and oka)."
         (emit :win :seat winner :from (cddr (assoc winner score-table))
                    :han (score-han score) :fu (score-fu score) :limit (score-limit score)
                    :points (score-points score) :yaku (reading-yaku (score-reading score))
-                   :pao (getf (score-payments score) :pao) :score score)))
+                   :pao (liable-seats (score-payments score)) :score score)))
     (conclude-deal game deal (if (cddr (assoc (first winners) score-table)) :ron :tsumo) deltas
                    :renchan dealer-wins :reset-honba (not dealer-wins) :collect t :yame :agari
                    :detail (list :winners winners))))

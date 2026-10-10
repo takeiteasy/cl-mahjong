@@ -50,7 +50,7 @@ Each event is `(type . plist)`.
 | `:kita` | `:seat :tile` |
 | `:riichi` | `:seat`, once the discard passes |
 | `:dora` | `:tile`, a new indicator |
-| `:win` | `:seat :from :han :fu :limit :points :yaku :pao :score`; `:pao` lists `(seat . amount)` for liable seats |
+| `:win` | `:seat :from :han :fu :limit :points :yaku :pao :score`; `:pao` lists `(seat . amount)` for liable seats, including the [rinshan pao](scoring.md#rinshan-pao) giver |
 | `:deal-end` | `:type :deltas :points` |
 | `:game-end` | `:final` |
 
