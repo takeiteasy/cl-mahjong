@@ -243,6 +243,21 @@
     (is (= 1 (cl-mahjong:shanten ts '(standard) (hand ts "123p456p789p123s4z") '()
                                  :visible (hand ts "444z"))))))
 
+(test live-shanten-partials-share-a-last-copy
+  (with-riichi (ts)
+    (let ((counts (hand ts "1133m456p789p5s9s1z")))
+      (is (= 2 (cl-mahjong:shanten ts '(standard) counts '() :visible (hand ts "11m33m"))))
+      (is (= 2 (cl-mahjong:shanten ts '(standard) counts '() :visible (hand ts "11m33m22m"))))
+      (is (= 3 (cl-mahjong:shanten ts '(standard) counts '() :visible (hand ts "11m33m222m")))))))
+
+(test live-shanten-lone-tiles-share-a-last-copy
+  (with-riichi (ts)
+    (let ((counts (hand ts "123p456p55s1m4m1z2z3z"))
+          (dead (concatenate 'string "111m444m3333m5555m6666m111z222z333z")))
+      (is (= 3 (cl-mahjong:shanten ts '(standard) counts '() :visible (hand ts dead))))
+      (is (= 4 (cl-mahjong:shanten ts '(standard) counts '()
+                                   :visible (hand ts (concatenate 'string dead "222m"))))))))
+
 ;;; Ukeire
 
 (test ukeire-counts-remaining-copies

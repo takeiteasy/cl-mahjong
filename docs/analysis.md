@@ -90,6 +90,6 @@ A decomposition is the shape's name and its groups, melds first, then the rest i
 
 ## Limitations
 
-See [PLAN.md](PLAN.md#limitations): shanten for sets shapes uses a generic search with no fast path, and live shanten counts a last copy once for every group waiting on it.
+See [PLAN.md](PLAN.md#limitations): shanten for sets shapes uses a generic search with no fast path.
 
-[^live]: Live mode counts a partial group only when a wait for it has a copy left, and adds one for each group with no live lone tile to start from. A tenpai with no live wait is 1-shanten, and a kokushi missing a kind with no copies left, or seven pairs without enough kinds to pair, has no shanten (`NIL`).
+[^live]: Live mode counts a partial group only when it can take a copy of one of its waits, and adds one for each group with no lone tile that can take a copy to start from. Each copy goes to one group, so two partials waiting on the last copy of a kind count once. A tenpai with no live wait is 1-shanten, and a kokushi missing a kind with no copies left, or seven pairs without enough kinds to pair, has no shanten (`NIL`).
