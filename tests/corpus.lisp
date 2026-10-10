@@ -17,7 +17,9 @@
 
 (defparameter *corpus* (read-corpus))
 
-(defparameter *known-failures* '()
+(defparameter *known-failures*
+  '(("aotenjou::test_aotenjou_kokushi_tsumo#1" . "#19")
+    ("aotenjou::test_aotenjou_kokushi_with_ura_dora#1" . "#19"))
   "Alist of case id to the ticket that tracks it.")
 
 ;;; Building inputs
@@ -41,8 +43,29 @@
   (loop for (type notation nil open) in specs
         collect (cl-mahjong:make-meld type (kind-ids tileset notation) :open open)))
 
-(defun corpus-variant (players)
-  (cl-mahjong:find-variant (if (= players 3) 'sanma 'riichi)))
+(defun corpus-variant (case)
+  (cl-mahjong:find-variant (getf case :variant)))
+
+(defun corpus-limits (kazoe cap)
+  "The yakuman limit entry for a kazoe mode (:limited, :sanbaiman or :multiple) and a yakuman cap."
+  `(:limits (yakuman 8000 ,@(case kazoe
+                              (:limited '(:han 13))
+                              (:multiple '(:han 13 :per 13)))
+                     ,@(and cap (list :max cap)))))
+
+(defun corpus-scoring (case)
+  "The scoring of the case's variant with the case's kazoe mode and yakuman cap."
+  (let ((base (cl-mahjong:variant-scoring (corpus-variant case)))
+        (kazoe (getf case :kazoe))
+        (cap (getf case :cap)))
+    (if (null kazoe)
+        base
+        (let ((name (format nil "CORPUS-~a-~a-~a" base kazoe cap)))
+          (unless (nth-value 1 (gethash (cl-mahjong::definition-key :scoring name)
+                                        cl-mahjong::*definitions*))
+            (cl-mahjong::register-definition :scoring name base
+                                             (list (list :name name) (corpus-limits kazoe cap))))
+          name))))
 
 (defun north-tiles (tileset count)
   (subseq (cl-mahjong:tiles-of-kind tileset (cl-mahjong:find-kind tileset 'north)) 0 count))
@@ -51,7 +74,7 @@
   (apply #'concatenate 'string (getf case :hand) (mapcar #'second (getf case :melds))))
 
 (defun corpus-scores (case)
-  (let* ((variant (corpus-variant (getf case :players)))
+  (let* ((variant (corpus-variant case))
          (tileset (cl-mahjong:variant-tileset variant))
          (context (apply #'cl-mahjong:make-win-context
                          :win-tile (first (corpus-tiles tileset (getf case :win)))
@@ -61,7 +84,7 @@
                          :nuki (north-tiles tileset (or (getf (getf case :context) :nuki) 0))
                          (loop for (key value) on (getf case :context) by #'cddr
                                unless (eq key :nuki) append (list key value)))))
-    (cl-mahjong:evaluate-score (cl-mahjong:variant-scoring variant) tileset
+    (cl-mahjong:evaluate-score (corpus-scoring case) tileset
                                (cl-mahjong:variant-shapes variant) (cl-mahjong:variant-yaku variant)
                                (hand tileset (getf case :hand))
                                (corpus-melds tileset (getf case :melds)) context
@@ -104,8 +127,7 @@
                                           (cl-mahjong:score-limit best)))))))
 
 (defun check-scores (case)
-  (let* ((variant (corpus-variant (getf case :players)))
-         (scoring (cl-mahjong::resolve-scoring (cl-mahjong:variant-scoring variant)))
+  (let* ((scoring (cl-mahjong::resolve-scoring (corpus-scoring case)))
          (context (getf case :context))
          (han (getf case :han)))
     (multiple-value-bind (base limit)
@@ -130,7 +152,7 @@
         finally (return (subseq melds 0 count))))
 
 (defun check-shanten (case)
-  (let* ((tileset (cl-mahjong:variant-tileset (corpus-variant (getf case :players))))
+  (let* ((tileset (cl-mahjong:variant-tileset (cl-mahjong:find-variant (if (= (getf case :players) 3) 'sanma 'riichi))))
          (expected (getf case :expect))
          (actual (handler-case (let ((counts (hand tileset (getf case :hand))))
                                  (cl-mahjong:shanten tileset (getf case :shapes) counts

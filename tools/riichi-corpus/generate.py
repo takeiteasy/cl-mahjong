@@ -22,7 +22,8 @@ DEFAULT_OUT = HERE.parent.parent / "tests" / "corpus" / "riichi.sexp"
 AKA = {16, 52, 88}
 WINDS = {27: "east", 28: "south", 29: "west", 30: "north"}
 MELD_TYPES = {"chi": "sequence", "pon": "triplet", "kan": "quad", "shouminkan": "quad"}
-KAZOE_LIMITED, KAZOE_SANBAIMAN = 0, 1
+KAZOE_LIMITED, KAZOE_SANBAIMAN, KAZOE_NO_LIMIT = 0, 1, 2
+KAZOE = {KAZOE_LIMITED: "limited", KAZOE_SANBAIMAN: "sanbaiman", KAZOE_NO_LIMIT: "multiple"}
 
 YAKU = {
     "Menzen Tsumo": "menzen-tsumo", "Riichi": "riichi", "Ippatsu": "ippatsu", "Chankan": "chankan",
@@ -40,15 +41,16 @@ YAKU = {
     "Chinroutou": "chinroutou", "Ryuuiisou": "ryuuiisou", "Suu Kantsu": "suukantsu",
     "Suu Ankou": "suuankou", "Suu Ankou Tanki": "suuankou", "Tenhou": "tenhou",
     "Chiihou": "chiihou", "Renhou (yakuman)": "renhou",
+    "Open Riichi": "open-riichi", "Double Open Riichi": "double-open-riichi",
+    "Sashikomi": "sashikomi", "Daisharin": "daisharin", "Daisuurin": "daisuurin",
+    "Daichikurin": "daichikurin", "Daichisei": "daichisei",
 }
+HOUSE_YAKU = {"open-riichi", "double-open-riichi", "sashikomi", "paarenchan", "daisharin",
+              "daisuurin", "daichikurin", "daichisei"}
 YAKU_PATTERNS = [(re.compile(r"Yakuhai \(seat wind \w+\)"), "jikaze"),
-                 (re.compile(r"Yakuhai \(round wind \w+\)"), "bakaze")]
+                 (re.compile(r"Yakuhai \(round wind \w+\)"), "bakaze"),
+                 (re.compile(r"Paarenchan( \d+)?"), "paarenchan")]
 BONUS = {"Dora", "Aka Dora", "Ura Dora"}
-UNSUPPORTED_YAKU = {"Open Riichi": "open riichi", "Double Open Riichi": "open riichi",
-                    "Nagashi Mangan": "nagashi mangan", "Daisharin": "daisharin",
-                    "Daichisei": "daichisei", "Paarenchan": "paarenchan",
-                    "Daichikurin": "daichikurin", "Daisuurin": "daisuurin",
-                    "Sashikomi": "sashikomi"}
 NO_SCORE_ERRORS = {"no_yaku", "hand_not_winning"}
 LIMITS = {"mangan": "mangan", "kiriage mangan": "mangan", "haneman": "haneman", "baiman": "baiman",
           "sanbaiman": "sanbaiman", "kazoe sanbaiman": "sanbaiman"}
@@ -133,8 +135,6 @@ def our_yaku(names):
     for name in names:
         if name in BONUS:
             continue
-        if name in UNSUPPORTED_YAKU:
-            raise Skip(f"{UNSUPPORTED_YAKU[name]} is not supported")
         mapped = YAKU.get(name) or next((v for pattern, v in YAKU_PATTERNS if pattern.fullmatch(name)),
                                         None)
         if mapped is None:
@@ -144,27 +144,42 @@ def our_yaku(names):
     return sorted(out)
 
 
-def unsupported_config(config, han=0):
+def unsupported_config(config):
     options = config["options"]
-    if config["is_open_riichi"]:
-        raise Skip("open riichi is not supported")
-    if config["is_nagashi_mangan"]:
-        raise Skip("nagashi mangan is not supported")
-    if config["paarenchan"]:
-        raise Skip("paarenchan is not supported")
-    if options["kazoe_limit"] not in (KAZOE_LIMITED, KAZOE_SANBAIMAN) and han >= 13:
-        raise Skip("unlimited kazoe is not supported")
     if not options["fu_for_open_pinfu"] or options["fu_for_pinfu_tsumo"]:
         raise Skip("fu rules for pinfu are not options")
-    if not options["limit_to_sextuple_yakuman"]:
-        raise Skip("yakuman multiples are not capped")
 
 
 def our_options(options):
+    daisharin = kw("all") if options["has_daisharin_other_suits"] else options["has_daisharin"]
     return {"kuitan": options["has_open_tanyao"], "double-yakuman": options["has_double_yakuman"],
             "renhou": kw("yakuman" if options["renhou_as_yakuman"] else "mangan"),
-            "kiriage": options["kiriage"], "kazoe-yakuman": options["kazoe_limit"] == KAZOE_LIMITED,
-            "double-wind-fu": 4, "rinshan-tsumo-fu": True}
+            "kiriage": options["kiriage"], "double-wind-fu": 4, "rinshan-tsumo-fu": True,
+            "sashikomi": options["has_sashikomi_yakuman"], "daisharin": daisharin,
+            "daichisei": options["has_daichisei"],
+            "paarenchan-without-yaku": not options["paarenchan_needs_yaku"]}
+
+
+def house_rules(config, names=()):
+    options = config["options"]
+    return bool(config["is_open_riichi"] or config["paarenchan"] or options["has_daisharin"]
+                or options["has_daichisei"] or options["has_sashikomi_yakuman"]
+                or HOUSE_YAKU.intersection(names))
+
+
+def rules(config, house=False, aotenjou=False):
+    """The variant a case plays and, for riichi scoring, how its kazoe and yakuman cap are set."""
+    options = config["options"]
+    if aotenjou:
+        return {"variant": kw("aotenjou")}
+    if options["is_three_player"]:
+        if house:
+            raise Skip("house rules in sanma are not covered")
+        name = "sanma"
+    else:
+        name = "house-rules" if house else "riichi"
+    return {"variant": kw(name), "kazoe": kw(KAZOE[options["kazoe_limit"]]),
+            "cap": 6 if options["limit_to_sextuple_yakuman"] else None}
 
 
 def our_limit(level):
@@ -199,6 +214,10 @@ def context_args(config):
     out["seat-wind"] = kw(WINDS[config["player_wind"]]) if config["player_wind"] else None
     out["round-wind"] = kw(WINDS[config["round_wind"]]) if config["round_wind"] else None
     out["dealer"] = config["is_dealer"]
+    if config["is_open_riichi"]:
+        out["open-riichi"] = True
+    if config["paarenchan"]:
+        out["paarenchan"] = config["paarenchan"]
     if config["num_nuki_dora"] < 0:
         raise Skip("impossible contexts are not validated")
     if config["num_nuki_dora"]:
@@ -206,15 +225,28 @@ def context_args(config):
     return out
 
 
+def nagashi_entry(record):
+    inp, result = record["input"], record["result"]
+    config = inp["config"]
+    return {"kind": kw("scores"), "han": result["han"], "fu": result["fu"], "yakuman": False,
+            "context": {"tsumo": config["is_tsumo"], "dealer": config["is_dealer"]},
+            "options": our_options(config["options"]), **rules(config),
+            "honba": config["tsumi_number"], "sticks": config["kyoutaku_number"],
+            "players": 3 if config["options"]["is_three_player"] else 4,
+            "expect": expectation(result["cost"], config)}
+
+
 def hand_entry(record):
     inp, result = record["input"], record["result"]
     config, melds = inp["config"], inp.get("melds") or []
-    if inp["factory"] != "ScoresCalculator":
-        raise Skip("aotenjou scoring is not supported")
-    unsupported_config(config, 0 if result["yakuman"] or result["error"] else result["han"])
+    aotenjou = inp["factory"] == "Aotenjou"
+    if config["is_nagashi_mangan"]:
+        return nagashi_entry(record)
+    unsupported_config(config)
     aka = config["options"]["has_aka_dora"]
     if result["error"] and result["error"] not in NO_SCORE_ERRORS:
         raise Skip("impossible contexts are not validated")
+    names = [] if result["error"] else our_yaku(result["yaku"])
     entry = {"kind": kw("hand"),
              "hand": tiles136(without_melds(inp["tiles"], melds), aka),
              "win": tiles136([inp["win_tile"]], aka),
@@ -224,14 +256,14 @@ def hand_entry(record):
              "ura": tiles136(inp.get("ura_dora_indicators") or [], False),
              "aka": aka,
              "options": our_options(config["options"]),
+             **rules(config, house_rules(config, names), aotenjou),
              "honba": config["tsumi_number"], "sticks": config["kyoutaku_number"],
              "players": 3 if config["options"]["is_three_player"] else 4}
     if result["error"]:
         entry["expect"] = {"none": result["error"]}
         return entry
-    names = our_yaku(result["yaku"])
     expect = {"yaku": names, "yakuman": result["yakuman"]}
-    if not result["yakuman"]:
+    if aotenjou or not result["yakuman"]:
         expect["fu"] = result["fu"]
         if "renhou-mangan" not in names:
             expect["han"] = result["han"]
@@ -244,11 +276,11 @@ def scores_entry(record):
     config = inp["config"]
     if "raised" in result:
         raise Skip("upstream raises")
-    unsupported_config(config, 0 if inp.get("is_yakuman") else inp["han"])
+    unsupported_config(config)
     return {"kind": kw("scores"), "han": inp["han"], "fu": inp["fu"],
             "yakuman": bool(inp.get("is_yakuman")),
             "context": {"tsumo": config["is_tsumo"], "dealer": config["is_dealer"]},
-            "options": our_options(config["options"]),
+            "options": our_options(config["options"]), **rules(config),
             "honba": config["tsumi_number"], "sticks": config["kyoutaku_number"],
             "players": 3 if config["options"]["is_three_player"] else 4,
             "expect": expectation(result, config)}
