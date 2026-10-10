@@ -30,6 +30,7 @@ Each case names its variant and sets every option, so none inherits `*riichi-opt
 | Kazoe and sextuple limits are config | `yakuman` limit `:han`, `:per` and `:max` |
 | `Aotenjou` calculator | `aotenjou` variant |
 | House yaku are config flags | [`house-rules` variant](dsl.md#house-rules) and its options |
+| `suukantsu` has no pao | `house-rules` scores `suukantsu-pao`, compared as `suukantsu` |
 | Short hands imply open sets | Shanten cases add open triplets of absent kinds |
 | Shanten discounts tiles held in full | `:live t`; see [analysis.md](analysis.md#live-shanten) |
 

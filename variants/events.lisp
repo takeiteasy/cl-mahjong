@@ -49,13 +49,21 @@
                               :needs-yaku (not (option paarenchan-without-yaku)))
   (:when (context paarenchan)))
 
+(defyaku suukantsu-pao :extends suukantsu
+  (:yakuman 1 :pao kan))
+
+(defscoring house-rules :extends riichi
+  (:payments (:pao :ron split :honba discarder :rinshan tsumo)))
+
 (defvariant house-rules :extends riichi
+  (:scoring house-rules)
   (:add :yaku open-riichi double-open-riichi sashikomi paarenchan
-        daisharin daisuurin daichikurin daichisei)
-  (:set :sashikomi t :daisharin :all :daichisei t))
+        daisharin daisuurin daichikurin daichisei suukantsu-pao)
+  (:remove :yaku suukantsu)
+  (:set :sashikomi t :daisharin :all :daichisei t :pao-held t))
 
 ;;; Aotenjou: no limits, each yakuman is 13 han and stacks with the other yaku
-(defscoring aotenjou :extends riichi
+(defscoring aotenjou :extends house-rules
   (:aotenjou 13)
   (:fu (:flat kokushi 40 :tsumo 30))
   (:payments (:honba 0) (:riichi-stick 0)))

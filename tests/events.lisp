@@ -61,6 +61,32 @@
         (is (not (member :daisuurin (scored "22334455667788m" "8m" t))))
         (is (equal '(:daisharin) (scored "22334455667788p" "8p" t)))))))
 
+(test house-rules-pao
+  (with-riichi (ts)
+    (let* ((variant (cl-mahjong:find-variant 'house-rules))
+           (options (cl-mahjong:variant-options variant))
+           (yaku (cl-mahjong:variant-yaku variant)))
+      (let ((reading (best ts "11p" "1p" :yaku yaku :options options
+                                         :context-args '(:kan-from 2)
+                                         :melds (list (meld ts :quad "1111m" :open t :from 1)
+                                                      (meld ts :quad "2222m" :open t :from 3)
+                                                      (meld ts :quad "3333m")
+                                                      (meld ts :quad "4444m" :open t :from 2)))))
+        (is (equal '(:suukantsu-pao) (names reading)))
+        (is (equal '((2 . 1)) (cl-mahjong:reading-pao reading))))
+      (is (equal '((2 . 1))
+                 (cl-mahjong:reading-pao
+                  (best ts "777z234m11p" "2m" :yaku yaku :options options
+                        :melds (list (meld ts :triplet "555z" :open t :from 1)
+                                     (meld ts :triplet "666z" :open t :from 2 :held "777z"))))))
+      (is (equal '(:ron 2700 :from 2)
+                 (cl-mahjong:score-payments
+                  (best-scored ts "234m567p345s11p" "2m"
+                               :melds (list (meld ts :quad "5555z" :open t :from 2))
+                               :context-args '(:tsumo t :rinshan t :kan-from 2)
+                               :scoring (cl-mahjong:variant-scoring variant)
+                               :options options)))))))
+
 (test open-riichi-replaces-riichi
   (with-riichi (ts)
     (let ((reading (best ts "123444s234456m66p" "4s"

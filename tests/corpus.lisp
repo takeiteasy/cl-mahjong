@@ -96,7 +96,10 @@
 ;;; Comparing results
 
 (defun score-yaku-names (score)
-  (sort (mapcar (lambda (entry) (string-downcase (symbol-name (car entry))))
+  "Yaku names of SCORE; the house-rules suukantsu-pao is upstream's suukantsu."
+  (sort (mapcar (lambda (entry)
+                  (let ((name (string-downcase (symbol-name (car entry)))))
+                    (if (string= name "suukantsu-pao") "suukantsu" name)))
                 (cl-mahjong:reading-yaku (cl-mahjong:score-reading score)))
         #'string<))
 

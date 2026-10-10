@@ -71,7 +71,7 @@ A [variant](variant.md) delta on riichi, used by the [log replay](replay.md).
 
 ## House rules
 
-`house-rules` extends riichi with yaku that each need an option or a [context](pattern.md#win-context) field, so they stay off elsewhere.
+`house-rules` extends riichi with yaku that each need an option or a [context](pattern.md#win-context) field, so they stay off elsewhere. It also turns on [pao](yaku.md#pao) for the fourth quad (`suukantsu-pao` replaces `suukantsu`), for a concealed set held at the last call, and for a daiminkan rinshan win paid whole as a tsumo.
 
 | Yaku | Value | Needs |
 |---|---|---|
@@ -82,7 +82,7 @@ A [variant](variant.md) delta on riichi, used by the [log replay](replay.md).
 | `daisuurin`, `daichikurin` | Yakuman | Option `daisharin` set to `:all`; man / sou |
 | `daichisei` | Yakuman | Option `daichisei`; seven pairs of honors |
 
-The variant sets `sashikomi`, `daisharin :all` and `daichisei`. The [`aotenjou` scoring](scoring.md#aotenjou) extends `riichi` and the `aotenjou` variant extends `house-rules` with it.
+The variant sets `sashikomi`, `daisharin :all`, `daichisei` and `pao-held`; its scoring adds `(:pao :rinshan tsumo)`. The [`aotenjou` scoring](scoring.md#aotenjou) extends that scoring and the `aotenjou` variant extends `house-rules` with it.
 
 ## Pages
 
