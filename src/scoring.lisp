@@ -9,7 +9,7 @@
 
 ;; ron and tsumo are (dealer . other) multipliers of the base points.
 (defstruct payment-table
-  ron tsumo (round 1) (honba 0) (stick 0) (pao-ron :split) (pao-honba :discarder) (pao-rinshan :none) (absent :none))
+  ron ron-others tsumo (round 1) (honba 0) (stick 0) (pao-ron :split) (pao-honba :discarder) (pao-rinshan :none) (absent :none))
 
 (defstruct (score (:constructor make-score (reading fu han dora limit base points payments)))
   reading fu han dora limit base points payments)
@@ -180,13 +180,20 @@
           (t (resolve-function (second entry) ":dora :indicator")))))
 
 (defun multiplier-p (form)
-  (and (integerp form) (plusp form)))
+  (and (rationalp form) (plusp form)))
 
-(defun payment-pair (args what valid-other)
-  (let ((options (clause-options args what '(:dealer :other))))
+(defun payment-pair (args what valid-other &optional (allowed '(:dealer :other)))
+  (let ((options (clause-options args what allowed)))
     (unless (and (multiplier-p (getf options :dealer)) (funcall valid-other (getf options :other)))
       (invalid "~a needs a :dealer and an :other multiplier, got ~s" what args))
     (cons (getf options :dealer) (getf options :other))))
+
+(defun build-ron-others (args)
+  "The multiplier the seats besides the discarder pay on a ron, or NIL."
+  (let ((others (getf (clause-options args ":ron" '(:dealer :other :others)) :others)))
+    (unless (or (null others) (multiplier-p others))
+      (invalid ":ron :others needs a multiplier, got ~s" others))
+    others))
 
 (defun choice-arg (value allowed what)
   (unless (symbolp value)
@@ -207,7 +214,9 @@
     (dolist (entry entries)
       (destructuring-bind (key &rest args) entry
         (case key
-          (:ron (setf (payment-table-ron table) (payment-pair args ":ron" #'multiplier-p)))
+          (:ron (setf (payment-table-ron table)
+                      (payment-pair args ":ron" #'multiplier-p '(:dealer :other :others))
+                      (payment-table-ron-others table) (build-ron-others args)))
           (:tsumo (setf (payment-table-tsumo table)
                         (payment-pair args ":tsumo"
                                       (lambda (other)
@@ -402,8 +411,11 @@
                        round)))
       (cond ((not tsumo)
              (let* ((ron (payment-table-ron table))
-                    (paid (share (if dealer (car ron) (cdr ron)) honba-points)))
-               (values (list :ron paid) paid)))
+                    (paid (share (if dealer (car ron) (cdr ron)) honba-points))
+                    (others (and (payment-table-ron-others table)
+                                 (share (payment-table-ron-others table) 0))))
+               (values (if others (list :ron paid :others others) (list :ron paid))
+                       (+ paid (* (or others 0) (- players 2))))))
             (t
              (let ((extra (ceiling honba-points (1- players)))
                    (tsumo (payment-table-tsumo table)))

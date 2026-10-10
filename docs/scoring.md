@@ -25,7 +25,7 @@
 | `(:kiriage base)` | The base points that round up to the lowest limit when the `kiriage` option is on |
 | `(:aotenjou n)` | Scores without limits, each yakuman counting `n` han; see [Aotenjou](#aotenjou) |
 | `(:dora (:indicator next))` | Indicator to dora: the next kind of the same suit or honor group, wrapping round; or a function `(tileset kind) -> kind id` |
-| `(:payments entry...)` | `(:ron :dealer m :other m)`, `(:tsumo :dealer m :other (from-dealer from-other))`, `(:pao [:ron r] [:honba h])`, `(:round n)`, `(:honba n)`, `(:riichi-stick n)`, `(:absent none\|split)` |
+| `(:payments entry...)` | `(:ron :dealer m :other m [:others m])`, `(:tsumo :dealer m :other (from-dealer from-other))`, `(:pao [:ron r] [:honba h])`, `(:round n)`, `(:honba n)`, `(:riichi-stick n)`, `(:absent none\|split)` |
 
 `:extends` inherits a scoring. A child entry replaces the parent's entry with the same key, and a new entry is added.
 
@@ -141,9 +141,23 @@ Each payer's share rounds up on its own. `:honba n` is paid per honba by the dis
 | `payments` | Meaning |
 |---|---|
 | `(:ron n)` | Paid by the discarder |
+| `(:ron n :others m)` | The discarder pays `n` and every other seat but the winner pays `m`; see [below](#ron-paid-by-every-seat) |
 | `(:dealer n :other m)` | Tsumo; `:dealer` is `NIL` when the winner deals |
 | `(:ron n :from seat)` | Paid whole by `seat`, the [rinshan pao](#rinshan-pao) giver |
 | `:pao ((seat . n)...)` | Added when a seat is [liable](#pao); the other amounts are what remains |
+
+## Ron paid by every seat
+
+`:others m` on `:ron` makes each seat besides the winner and the discarder pay `m` times the base on a ron. Multipliers may be fractions; a tsumo ignores `:others`.[^others]
+
+```lisp
+(defscoring half-shooter
+  (:payments (:ron :dealer 1 :other 1 :others 1/2)))
+```
+
+| Base 4 | Discarder | Each other seat | Winner gets |
+|---|---|---|---|
+| `:others 1/2` | 4 | 2 | 8 |
 
 ## Pao
 
@@ -224,3 +238,5 @@ A sanma tsumo is paid by the two other seats. `(:absent split)` splits the missi
 The `sanma-split` variant uses it.
 
 [^rinshan]: It replaces any yakuman pao on the hand, which is not also charged.
+
+[^others]: A hand with a pao liability pays as usual and ignores `:others`.

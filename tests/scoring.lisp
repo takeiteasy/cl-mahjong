@@ -486,3 +486,24 @@
   (with-riichi (ts)
     (is (= 128 (cl-mahjong:score-points
                 (best-scored ts "19m19p19s12345677z" "7z" :scoring 'test-fan))))))
+
+;;; Ron paid by every seat
+
+(cl-mahjong:defscoring test-half-shooter :extends test-fan
+  (:payments (:ron :dealer 1 :other 1 :others 1/2)))
+
+(test others-pay-a-share-of-a-ron
+  (with-riichi (ts)
+    (let ((score (best-scored ts "234m567p345s678s66p" "8s" :scoring 'test-half-shooter)))
+      (is (equal '(:ron 4 :others 2) (cl-mahjong:score-payments score)))
+      (is (= 8 (cl-mahjong:score-points score)))
+      (let ((game (cl-mahjong:start-game 'riichi :seed 1)))
+        (is (equal '((0 . 8) (1 . -2) (2 . -4) (3 . -2))
+                   (sort (cl-mahjong::win-deltas game (cl-mahjong:game-deal game) score 0 2)
+                         #'< :key #'car)))))))
+
+(test others-do-not-pay-a-tsumo-share
+  (with-riichi (ts)
+    (let ((score (best-scored ts "234m567p345s678s66p" "8s" :scoring 'test-half-shooter
+                                                           :context-args '(:tsumo t))))
+      (is (null (getf (cddr (cl-mahjong:score-payments score)) :others))))))

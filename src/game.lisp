@@ -381,7 +381,12 @@ A score whose payments name a :from seat is paid whole by that seat."
          (from (or from (getf (cddr payments) :from))))
     (cons (cons winner (score-points score))
           (append (if from
-                      (list (cons from (- (second payments))))
+                      (cons (cons from (- (second payments)))
+                            (let ((others (getf (cddr payments) :others)))
+                              (and others
+                                   (loop for seat below (game-seats game)
+                                         unless (or (= seat winner) (= seat from))
+                                           collect (cons seat (- others))))))
                       (loop for seat below (game-seats game)
                             unless (= seat winner)
                               collect (cons seat (- (if (and (/= winner dealer) (= seat dealer))
