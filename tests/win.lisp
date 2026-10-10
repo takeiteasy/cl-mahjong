@@ -103,3 +103,38 @@
       (is (not (member :sanankou (names ron))))
       (is (member :riichi (names ron)))
       (is (member :sanankou (names tsumo))))))
+
+(test impossible-win-contexts-are-rejected
+  (with-riichi (ts)
+    (flet ((rejected (context-args &optional melds)
+             (signals cl-mahjong:invalid-hand
+               (readings ts (if melds "567p345s678s66p" "234m567p345s678s66p") "8s"
+                         :melds melds :context-args context-args))))
+      (let ((open-meld (list (meld ts :sequence "234m" :open t)))
+            (closed-kan (list (meld ts :quad "1111m"))))
+        (rejected '(:riichi t) open-meld)
+        (rejected '(:double-riichi t) open-meld)
+        (is (readings ts "567p345s678s66p" "8s" :melds closed-kan :context-args '(:riichi t)))
+        (rejected '(:ippatsu t))
+        (rejected '(:chankan t :tsumo t))
+        (rejected '(:rinshan t))
+        (rejected '(:last-tile t :tsumo t :rinshan t))
+        (rejected '(:last-tile t :chankan t))
+        (rejected '(:tenhou t))
+        (rejected '(:tenhou t :tsumo t :dealer t) closed-kan)
+        (rejected '(:tenhou t :tsumo t))
+        (rejected '(:chiihou t :tsumo t :dealer t))
+        (rejected '(:chiihou t))
+        (rejected '(:chiihou t :tsumo t) closed-kan)
+        (rejected '(:renhou t :dealer t))
+        (rejected '(:renhou t :tsumo t))
+        (rejected '(:renhou t) open-meld)))))
+
+(test first-turn-seat-checks-need-a-seat-wind
+  (with-riichi (ts)
+    (let ((context (cl-mahjong:make-win-context
+                    :win-tile (first (cl-mahjong:tiles-of-kind
+                                      ts (cl-mahjong:tileset-kind ts (first (kind-ids ts "8s")))))
+                    :tsumo t :tenhou t)))
+      (is (cl-mahjong:evaluate-yaku ts *riichi-shapes* cl-mahjong:*riichi-yaku*
+                                    (hand ts "234m567p345s678s66p") '() context)))))

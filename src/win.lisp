@@ -15,6 +15,40 @@
   dora-indicators ura-indicators
   tiles nuki)
 
+(defun check-win-context (context melds)
+  "Signal `invalid-hand' when CONTEXT describes a win that cannot happen with MELDS.
+The first-turn wins only check the seat when a seat wind is given."
+  (flet ((fail (message)
+           (bad-hand "Impossible win: ~a" message)))
+    (let ((seated (win-context-seat-wind context))
+          (dealer (win-context-dealer context))
+          (tsumo (win-context-tsumo context))
+          (riichi (or (win-context-riichi context) (win-context-double-riichi context))))
+      (when (and riichi (not (hand-closed-p melds)))
+        (fail "riichi on an open hand"))
+      (when (and (win-context-ippatsu context) (not riichi))
+        (fail "ippatsu without riichi"))
+      (when (and (win-context-chankan context) tsumo)
+        (fail "chankan with tsumo"))
+      (when (and (win-context-rinshan context) (not tsumo))
+        (fail "rinshan without tsumo"))
+      (when (and (win-context-last-tile context) (win-context-rinshan context))
+        (fail "haitei with rinshan"))
+      (when (and (win-context-last-tile context) (win-context-chankan context))
+        (fail "houtei with chankan"))
+      (when (win-context-tenhou context)
+        (when (and seated (not dealer)) (fail "tenhou as a non-dealer"))
+        (unless tsumo (fail "tenhou without tsumo"))
+        (when melds (fail "tenhou with a meld")))
+      (when (win-context-chiihou context)
+        (when (and seated dealer) (fail "chiihou as the dealer"))
+        (unless tsumo (fail "chiihou without tsumo"))
+        (when melds (fail "chiihou with a meld")))
+      (when (win-context-renhou context)
+        (when (and seated dealer) (fail "renhou as the dealer"))
+        (when tsumo (fail "renhou with tsumo"))
+        (when melds (fail "renhou with a meld"))))))
+
 (defstruct (win-hand (:constructor make-win-hand
                          (tileset decomposition counts melds context options
                           win-kind win-group wait)))

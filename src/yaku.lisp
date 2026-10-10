@@ -177,6 +177,7 @@ STACK-YAKUMAN keeps the other yaku of a yakuman reading, and `reading-han' count
     (unless (and (win-context-win-tile context)
                  (plusp (aref counts (tile-kind-id tileset (win-context-win-tile context)))))
       (bad-hand "The winning tile must be in the hand"))
+    (check-win-context context melds)
     (loop for decomposition in (decompose tileset shapes counts melds)
           for shape = (find (decomposition-shape decomposition) shapes :key #'shape-name)
           append (mapcar (lambda (hand) (read-win-hand hand yaku stack-yakuman))

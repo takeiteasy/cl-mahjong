@@ -49,7 +49,7 @@ Melds record the giver with `make-meld ... :from`; a shouminkan keeps the giver 
 |---|---|
 | `(evaluate-yaku ts shapes yaku counts melds context &key options stack-yakuman)` | A list of readings |
 
-`yaku` is a list of yaku or their names, like `shapes`. `counts` include the winning tile named by the context ([pattern.md](pattern.md#win-context)). A reading is one decomposition with the winning tile in one group, so a hand with several splits or waits has several readings. Readings that earn no yaku are included.
+`yaku` is a list of yaku or their names, like `shapes`. `counts` include the winning tile named by the context ([pattern.md](pattern.md#win-context)). A reading is one decomposition with the winning tile in one group, so a hand with several splits or waits has several readings. Readings that earn no yaku are included. An impossible [win context](pattern.md#win-context) signals `invalid-hand`.
 
 | Reader | Value |
 |---|---|

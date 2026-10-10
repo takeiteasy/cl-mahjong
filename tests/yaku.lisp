@@ -30,11 +30,7 @@
     (is-score '((:ippatsu :menzen-tsumo :pinfu :riichi :tanyao) 5 0)
               (ts "234m567p345s678s66p" "8s" :context-args '(:riichi t :ippatsu t :tsumo t)))
     (is-score '((:double-riichi :pinfu :tanyao) 4 0)
-              (ts "234m567p345s678s66p" "8s" :context-args '(:double-riichi t)))
-    (is-score '((:tanyao) 1 0)
-              (ts "234m567p678s66p" "8s"
-                  :melds (list (meld ts :sequence "345s" :open t))
-                  :context-args '(:riichi t)))))
+              (ts "234m567p345s678s66p" "8s" :context-args '(:double-riichi t)))))
 
 (test yakuhai
   (with-riichi (ts)
@@ -135,7 +131,7 @@
 (test heavenly-hands
   (with-riichi (ts)
     (is-score '((:tenhou) 0 1)
-              (ts "234m567p345s678s66p" "8s" :context-args '(:tenhou t :tsumo t)))
+              (ts "234m567p345s678s66p" "8s" :context-args '(:tenhou t :tsumo t :dealer t)))
     (is-score '((:chiihou) 0 1)
               (ts "234m567p345s678s66p" "8s" :context-args '(:chiihou t :tsumo t)))
     (is-score '((:pinfu :tanyao) 2 0) (ts "234m567p345s678s66p" "8s" :context-args '(:renhou t)))
@@ -195,7 +191,6 @@
   (with-riichi (ts)
     (is-score '(() 0 0)
               (ts "234m567p678s66p" "8s" :yaku '(riichi pinfu)
-                                         :context-args '(:riichi t)
                                          :melds (list (meld ts :sequence "345s" :open t))))))
 
 (test invalid-yaku-definitions

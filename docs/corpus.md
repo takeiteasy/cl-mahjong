@@ -1,6 +1,6 @@
 # Validation corpus
 
-The riichi rules are checked against 509 cases recorded from the test suite of the MIT-licensed Python [`mahjong`](https://github.com/MahjongRepository/mahjong) library. 482 run and the rest are skipped with a reason. The corpus passes when every run case matches.
+The riichi rules are checked against 512 cases recorded from the test suite of the MIT-licensed Python [`mahjong`](https://github.com/MahjongRepository/mahjong) library and `tools/riichi-corpus/tests_extra.py`. 506 run and the rest are skipped with a reason. The corpus passes when every run case matches.
 
 ```
 sbcl --noinform --non-interactive --eval '(asdf:test-system "cl-mahjong")'
@@ -10,7 +10,7 @@ sbcl --noinform --non-interactive --eval '(asdf:test-system "cl-mahjong")'
 
 | Kind | Calls | Checks |
 |---|---|---|
-| `hand` | `evaluate-score` + `best-score` | fu, han, yaku, points, payments, limit; or no score |
+| `hand` | `evaluate-score` + `best-score` | fu, han, yaku, points, payments, limit; no score; or `invalid-hand` for an impossible [win context](pattern.md#win-context) |
 | `scores` | han/fu to payments; nagashi mangan as 5 han 30 fu | points, payments, limit |
 | `shanten` | `shanten` with `:live t` | the number, or an error |
 | `agari` | `decompose` | any split exists |
@@ -37,13 +37,13 @@ Each case names its variant and sets every option, so none inherits `*riichi-opt
 
 | Reason | Cases |
 |---|---|
-| Impossible contexts are not validated | 23 |
 | Meld tiles absent from the hand | 4 |
+| Haitei without tsumo, houtei with tsumo[^lasttile] | 2 |
 | Aotenjou kokushi with riichi or menzen-tsumo[^kokushi] | 2 |
 
 Whole-game checks against recorded games are in [replay.md](replay.md).
 
-Not ported: the upstream unit tests of single yaku classes, melds and tile conversion.
+`tests_extra.py` holds whole-hand versions of the upstream yaku class tests worth keeping (daisharin pairs). The rest of those tests, and the meld and tile conversion tests, check Python internals and are not ported.
 
 ## Regenerate
 
@@ -51,17 +51,9 @@ Not ported: the upstream unit tests of single yaku classes, melds and tile conve
 python3 tools/riichi-corpus/generate.py
 ```
 
-The script clones the library at the pinned commit, runs its tests with `recorder.py` capturing every call, and rewrites `tests/corpus/riichi.sexp`. It needs git and Python 3 and gives identical output on every run.[^pin]
-
-## Limitations
-
-See [PLAN.md](PLAN.md#limitations):
-
-| Skipped | Ticket |
-|---|---|
-| Impossible win contexts are not validated | [#10](https://github.com/takeiteasy/cl-mahjong/issues/10) |
-| Upstream yaku class unit tests are not ported | [#15](https://github.com/takeiteasy/cl-mahjong/issues/15) |
+The script clones the library at the pinned commit, runs its tests and `tests_extra.py` with `recorder.py` capturing every call, and rewrites `tests/corpus/riichi.sexp`. It needs git and Python 3 and gives identical output on every run.[^pin]
 
 [^mapping]: Hands are written as notation with `0` for a red five. A case lists the concealed tiles with the winning tile, its melds, dora and ura indicators, honba and sticks. The mapping lives in `tools/riichi-corpus/generate.py`.
 [^kokushi]: Upstream's aotenjou kokushi ignores riichi and menzen-tsumo yet counts ura dora. Here every yaku stacks, so those two cases differ by one han.
+[^lasttile]: `last-tile` is one flag that means haitei with tsumo and houtei without, so those two contexts cannot be written.
 [^pin]: The pinned commit and the upstream MIT notice are in the header of `tests/corpus/riichi.sexp`.

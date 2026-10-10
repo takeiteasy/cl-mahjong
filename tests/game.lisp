@@ -930,8 +930,9 @@ A notation picks a tile of that kind from SEAT's hand, a different one each time
               (mapcar (lambda (notation)
                         (cl-mahjong:make-meld :triplet (kind-ids ts notation) :open t))
                       '("111z" "222z" "333z")))
-        (cl-mahjong::seat-claim-options
-         (cl-mahjong::replace-deal game (cl-mahjong::set-player deal 1 player)) 1 called 0)))))
+        (let ((deal (cl-mahjong::set-player deal 1 player)))
+          (setf (cl-mahjong::deal-interrupted deal) t)
+          (cl-mahjong::seat-claim-options (cl-mahjong::replace-deal game deal) 1 called 0))))))
 
 (test a-chi-that-leaves-only-forbidden-discards-is-not-offered
   (is (notany (lambda (option) (eq :chi (first option))) (chi-options-with '("6s" "7s" "5s" "8s"))))

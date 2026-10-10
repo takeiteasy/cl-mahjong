@@ -75,6 +75,8 @@ The caller describes how the hand was won with `make-win-context`.
 
 `(context flag)` reads the flag fields.
 
+A context that cannot happen signals `invalid-hand` when scored, for example riichi on an open hand or tenhou with a meld.[^impossible]
+
 ## Win hand
 
 A win hand is one decomposition with the winning tile placed in one group. A lambda pattern and `evaluate-yaku` ([yaku.md](yaku.md)) work with these.
@@ -104,3 +106,5 @@ The winning tile sits in each concealed group that holds it, one win hand per di
 | Lambda | `NIL` |
 
 Penchan uses the tileset's rank bounds, so it follows `:ranks`.
+
+[^impossible]: The rules, checked by `evaluate-yaku`: riichi and double riichi need a closed hand; ippatsu needs riichi; chankan excludes tsumo; rinshan needs tsumo; `last-tile` excludes rinshan and chankan; tenhou and chiihou need tsumo and no melds; renhou excludes tsumo and melds. With a `seat-wind` set, tenhou needs the dealer and chiihou and renhou need a non-dealer.
