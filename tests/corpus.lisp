@@ -134,7 +134,8 @@
          (expected (getf case :expect))
          (actual (handler-case (let ((counts (hand tileset (getf case :hand))))
                                  (cl-mahjong:shanten tileset (getf case :shapes) counts
-                                                     (implied-melds counts (getf case :pad))))
+                                                     (implied-melds counts (getf case :pad))
+                                                     :live t))
                    (error () :error))))
     (and (not (equal expected actual)) (list (list :shanten expected actual)))))
 

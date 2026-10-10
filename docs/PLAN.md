@@ -22,7 +22,6 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 |---|---|
 | Impossible win contexts are not validated | [#25](https://todo.sr.ht/~takeiteasy/cl-mahjong/25) |
 | Uncapped kazoe, aotenjou and the yakuman cap are not supported | [#26](https://todo.sr.ht/~takeiteasy/cl-mahjong/26) |
-| Shanten does not discount tiles held in full | [#27](https://todo.sr.ht/~takeiteasy/cl-mahjong/27) |
 | No house-rule yaku (open riichi, paarenchan, daisharin family) | [#28](https://todo.sr.ht/~takeiteasy/cl-mahjong/28) |
 | Pinfu fu rules are fixed | [#29](https://todo.sr.ht/~takeiteasy/cl-mahjong/29) |
 | Renhou is a mangan floor, not a 5 han yaku | [#30](https://todo.sr.ht/~takeiteasy/cl-mahjong/30) |
@@ -37,5 +36,7 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 | Shanten uses generic shape search, no fast path | [#15](https://todo.sr.ht/~takeiteasy/cl-mahjong/15) |
 | No pao for suukantsu or daiminkan rinshan | [#32](https://todo.sr.ht/~takeiteasy/cl-mahjong/32) |
 | Pao is not applied when a concealed set stood before the last call | [#33](https://todo.sr.ht/~takeiteasy/cl-mahjong/33) |
+| Live shanten counts a last copy once per partial | [#37](https://todo.sr.ht/~takeiteasy/cl-mahjong/37) |
+| `ukeire` ignores live shanten | [#38](https://todo.sr.ht/~takeiteasy/cl-mahjong/38) |
 | Game flow recomputes legal actions and scans every kind for waits | [#19](https://todo.sr.ht/~takeiteasy/cl-mahjong/19) |
 | Pattern selector names are not checked against the tileset | [#16](https://todo.sr.ht/~takeiteasy/cl-mahjong/16) |

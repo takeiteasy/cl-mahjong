@@ -33,7 +33,7 @@ A hand has 3n+1 or 3n+2 tiles, counting each meld as 3, and holds no more copies
 |---|---|
 | `(decompose ts shapes counts melds)` | List of decompositions, across all shapes |
 | `(complete-p ts shapes counts melds)` | True when any shape completes |
-| `(shanten ts shapes counts melds)` | `(values n shape-name)` for the closest shape; `NIL` when no shape applies |
+| `(shanten ts shapes counts melds &key live visible)` | `(values n shape-name)` for the closest shape; `NIL` when no shape applies |
 | `(ukeire ts shapes counts melds &key visible)` | `(kind . remaining)` for each kind that lowers the shanten |
 
 `shapes` holds shapes or their names.
@@ -46,7 +46,18 @@ A hand has 3n+1 or 3n+2 tiles, counting each meld as 3, and holds no more copies
 | `0` | One tile from complete (tenpai) |
 | `n` | `n` tiles beyond tenpai |
 
-3n+1 and 3n+2 hands both work; for 3n+2 the value is the shanten before discarding.[^exhaust]
+3n+1 and 3n+2 hands both work; for 3n+2 the value is the shanten before discarding.
+
+### Live shanten
+
+By default shanten ignores how many copies of a tile are left. `:live t` counts only kinds with copies left in the hand's tileset, so a wait on a tile held in full does not count. `:visible`, a kind-count vector of other tiles seen, also turns it on and uses those copies up.[^live]
+
+```lisp
+(shanten ts shapes counts '())            ; 123456789p + EEEE => 0
+(shanten ts shapes counts '() :live t)    ; => 1
+```
+
+In sanma, pass the nuki in `visible`. `ukeire` stays structural.
 
 ## Ukeire
 
@@ -79,6 +90,6 @@ A decomposition is the shape's name and its groups, melds first, then the rest i
 
 ## Limitations
 
-See [PLAN.md](PLAN.md#limitations): shanten for sets shapes uses a generic search with no fast path.
+See [PLAN.md](PLAN.md#limitations): shanten for sets shapes uses a generic search with no fast path, and live shanten counts a last copy once for every group waiting on it.
 
-[^exhaust]: Shanten ignores how many copies of a tile are left; only `ukeire` counts them.
+[^live]: Live mode counts a partial group only when a wait for it has a copy left, and adds one for each group with no live lone tile to start from. A tenpai with no live wait is 1-shanten, and a kokushi missing a kind with no copies left, or seven pairs without enough kinds to pair, has no shanten (`NIL`).

@@ -1,6 +1,6 @@
 # Validation corpus
 
-The riichi rules are checked against 509 cases recorded from the test suite of the MIT-licensed Python [`mahjong`](https://github.com/MahjongRepository/mahjong) library. 396 run and the rest are skipped with a reason. The corpus passes when every run case matches.
+The riichi rules are checked against 509 cases recorded from the test suite of the MIT-licensed Python [`mahjong`](https://github.com/MahjongRepository/mahjong) library. 421 run and the rest are skipped with a reason. The corpus passes when every run case matches.
 
 ```
 sbcl --noinform --non-interactive --eval '(asdf:test-system "cl-mahjong")'
@@ -12,7 +12,7 @@ sbcl --noinform --non-interactive --eval '(asdf:test-system "cl-mahjong")'
 |---|---|---|
 | `hand` | `evaluate-score` + `best-score` | fu, han, yaku, points, payments, limit; or no score |
 | `scores` | han/fu to payments | points, payments, limit |
-| `shanten` | `shanten` | the number, or an error |
+| `shanten` | `shanten` with `:live t` | the number, or an error |
 | `agari` | `decompose` | any split exists |
 | `divide` | `decompose` | the same set of splits |
 
@@ -29,14 +29,13 @@ Each case sets every option, so none inherits `*riichi-options*`.[^mapping]
 | Red fives count with `has_aka_dora` | `tiles` is passed only then |
 | Renhou is a 5 han yaku | Renhou is a mangan floor; han is not compared |
 | Short hands imply open sets | Shanten cases add open triplets of absent kinds |
-| Shanten discounts tiles held in full | Not compared; see [analysis.md](analysis.md) |
+| Shanten discounts tiles held in full | `:live t`; see [analysis.md](analysis.md#live-shanten) |
 
 ## Skipped
 
 | Reason | Cases |
 |---|---|
 | Han of 13 or more scored as multiples (uncapped kazoe) | 25 |
-| Shanten of hands holding four of a kind | 25 |
 | Impossible contexts are not validated | 23 |
 | Aotenjou scoring | 18 |
 | Open riichi, paarenchan, nagashi mangan | 13 |

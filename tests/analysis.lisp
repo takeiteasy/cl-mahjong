@@ -201,6 +201,48 @@
       (is (null (cl-mahjong:shanten ts '(anl-triplets-only) (hand ts "111p222p333p1z") (list chi))))
       (is (= 0 (cl-mahjong:shanten ts '(standard) (hand ts "111p222p333p1z") (list chi)))))))
 
+;;; Live shanten
+
+(test live-shanten-discounts-tiles-held-in-full
+  (with-riichi (ts)
+    (let ((counts (hand ts "123456789p1111z")))
+      (is (= 0 (cl-mahjong:shanten ts '(standard) counts '())))
+      (is (= 1 (cl-mahjong:shanten ts '(standard) counts '() :live t))))))
+
+(test live-shanten-counts-tiles-in-melds
+  (with-riichi (ts)
+    (let ((pon (cl-mahjong:make-meld :triplet (list (kind-of ts 'east) (kind-of ts 'east)
+                                                    (kind-of ts 'east))
+                                     :open t)))
+      (is (= 0 (shanten-of ts '(standard) "123m456m789m1z" (list pon))))
+      (is (= 1 (cl-mahjong:shanten ts '(standard) (hand ts "123m456m789m1z") (list pon) :live t))))))
+
+(test live-shanten-visible-tiles-turn-live-mode-on
+  (with-riichi (ts)
+    (let ((counts (hand ts "123m456m789m11p23s")))
+      (is (= 0 (cl-mahjong:shanten ts '(standard) counts '())))
+      (is (= 0 (cl-mahjong:shanten ts '(standard) counts '() :live t)))
+      (is (= 0 (cl-mahjong:shanten ts '(standard) counts '() :visible (hand ts "1s4s"))))
+      (is (= 1 (cl-mahjong:shanten ts '(standard) counts '() :visible (hand ts "1111s4444s")))))))
+
+(test live-shanten-seven-pairs-needs-a-live-wait
+  (with-riichi (ts)
+    (let ((counts (hand ts "1122m3344p5566s7z")))
+      (is (= 0 (cl-mahjong:shanten ts '(seven-pairs) counts '() :live t)))
+      (is (= 1 (cl-mahjong:shanten ts '(seven-pairs) counts '() :visible (hand ts "777z")))))))
+
+(test live-shanten-kokushi-needs-every-kind-reachable
+  (with-riichi (ts)
+    (let ((counts (hand ts "19m19p19s1123456z")))
+      (is (= 0 (cl-mahjong:shanten ts '(kokushi) counts '() :live t)))
+      (is (null (cl-mahjong:shanten ts '(kokushi) counts '() :visible (hand ts "7777z")))))))
+
+(test live-shanten-sanma-nuki-count-as-seen
+  (let ((ts (cl-mahjong:find-tileset 'sanma-108)))
+    (is (= 0 (cl-mahjong:shanten ts '(standard) (hand ts "123p456p789p123s4z") '() :live t)))
+    (is (= 1 (cl-mahjong:shanten ts '(standard) (hand ts "123p456p789p123s4z") '()
+                                 :visible (hand ts "444z"))))))
+
 ;;; Ukeire
 
 (test ukeire-counts-remaining-copies

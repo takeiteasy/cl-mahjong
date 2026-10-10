@@ -268,8 +268,6 @@ def shanten_entry(record):
                    "calculate_shanten_for_chiitoitsu_hand": "seven-pairs",
                    "calculate_shanten_for_kokushi_hand": "kokushi"}[method]]
     expect = kw("error") if isinstance(result, dict) else result
-    if expect != kw("error") and "standard" in shapes and max(counts) == 4:
-        raise Skip("shanten does not discount tiles held in full")
     return {"kind": kw("shanten"), "hand": tiles34(counts), "pad": max(0, 4 - sum(counts) // 3),
             "shapes": [Sym(s) for s in shapes], "players": 3 if inp.get("is_three_player") else 4, "expect": expect}
 
