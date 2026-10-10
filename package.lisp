@@ -169,6 +169,7 @@
    #:player-nuki
    #:player-bonus
    #:player-riichi
+   #:player-open-riichi
    #:player-double-riichi
    #:player-ippatsu
    #:player-temp-furiten

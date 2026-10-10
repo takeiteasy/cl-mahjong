@@ -76,13 +76,13 @@ A [variant](variant.md) delta on riichi, used by the [log replay](replay.md).
 | Yaku | Value | Needs |
 |---|---|---|
 | `open-riichi`, `double-open-riichi` | 2 / 3 han, replacing riichi / double riichi | `open-riichi` context |
-| `sashikomi` | Yakuman | Option `sashikomi`; a ron in open riichi |
+| `sashikomi` | Yakuman | Option `sashikomi`; a ron in open riichi, unless the `from-riichi` context says the discarder is in riichi |
 | `paarenchan` | One yakuman per dealer win | `paarenchan` context; another yaku unless option `paarenchan-without-yaku` |
 | `daisharin` | Yakuman | Option `daisharin`; seven pairs 2-8 of pin |
 | `daisuurin`, `daichikurin` | Yakuman | Option `daisharin` set to `:all`; man / sou |
 | `daichisei` | Yakuman | Option `daichisei`; seven pairs of honors |
 
-The variant sets `sashikomi`, `daisharin :all`, `daichisei` and `pao-held`; its scoring adds `(:pao :rinshan tsumo)`. The [`aotenjou` scoring](scoring.md#aotenjou) extends that scoring and the `aotenjou` variant extends `house-rules` with it.
+The variant sets `open-riichi` (the [game option](game.md#options)), `sashikomi`, `daisharin :all`, `daichisei` and `pao-held`; its scoring adds `(:pao :rinshan tsumo)`. The [`aotenjou` scoring](scoring.md#aotenjou) extends that scoring and the `aotenjou` variant extends `house-rules` with it.
 
 ## Hong Kong
 

@@ -26,6 +26,7 @@ During a deal, `deal-phase` of `game-deal` is `:turn` (one seat acts), `:claim` 
 |---|---|
 | `(:discard tile)` | On your turn |
 | `(:riichi tile)` | Closed, tenpai after the discard, enough points and wall |
+| `(:open-riichi tile)` | Like `(:riichi tile)`; needs `:open-riichi`; the hand is revealed once the riichi is established |
 | `(:tsumo)` | The drawn tile completes a hand with a yaku |
 | `(:ankan kind)` | Four of a kind in hand; in riichi only if the waits do not change |
 | `(:shouminkan tile)` | Add a tile to an open triplet |
@@ -46,10 +47,10 @@ Each event is `(type . plist)`.
 | `:deal-start` | `:kyoku :dealer :honba :dora` |
 | `:draw` | `:seat :tile`, `:rinshan` for a replacement draw, `:kita` after a kita, `:bonus` after a bonus tile |
 | `:bonus` | `:seat :tile`, a bonus tile set aside |
-| `:discard` | `:seat :tile :riichi` |
+| `:discard` | `:seat :tile :riichi` (`T`, or `:open` for an open riichi) |
 | `:call` | `:type :seat :tiles`, `:from` for open calls |
 | `:kita` | `:seat :tile` |
-| `:riichi` | `:seat`, once the discard passes |
+| `:riichi` | `:seat`, once the discard passes; an open riichi adds `:open T` and the revealed `:tiles` |
 | `:dora` | `:tile`, a new indicator |
 | `:win` | `:seat :from :han :fu :limit :points :yaku :pao :score`; `:pao` lists `(seat . amount)` for liable seats, including the [rinshan pao](scoring.md#rinshan-pao) giver |
 | `:deal-end` | `:type :deltas :points` |
@@ -62,6 +63,7 @@ Each event is `(type . plist)`.
 | Deal | 13 tiles each in rounds of four from the dealer, who draws first |
 | Furiten | Own discards hold a wait, a passed ron until your next discard, or in riichi a passed ron for the deal |
 | Riichi | The stick is paid when the discard passes; the hand is then locked to the drawn tile |
+| Open riichi | Riichi with the hand revealed; scores `open-riichi` or `double-open-riichi`, and `sashikomi` on a ron from a seat not in riichi. A seat whose declaration tile is ronned is not yet in riichi |
 | Kuikae | A call is offered only while a legal discard remains |
 | Calls | None on the last discard, none in riichi |
 | Kan | Needs a replacement tile and a live wall tile; a closed kan can only be robbed for kokushi |
@@ -108,6 +110,7 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 | `:nagashi-mangan` | `:mangan` | Limit paid for nagashi; `nil` for off |
 | `:noten-payment` | 3000 | Total paid from noten to tenpai |
 | `:riichi` | on | Offer `(:riichi tile)`; off for variants without riichi |
+| `:open-riichi` | off | Offer `(:open-riichi tile)` beside `(:riichi tile)` |
 | `:furiten` | on | A seat with a wait in its discards, or that passed a ron, cannot ron |
 | `:riichi-cost`, `:riichi-min-tiles` | 1000, 4 | |
 | `:bonus-tiles` | off | Set bonus tiles aside; see [below](#bonus-tiles) |

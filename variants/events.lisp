@@ -42,7 +42,7 @@
 (defyaku sashikomi (:yakuman 1 :closed-only t)
   (:when (option sashikomi)
          (context open-riichi) (or (context riichi) (context double-riichi))
-         (not (context tsumo))))
+         (not (context tsumo)) (not (context from-riichi))))
 
 ;; One yakuman per consecutive dealer win.
 (defyaku paarenchan (:yakuman (:lambda (hand) (or (win-context-paarenchan (win-hand-context hand)) 0))
@@ -60,7 +60,7 @@
   (:add :yaku open-riichi double-open-riichi sashikomi paarenchan
         daisharin daisuurin daichikurin daichisei suukantsu-pao)
   (:remove :yaku suukantsu)
-  (:set :sashikomi t :daisharin :all :daichisei t :pao-held t))
+  (:set :open-riichi t :sashikomi t :daisharin :all :daichisei t :pao-held t))
 
 ;;; Aotenjou: no limits, each yakuman is 13 han and stacks with the other yaku
 (defscoring aotenjou :extends house-rules

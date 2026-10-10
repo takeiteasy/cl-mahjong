@@ -12,6 +12,7 @@
     (:chiihou . win-context-chiihou)
     (:renhou . win-context-renhou)
     (:open-riichi . win-context-open-riichi)
+    (:from-riichi . win-context-from-riichi)
     (:paarenchan . win-context-paarenchan)))
 
 (defparameter *group-types* '(:sequence :triplet :quad :pair :single))

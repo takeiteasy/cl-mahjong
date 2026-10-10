@@ -103,6 +103,7 @@
                    :options (list* :sashikomi t cl-mahjong:*riichi-options*)
                    :context-args (list* :riichi t :open-riichi t context))))
       (is (equal '(:sashikomi) (names (scored))))
+      (is (not (member :sashikomi (names (scored :from-riichi t)))))
       (is (not (member :sashikomi (names (scored :tsumo t))))))))
 
 (test paarenchan-scores-a-yakuman-per-dealer-win
@@ -139,3 +140,75 @@
       (is (equal '(:daisharin :menzen-tsumo)
                  (sort (mapcar #'car (cl-mahjong:reading-yaku (cl-mahjong:score-reading score)))
                        #'string<))))))
+
+;;; Open riichi in game flow
+
+(defparameter *open-riichi-hands*
+  '("123m456m789p234s1z" "99m123p456p555z78s" "246m246p246s6677z" "357m357p357s3344z"))
+
+(defun open-riichi-game (&rest draws)
+  (new-game :variant 'house-rules :hands *open-riichi-hands* :draws draws))
+
+(defun win-yaku-names (events)
+  (mapcar #'car (getf (rest (win-event events)) :yaku)))
+
+(test open-riichi-is-offered-with-the-option
+  (let ((on (open-riichi-game "9m"))
+        (off (new-game :hands *open-riichi-hands* :draws '("9m"))))
+    (is (equal (mapcar #'second (remove :riichi (cl-mahjong:legal-actions on 0)
+                                        :key #'first :test-not #'eq))
+               (mapcar #'second (remove :open-riichi (cl-mahjong:legal-actions on 0)
+                                        :key #'first :test-not #'eq))))
+    (is (member :open-riichi (action-types on 0)))
+    (is (not (member :open-riichi (action-types off 0))))
+    (signals cl-mahjong:illegal-action
+      (cl-mahjong:apply-action off 0 (list :open-riichi (drawn-tile off))))))
+
+(defun declare-and-pass (kind)
+  "(values game events): seat 0 declares KIND (:riichi or :open-riichi) on a drawn 9m and everyone passes."
+  (multiple-value-bind (game events) (act (open-riichi-game "9m") 0 kind "9m")
+    (multiple-value-bind (game more) (pass-all game)
+      (values game (append events more)))))
+
+(test open-riichi-pays-a-stick-and-reveals-the-hand
+  (multiple-value-bind (game events) (declare-and-pass :open-riichi)
+    (is (eq :open (getf (rest (find :discard events :key #'first)) :riichi)))
+    (let ((riichi (rest (find :riichi events :key #'first))))
+      (is (getf riichi :open))
+      (is (= 13 (length (getf riichi :tiles)))))
+    (is (cl-mahjong:player-open-riichi (seat-player game 0)))
+    (is (eq :active (cl-mahjong:player-riichi (seat-player game 0))))
+    (is (= 24000 (aref (cl-mahjong:game-points game) 0)))))
+
+(test a-plain-riichi-does-not-reveal-the-hand
+  (multiple-value-bind (game events) (declare-and-pass :riichi)
+    (is (find :riichi events :key #'first))
+    (is (null (getf (rest (find :riichi events :key #'first)) :tiles)))
+    (is (not (cl-mahjong:player-open-riichi (seat-player game 0))))))
+
+(test sashikomi-is-a-ron-on-a-discarder-not-in-riichi
+  (let ((game (pass-all (act (open-riichi-game "9m" "1z") 0 :open-riichi "9m"))))
+    (multiple-value-bind (game events)
+        (cl-mahjong:apply-action (act game 1 :discard "1z") 0 '(:ron))
+      (declare (ignore game))
+      (is (member :sashikomi (win-yaku-names events))))))
+
+(test no-sashikomi-on-a-discarder-in-riichi
+  (let ((game (open-riichi-game "9m" "2z" "3z" "4z" "2s" "1z")))
+    (setf game (pass-all (act game 0 :open-riichi "9m")))
+    (setf game (pass-all (act game 1 :riichi "2z")))
+    (setf game (discard-and-pass game 2))
+    (setf game (discard-and-pass game 3))
+    (setf game (discard-and-pass game 0))
+    (multiple-value-bind (game events) (cl-mahjong:apply-action (act game 1 :discard "1z") 0 '(:ron))
+      (declare (ignore game))
+      (let ((names (win-yaku-names events)))
+        (is (member :double-open-riichi names))
+        (is (not (member :sashikomi names)))))))
+
+(test sashikomi-on-a-riichi-declaration-tile
+  (let ((game (pass-all (act (open-riichi-game "9m" "1z") 0 :open-riichi "9m"))))
+    (setf game (act game 1 :riichi "1z"))
+    (multiple-value-bind (game events) (cl-mahjong:apply-action game 0 '(:ron))
+      (declare (ignore game))
+      (is (member :sashikomi (win-yaku-names events))))))

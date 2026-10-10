@@ -5,13 +5,14 @@
 ;; melds and the winning tile included, so red fives can be counted. nuki are the tile ids set
 ;; aside as dora. bonus are the tile ids of set-aside bonus tiles. paarenchan is the number of consecutive dealer wins, or NIL.
 ;; kan-from is the seat that discarded for the latest kan when that kan was a daiminkan, else NIL.
+;; from-riichi is true when the seat that discarded the winning tile is in riichi.
 (defstruct win-context
   win-tile
   tsumo riichi double-riichi ippatsu
   seat-wind round-wind
   last-tile rinshan chankan
   tenhou chiihou renhou
-  open-riichi paarenchan kan-from
+  open-riichi from-riichi paarenchan kan-from
   dealer
   dora-indicators ura-indicators
   tiles nuki bonus)
@@ -29,6 +30,10 @@ The first-turn wins only check the seat when a seat wind is given."
         (fail "riichi on an open hand"))
       (when (and (win-context-ippatsu context) (not riichi))
         (fail "ippatsu without riichi"))
+      (when (and (win-context-open-riichi context) (not riichi))
+        (fail "open riichi without riichi"))
+      (when (and (win-context-from-riichi context) tsumo)
+        (fail "a discarder in riichi with tsumo"))
       (when (and (win-context-chankan context) tsumo)
         (fail "chankan with tsumo"))
       (when (and (win-context-rinshan context) (not tsumo))

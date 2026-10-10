@@ -16,7 +16,7 @@
     :nagashi-mangan :mangan :noten-payment 3000
     :riichi-cost 1000 :riichi-min-tiles 4 :renchan :tenpai
     :uma (15 5 -5 -15) :oka t :score-rounding nil :initial-dora 1
-    :bonus-tiles nil :bonus-rinshan t :bonus-win nil :bonus-rob nil :riichi t :furiten t
+    :bonus-tiles nil :bonus-rinshan t :bonus-win nil :bonus-rob nil :riichi t :open-riichi nil :furiten t
     :nukidora nil :kita-ippatsu nil :kita-interrupts t :kita-rinshan t :kita-ron t
     :winds (:east :south :west :north))
   "Game-flow options a variant's :options may override.")
@@ -32,7 +32,7 @@
 (defstruct (player (:constructor make-player (tiles)))
   tiles melds discards nuki bonus
   (called-away 0)
-  riichi double-riichi ippatsu temp-furiten riichi-furiten)
+  riichi open-riichi double-riichi ippatsu temp-furiten riichi-furiten)
 
 (defstruct claim kind tile from options responses)
 
@@ -315,8 +315,8 @@ with :bonus-rob another seat one tile short."
 (defun first-turn-p (deal player)
   (and (not (deal-interrupted deal)) (null (player-discards player))))
 
-(defun win-setup (game deal seat tile &key tsumo chankan)
-  "(values context counts melds) for SEAT winning on TILE."
+(defun win-setup (game deal seat tile &key tsumo chankan from)
+  "(values context counts melds) for SEAT winning on TILE; FROM is the seat that discarded it."
   (let* ((player (deal-player deal seat))
          (tileset (game-tileset game))
          (wall (deal-wall deal))
@@ -330,6 +330,8 @@ with :bonus-rob another seat one tile short."
              :tsumo tsumo
              :riichi (eq (player-riichi player) :active)
              :double-riichi (player-double-riichi player)
+             :open-riichi (and (eq (player-riichi player) :active) (player-open-riichi player))
+             :from-riichi (and from (eq (player-riichi (deal-player deal from)) :active))
              :ippatsu (player-ippatsu player)
              :seat-wind (nth (mod (- seat (deal-dealer deal)) seats) winds)
              :round-wind (nth (mod (floor (game-kyoku game) seats) (length winds)) winds)
@@ -350,10 +352,10 @@ with :bonus-rob another seat one tile short."
             (hand-counts tileset tiles)
             (player-melds player))))
 
-(defun best-win (game deal seat tile &key tsumo chankan (honba 0) (sticks 0))
+(defun best-win (game deal seat tile &key tsumo chankan from (honba 0) (sticks 0))
   "The best score of SEAT winning on TILE, or NIL when the hand is not a winning hand with a yaku."
   (multiple-value-bind (context counts melds) (win-setup game deal seat tile
-                                                         :tsumo tsumo :chankan chankan)
+                                                         :tsumo tsumo :chankan chankan :from from)
     (let ((variant (game-variant game)))
       (best-score (evaluate-score (variant-scoring variant) (game-tileset game)
                                   (variant-shapes variant) (variant-yaku variant)

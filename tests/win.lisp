@@ -117,6 +117,8 @@
         (rejected '(:double-riichi t) open-meld)
         (is (readings ts "567p345s678s66p" "8s" :melds closed-kan :context-args '(:riichi t)))
         (rejected '(:ippatsu t))
+        (rejected '(:open-riichi t))
+        (rejected '(:from-riichi t :tsumo t))
         (rejected '(:chankan t :tsumo t))
         (rejected '(:rinshan t))
         (rejected '(:last-tile t :tsumo t :rinshan t))

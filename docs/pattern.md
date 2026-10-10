@@ -74,6 +74,7 @@ The caller describes how the hand was won with `make-win-context`.
 | `kan-from` | Seat that discarded for the latest kan, or `NIL` if it was not a daiminkan |
 | `tenhou`, `chiihou`, `renhou` | First-turn wins |
 | `open-riichi` | Riichi declared with the hand revealed |
+| `from-riichi` | The seat that discarded the winning tile is in riichi |
 | `paarenchan` | Consecutive dealer wins, or `NIL`; `(context paarenchan)` holds when set |
 | `bonus` | Tile ids of the set-aside bonus tiles |
 | `dealer`, `dora-indicators`, `ura-indicators`, `tiles`, `nuki` | Inputs for [scoring](scoring.md#dora) |

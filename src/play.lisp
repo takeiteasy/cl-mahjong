@@ -80,14 +80,14 @@
          (wall-draw-replacement wall)
          t)))
 
-(defun ron-option-p (game deal seat tile &key chankan kokushi-only)
+(defun ron-option-p (game deal seat tile from &key chankan kokushi-only)
   (let ((player (deal-player deal seat)))
     (and (not (eq (player-riichi player) :pending))
          (let ((counts (hand-counts (game-tileset game) (cons tile (player-tiles player)))))
            (complete-p (game-tileset game) (variant-shapes (game-variant game))
                        counts (player-melds player)))
          (not (furiten-p game deal seat))
-         (let ((score (best-win game deal seat tile :chankan chankan)))
+         (let ((score (best-win game deal seat tile :chankan chankan :from from)))
            (and score
                 (or (not kokushi-only)
                     (find :kokushi (reading-yaku (score-reading score)) :key #'car)))))))
@@ -98,7 +98,7 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
   (let* ((deal (game-deal game))
          (player (deal-player deal seat))
          (options '()))
-    (when (ron-option-p game deal seat tile :chankan kan :kokushi-only ankan)
+    (when (ron-option-p game deal seat tile from :chankan kan :kokushi-only ankan)
       (push (list :ron) options))
     (unless (or kan kita (eq (player-riichi player) :active))
       (setf options (append (reverse (open-call-options game player tile)) options))
@@ -219,16 +219,18 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
     (when drawn
       (when (best-win game deal seat drawn :tsumo t)
         (push (list :tsumo) actions))
-      (setf actions
-            (append actions
-                    (mapcar (lambda (tile) (list :riichi tile))
-                            (riichi-candidates game deal seat candidates))
-                    (and (kyuushu-p game deal seat) (list (list :kyuushu)))
-                    (and (kita-tile game deal seat) (list (list :kita)))
-                    (mapcar (lambda (id) (list :ankan id)) (ankan-kinds game deal seat))
-                    (unless (eq (player-riichi player) :active)
-                      (mapcar (lambda (tile) (list :shouminkan tile))
-                              (shouminkan-tiles game deal seat))))))
+      (let ((riichi (riichi-candidates game deal seat candidates)))
+        (setf actions
+              (append actions
+                      (mapcar (lambda (tile) (list :riichi tile)) riichi)
+                      (and (opt game :open-riichi)
+                           (mapcar (lambda (tile) (list :open-riichi tile)) riichi))
+                      (and (kyuushu-p game deal seat) (list (list :kyuushu)))
+                      (and (kita-tile game deal seat) (list (list :kita)))
+                      (mapcar (lambda (id) (list :ankan id)) (ankan-kinds game deal seat))
+                      (unless (eq (player-riichi player) :active)
+                        (mapcar (lambda (tile) (list :shouminkan tile))
+                                (shouminkan-tiles game deal seat)))))))
     actions))
 
 (defun claim-actions (game seat)
@@ -256,8 +258,9 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
            (bare-p () (= (length action) 1)))
       (case (first action)
         (:discard (discards-p))
-        (:riichi (and (discards-p) (riichi-allowed-p game deal seat)
-                      (riichi-tile-p game deal seat arg)))
+        ((:riichi :open-riichi)
+         (and (discards-p) (or (eq (first action) :riichi) (opt game :open-riichi))
+              (riichi-allowed-p game deal seat) (riichi-tile-p game deal seat arg)))
         (:tsumo (and (bare-p) drawn (best-win game deal seat drawn :tsumo t) t))
         (:kyuushu (and (bare-p) drawn (kyuushu-p game deal seat)))
         (:kita (and (bare-p) drawn (kita-tile game deal seat) t))
@@ -298,6 +301,7 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
                   (ecase (first action)
                     (:discard (discard-tile game seat (second action) nil))
                     (:riichi (discard-tile game seat (second action) t))
+                    (:open-riichi (discard-tile game seat (second action) :open))
                     (:tsumo (declare-tsumo game seat))
                     (:kyuushu (abort-deal game :kyuushu))
                     (:kita (declare-kita game seat))
@@ -316,6 +320,7 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
 ;;; Discards
 
 (defun discard-tile (game seat tile riichi)
+  "SEAT discards TILE; RIICHI is NIL, T for a riichi declaration or :OPEN for an open one."
   (let* ((deal (game-deal game))
          (first-turn (first-turn-p deal (deal-player deal seat)))
          (game (updating-deal (deal game)
@@ -328,6 +333,7 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
                                  (setf (player-ippatsu player) nil))
                                (when riichi
                                  (setf (player-riichi player) :pending
+                                       (player-open-riichi player) (eq riichi :open)
                                        (player-double-riichi player) first-turn)))))
                    (setf (deal-drawn deal) nil
                          (deal-forbidden deal) nil
@@ -362,7 +368,9 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
                                                                (list (cons seat (- (opt game :riichi-cost)))))
                               (deal-sticks deal) (1+ (deal-sticks deal)))
                         deal))))
-          (emit :riichi :seat seat)
+          (if (player-open-riichi player)
+              (emit :riichi :seat seat :open t :tiles (player-tiles player))
+              (emit :riichi :seat seat))
           game)
         game)))
 
@@ -511,6 +519,7 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
                               collect (list* winner
                                              (best-win game deal winner (claim-tile claim)
                                                        :chankan chankan
+                                                       :from (claim-from claim)
                                                        :honba (if headed (game-honba game) 0)
                                                        :sticks (if headed (deal-sticks deal) 0))
                                              (claim-from claim))))))))
