@@ -45,6 +45,15 @@
   (destructuring-bind (&optional (low 1) (high 9)) (getf spec :ranks)
     (cons low high)))
 
+(defun bonus-kinds (entry)
+  "ENTRY is (NAME [COPIES]), or (GROUP NAME...) whose kinds take the rank of their position."
+  (destructuring-bind (head &rest more) entry
+    (if (and more (every #'symbolp more))
+        (loop for name in more
+              for rank from 1
+              collect (make-kind (keyword-of name) :bonus nil rank (keyword-of head) 1))
+        (list (make-kind (keyword-of head) :bonus nil nil :bonus (or (first more) 1))))))
+
 (defun draft-kinds (spec)
   (let ((copies (or (first (getf spec :copies)) 1))
         (bounds (rank-bounds spec)))
@@ -58,8 +67,8 @@
            append (loop for name in names
                         collect (make-kind (keyword-of name) :honor nil nil
                                            (keyword-of group) copies)))
-     (loop for (name count) in (append (getf spec :bonus) (getf spec :add))
-           collect (make-kind (keyword-of name) :bonus nil nil :bonus (or count 1))))))
+     (loop for entry in (append (getf spec :bonus) (getf spec :add))
+           append (bonus-kinds entry)))))
 
 (defun removal-matches-p (kind form)
   "FORM is NAME, (SUIT), (SUIT RANK), (SUIT LOW HIGH), (GROUP) or (NAME)."

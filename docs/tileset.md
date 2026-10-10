@@ -27,7 +27,7 @@
 | `:suits` | `suit...` | Numbered suits |
 | `:ranks` | `low high` | Rank range of every suit (default `1 9`) |
 | `:honors` | `(group name...)...` | Honor tiles |
-| `:bonus` | `(name copies)...` | Bonus tiles such as flowers |
+| `:bonus` | `(name copies)...` or `(group name...)...` | Bonus tiles such as flowers; a group's kinds have one copy and take the rank of their position |
 | `:copies` | `n` | Copies of each suit and honor tile |
 | `:red` | `(suit rank n)...` | `n` copies of the tile carry the `:red` attribute |
 | `:remove` | see below | Delete tile kinds |
@@ -43,6 +43,14 @@
 | `(man)` | A whole suit |
 | `(man 5)` | One rank |
 | `(man 2 8)` | A rank range |
+
+A grouped bonus tile is selected by its group or name in [patterns](pattern.md#selectors):
+
+```lisp
+(deftileset hk-144 :extends riichi-136
+  (:bonus (flower plum orchid chrysanthemum bamboo)
+          (season spring summer autumn winter)))
+```
 
 ## Inheritance
 

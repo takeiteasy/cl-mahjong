@@ -44,6 +44,7 @@
                (:file "tests/variant")
                (:file "tests/game")
                (:file "tests/sanma")
+               (:file "tests/bonus")
                (:file "tests/events")
                (:file "tests/tenhou")
                (:file "tests/corpus")

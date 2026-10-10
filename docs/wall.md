@@ -20,7 +20,7 @@ The `:wall` clause of `deftileset` places the dead wall. Positions index into th
 | `(:replacement p...)` | Slots drawn by `wall-draw-replacement`, in order |
 | `(:dora p...)` | Dora indicator slots, in reveal order |
 | `(:ura p...)` | Ura indicator slots, revealed alongside the dora |
-| `(:nuki n)` | Replacement draws for tiles set aside as dora (sanma kita); `0` when omitted; needs `:replacement` slots |
+| `(:nuki n)` | Replacement draws for tiles set aside (sanma kita, [bonus tiles](game.md#bonus-tiles)); `0` when omitted; needs `:replacement` slots |
 
 Positions must be unique and inside the dead wall. A kan draws from the `:replacement` slots and a kita from the same slots after the ones already drawn, cycling; each kind of draw has its own budget (the number of `:replacement` slots for kans, `n` for kita). A drawn slot is refilled from the end of the live wall, so a later draw from it takes that tile.
 

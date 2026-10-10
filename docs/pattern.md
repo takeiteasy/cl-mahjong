@@ -25,6 +25,7 @@ A pattern is a condition on a winning hand. `defyaku` ([yaku.md](yaku.md)) lists
 | `(some-group types [sel] [:concealed t])` | At least one group matches |
 | `(count-groups n types [sel] [:concealed t])` | At least `n` groups match |
 | `(pair sel)` | A pair matches `sel` |
+| `(bonus n [sel])` | At least `n` set-aside [bonus tiles](game.md#bonus-tiles) match `sel`, or any when omitted |
 | `(wait type...)` | The winning tile completed one of these [waits](#waits) |
 | `(across-suits types)` | Groups of `types` start at the same rank in every suit |
 | `(full-straight)` | One suit has sequences starting at the lowest rank and three and six above it |
@@ -49,8 +50,9 @@ A selector picks tile kinds. A list of selectors means any of them.
 | `simple`, `terminal`, `honor`, `suit` | The tile classes of [shapes](shape.md#families), plus all suited kinds |
 | `wind`, `dragon` | Honors of that group |
 | `seat-wind`, `round-wind` | The wind in the [win context](#win-context) |
+| `seat-bonus` | A bonus kind whose rank is the seat number, east being 1 |
 | `value` | Dragons, the seat wind and the round wind |
-| `man`, `sou-2`, `white`... | A suit name, or a kind name |
+| `man`, `sou-2`, `white`, `flower`... | A suit name, a kind name or a group name |
 
 ```lisp
 (every-tile (sou-2 sou-3 sou-4 sou-6 sou-8 green))
@@ -72,6 +74,7 @@ The caller describes how the hand was won with `make-win-context`.
 | `tenhou`, `chiihou`, `renhou` | First-turn wins |
 | `open-riichi` | Riichi declared with the hand revealed |
 | `paarenchan` | Consecutive dealer wins, or `NIL`; `(context paarenchan)` holds when set |
+| `bonus` | Tile ids of the set-aside bonus tiles |
 | `dealer`, `dora-indicators`, `ura-indicators`, `tiles`, `nuki` | Inputs for [scoring](scoring.md#dora) |
 
 `(context flag)` reads the flag fields.

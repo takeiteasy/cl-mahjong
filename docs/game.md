@@ -44,7 +44,8 @@ Each event is `(type . plist)`.
 | Event | Fields |
 |---|---|
 | `:deal-start` | `:kyoku :dealer :honba :dora` |
-| `:draw` | `:seat :tile`, `:rinshan` for a replacement draw, `:kita` after a kita |
+| `:draw` | `:seat :tile`, `:rinshan` for a replacement draw, `:kita` after a kita, `:bonus` after a bonus tile |
+| `:bonus` | `:seat :tile`, a bonus tile set aside |
 | `:discard` | `:seat :tile :riichi` |
 | `:call` | `:type :seat :tiles`, `:from` for open calls |
 | `:kita` | `:seat :tile` |
@@ -69,6 +70,10 @@ Each event is `(type . plist)`.
 | Deal end | `game-result` holds `:type` (`:tsumo :ron :exhaustive :abortive`), `:deltas`, and details such as `:winners` or `:reason` |
 
 Exhaustive draws pay noten payments (a hand is tenpai unless the concealed hand and own nukidora hold every copy of each winning tile; copies in a meld do not count), or nagashi mangan like a tsumo of that limit. The dealer repeats on a win or, with `:renchan :tenpai`, when tenpai; honba reset after a non-dealer win. After a deal, game fields describe the next deal.
+
+## Bonus tiles
+
+With `:bonus-tiles` a seat sets every bonus tile aside as soon as it holds one, and draws a replacement from the [`:nuki` slots](wall.md#layout). The deal does this seat by seat from the dealer, and a replacement that is a bonus tile is set aside in turn. The tiles stay in `player-bonus` and in the win context's `bonus`; they never count as dora. A tileset with bonus kinds needs the option.
 
 ## Game end
 
@@ -101,6 +106,8 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 | `:nagashi-mangan` | `:mangan` | Limit paid for nagashi; `nil` for off |
 | `:noten-payment` | 3000 | Total paid from noten to tenpai |
 | `:riichi-cost`, `:riichi-min-tiles` | 1000, 4 | |
+| `:bonus-tiles` | off | Set bonus tiles aside; see [below](#bonus-tiles) |
+| `:bonus-rinshan` | on | A win on a bonus replacement scores rinshan |
 | `:nukidora` | off | Offer `(:kita)` for a north |
 | `:kita-ippatsu` | off | A kita keeps ippatsu; off breaks every seat's ippatsu |
 | `:kita-interrupts` | on | A kita counts as an interruption: no later double riichi, first-turn win or kyuushu |

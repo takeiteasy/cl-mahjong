@@ -3,7 +3,7 @@
 ;; seat-wind and round-wind are honor kind names such as :east.
 ;; dora-indicators and ura-indicators are tile ids; tiles are the tile ids of the whole hand,
 ;; melds and the winning tile included, so red fives can be counted. nuki are the tile ids set
-;; aside as dora. paarenchan is the number of consecutive dealer wins, or NIL.
+;; aside as dora. bonus are the tile ids of set-aside bonus tiles. paarenchan is the number of consecutive dealer wins, or NIL.
 ;; kan-from is the seat that discarded for the latest kan when that kan was a daiminkan, else NIL.
 (defstruct win-context
   win-tile
@@ -14,7 +14,7 @@
   open-riichi paarenchan kan-from
   dealer
   dora-indicators ura-indicators
-  tiles nuki)
+  tiles nuki bonus)
 
 (defun check-win-context (context melds)
   "Signal `invalid-hand' when CONTEXT describes a win that cannot happen with MELDS.

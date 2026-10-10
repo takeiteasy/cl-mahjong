@@ -16,6 +16,7 @@
     :nagashi-mangan :mangan :noten-payment 3000
     :riichi-cost 1000 :riichi-min-tiles 4 :renchan :tenpai
     :uma (15 5 -5 -15) :oka t :score-rounding nil :initial-dora 1
+    :bonus-tiles nil :bonus-rinshan t
     :nukidora nil :kita-ippatsu nil :kita-interrupts t :kita-rinshan t :kita-ron t
     :winds (:east :south :west :north))
   "Game-flow options a variant's :options may override.")
@@ -29,7 +30,7 @@
 ;;; State
 
 (defstruct (player (:constructor make-player (tiles)))
-  tiles melds discards nuki
+  tiles melds discards nuki bonus
   (called-away 0)
   riichi double-riichi ippatsu temp-furiten riichi-furiten)
 
@@ -149,14 +150,51 @@ POINTS, KYOKU, HONBA and STICKS start the game part way through."
          (*events* '()))
     (unless (= players (length (game-scores game)))
       (illegal "Expected points for ~a players, got ~s" players points))
+    (when (and (not (variant-option variant :bonus-tiles))
+               (find :bonus (tileset-kinds (variant-tileset variant)) :key #'kind-category))
+      (illegal "The tileset has bonus tiles; the variant needs the :bonus-tiles option"))
     (let ((game (begin-deal game)))
       (values game (reverse *events*)))))
+
+;;; Bonus tiles
+
+(defun bonus-tile-p (game tile)
+  (and (opt game :bonus-tiles)
+       (eq (kind-category (tile-kind (game-tileset game) tile)) :bonus)))
+
+(defun settle-deal-bonus (game wall hands dealer)
+  "(values wall bonuses events): each seat from DEALER sets aside its bonus tiles, replacing them in turn.
+HANDS is changed to the tiles kept; BONUSES holds the set-aside tiles of each seat."
+  (let ((bonuses (make-array (game-seats game) :initial-element '()))
+        (events '()))
+    (dotimes (step (game-seats game))
+      (let* ((seat (seat-after game dealer step))
+             (queue (svref hands seat))
+             (kept '()))
+        (loop while queue
+              do (let ((tile (pop queue)))
+                   (cond ((bonus-tile-p game tile)
+                          (push tile (svref bonuses seat))
+                          (push (list :bonus :seat seat :tile tile) events)
+                          (multiple-value-bind (new next) (wall-draw-nuki wall)
+                            (setf wall next)
+                            (when new
+                              (push (list :draw :seat seat :tile new :bonus t) events)
+                              (push new queue))))
+                         (t (push tile kept)))))
+        (setf (svref hands seat) kept
+              (svref bonuses seat) (nreverse (svref bonuses seat)))))
+    (values wall bonuses (nreverse events))))
 
 (defun begin-deal (game)
   (let* ((dealer (mod (game-kyoku game) (game-seats game)))
          (stacked (game-walls game))
          (wall (or (first stacked) (make-wall (game-tileset game) :seed (wall-seed game)))))
     (multiple-value-bind (wall hands) (deal-hands game wall dealer)
+      (multiple-value-bind (wall bonuses bonus-events)
+          (if (opt game :bonus-tiles)
+              (settle-deal-bonus game wall hands dealer)
+              (values wall (make-array (game-seats game) :initial-element '()) '()))
       (dotimes (i (1- (opt game :initial-dora)))
         (setf wall (or (wall-reveal-dora wall) wall)))
       (let ((game (copy-game game)))
@@ -167,12 +205,17 @@ POINTS, KYOKU, HONBA and STICKS start the game part way through."
               (game-deal game)
               (make-deal :wall wall :dealer dealer :turn dealer :phase :turn
                          :points (copy-seq (game-scores game)) :sticks (game-table-sticks game)
-                         :players (map 'simple-vector
-                                       (lambda (tiles) (make-player (sorted-tiles tiles)))
-                                       hands)))
+                         :players (coerce (loop for tiles across hands
+                                                for bonus across bonuses
+                                                collect (let ((player (make-player (sorted-tiles tiles))))
+                                                          (setf (player-bonus player) bonus)
+                                                          player))
+                                          'simple-vector)))
         (emit :deal-start :kyoku (game-kyoku game) :dealer dealer :honba (game-honba game)
                           :dora (wall-dora-indicators wall))
-        (draw-tile game dealer)))))
+        (dolist (event bonus-events)
+          (push event *events*))
+        (draw-tile game dealer))))))
 
 (defun next-deal (game)
   "(values game events): start the deal that follows a finished one."
@@ -185,6 +228,27 @@ POINTS, KYOKU, HONBA and STICKS start the game part way through."
 ;;; Draws
 
 (defun take-tile (game seat tile wall rinshan)
+  (if (bonus-tile-p game tile)
+      (set-aside-bonus game seat tile wall rinshan)
+      (take-live-tile game seat tile wall rinshan)))
+
+(defun set-aside-bonus (game seat tile wall rinshan)
+  "SEAT sets aside the bonus TILE it drew and draws its replacement."
+  (emit :bonus :seat seat :tile tile)
+  (let ((game (updating-deal (deal game)
+                (let ((deal (updating-player (player deal seat)
+                              (setf (player-bonus player)
+                                    (append (player-bonus player) (list tile))))))
+                  (setf (deal-wall deal) wall)
+                  deal))))
+    (multiple-value-bind (new next) (wall-draw-nuki (deal-wall (game-deal game)))
+      (if (null new)
+          (exhaustive-draw game)
+          (let ((rinshan (or rinshan (and (opt game :bonus-rinshan) :bonus))))
+            (emit :draw :seat seat :tile new :bonus t :rinshan (and rinshan t))
+            (take-tile game seat new next rinshan))))))
+
+(defun take-live-tile (game seat tile wall rinshan)
   (updating-deal (deal game)
     (let ((deal (copy-deal deal)))
       (setf (deal-wall deal) wall
@@ -244,8 +308,9 @@ POINTS, KYOKU, HONBA and STICKS start the game part way through."
              :chiihou (and tsumo first-turn (not dealer))
              :renhou (and (not tsumo) (not chankan) first-turn (not dealer))
              :dealer dealer
-             :kan-from (deal-kan-from deal)
+             :kan-from (and (eq (deal-rinshan deal) t) (deal-kan-from deal))
              :nuki (player-nuki player)
+             :bonus (player-bonus player)
              :dora-indicators (wall-dora-indicators wall)
              :ura-indicators (wall-ura-indicators wall)
              :tiles (append tiles (loop for meld in (player-melds player)

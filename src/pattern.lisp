@@ -24,6 +24,22 @@
 (defun round-wind-p (hand kind)
   (eq (kind-name kind) (win-context-round-wind (win-hand-context hand))))
 
+(defun seat-bonus-p (hand kind)
+  "A bonus kind whose rank is the seat's number, east being 1."
+  (let* ((tileset (win-hand-tileset hand))
+         (winds (loop for other across (tileset-kinds tileset)
+                      when (eq (kind-group other) :wind) collect (kind-name other)))
+         (seat (position (win-context-seat-wind (win-hand-context hand)) winds)))
+    (and seat
+         (eq (kind-category kind) :bonus)
+         (eql (kind-rank kind) (1+ seat)))))
+
+(defun bonus-count (hand selector)
+  "How many of the set-aside bonus tiles match SELECTOR."
+  (let ((tileset (win-hand-tileset hand)))
+    (count-if (lambda (tile) (funcall selector hand (tile-kind tileset tile)))
+              (win-context-bonus (win-hand-context hand)))))
+
 (defun compile-selector (form)
   "FORM is a symbol, or a list of them meaning any."
   (if (consp form)
@@ -40,6 +56,7 @@
           (:suit (lambda (hand kind) (declare (ignore hand)) (eq (kind-category kind) :suit)))
           (:wind (lambda (hand kind) (declare (ignore hand)) (eq (kind-group kind) :wind)))
           (:dragon (lambda (hand kind) (declare (ignore hand)) (eq (kind-group kind) :dragon)))
+          (:seat-bonus #'seat-bonus-p)
           (:seat-wind #'seat-wind-p)
           (:round-wind #'round-wind-p)
           (:value (lambda (hand kind)
@@ -49,7 +66,8 @@
           ;; TODO: a misspelt name never matches; checking names against the tileset is tracked in https://github.com/takeiteasy/cl-mahjong/issues/7
           (t (lambda (hand kind)
                (declare (ignore hand))
-               (or (eq (kind-suit kind) key) (eq (kind-name kind) key))))))))
+               (or (eq (kind-suit kind) key) (eq (kind-name kind) key)
+                   (eq (kind-group kind) key))))))))
 
 ;;; Hand accessors
 
@@ -197,6 +215,10 @@
         (lambda (hand)
           (some (lambda (id) (funcall selector hand (kind-of-id hand id)))
                 (hand-kind-ids hand)))))
+     (:bonus (check-arity form 1 2)
+      (let ((needed (count-arg (first args) "bonus" 0))
+            (selector (if (rest args) (compile-selector (second args)) (constantly t))))
+        (lambda (hand) (>= (bonus-count hand selector) needed))))
      (:one-suit (check-arity form 0 0)
       #'one-suit-p)
      (:every-group (let ((test (compile-group-test form args)))

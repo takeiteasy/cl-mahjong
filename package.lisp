@@ -167,6 +167,7 @@
    #:player-melds
    #:player-discards
    #:player-nuki
+   #:player-bonus
    #:player-riichi
    #:player-double-riichi
    #:player-ippatsu
