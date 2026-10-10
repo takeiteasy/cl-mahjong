@@ -1,7 +1,7 @@
 (in-package #:cl-mahjong)
 
 (defstruct scoring
-  spec name fu limits floors kiriage aotenjou indicator payments)
+  spec name fu points minimum limits floors kiriage aotenjou indicator payments)
 
 (defstruct fu-table
   (base 0) (round 1) (closed-ron 0) (tsumo 0) (open-minimum 0) (concealed 1) (quad 1)
@@ -14,9 +14,9 @@
 (defstruct (score (:constructor make-score (reading fu han dora limit base points payments)))
   reading fu han dora limit base points payments)
 
-(defparameter *scoring-clauses* '(:name :fu :limits :floor :kiriage :aotenjou :dora :payments))
+(defparameter *scoring-clauses* '(:name :fu :points :minimum :limits :floor :kiriage :aotenjou :dora :payments))
 
-(defparameter *scoring-containers* '(:fu :limits :dora :payments))
+(defparameter *scoring-containers* '(:fu :points :limits :dora :payments))
 
 (defmacro defscoring (name &body body)
   (multiple-value-bind (parent clauses) (parse-definition-body body)
@@ -55,7 +55,7 @@
                   ((and (eq (first entry) :fu) (member (second entry) '(:group :pair :wait)))
                    (butlast entry))
                   (t (case (first entry)
-                       ((:fu :limits :dora :payments :floor) (list (first entry) (second entry)))
+                       ((:fu :points :limits :dora :payments :floor) (list (first entry) (second entry)))
                        (t (list (first entry))))))))
 
 (defun merge-scoring-spec (parent clauses)
@@ -130,6 +130,15 @@
           (fu-table-waits table) (nreverse (fu-table-waits table))
           (fu-table-flats table) (nreverse (fu-table-flats table)))
     table))
+
+(defun build-points (entries)
+  "The fan table as (fan . base) sorted by fan."
+  (sort (mapcar (lambda (entry)
+                  (unless (= 2 (length entry))
+                    (invalid ":points takes (fan base), got ~s" entry))
+                  (cons (count-arg (first entry) ":points" 0) (count-arg (second entry) ":points" 0)))
+                entries)
+        #'< :key #'car))
 
 (defun limit-option (options key)
   (and (getf options key)
@@ -221,9 +230,14 @@
   (let* ((name (keyword-of (second (assoc :name spec))))
          (kiriage (entries-of spec :kiriage))
          (aotenjou (entries-of spec :aotenjou))
+         (points (build-points (entries-of spec :points)))
+         (minimum (entries-of spec :minimum))
          (limits (build-limits (entries-of spec :limits) name)))
     (make-scoring :spec spec :name name
-                  :fu (build-fu (entries-of spec :fu) name)
+                  :fu (and (or (null points) (entries-of spec :fu))
+                           (build-fu (entries-of spec :fu) name))
+                  :points points
+                  :minimum (and minimum (amount-arg (first minimum) ":minimum" 0))
                   :limits limits
                   :floors (build-floors (entries-of spec :floor) limits)
                   :kiriage (and kiriage (amount-arg (first kiriage) ":kiriage" 1))
@@ -338,13 +352,21 @@
                           (t 1))))
       (if max (min max multiple) multiple))))
 
+(defun points-base (points han)
+  "The base points of the highest row of the fan table POINTS at or below HAN, or 0."
+  (or (cdr (find-if (lambda (row) (<= (car row) han)) points :from-end t)) 0))
+
 (defun base-points (scoring han fu yakuman options)
   "(values base limit-name)."
   (let* ((limits (scoring-limits scoring))
          (yakuman-limit (assoc :yakuman limits))
          (kazoe (and (third yakuman-limit) (>= han (third yakuman-limit)))))
-    (if (or (plusp yakuman) kazoe)
-        (values (* (yakuman-multiple yakuman-limit han yakuman) (second yakuman-limit)) :yakuman)
+    (cond
+      ((or (plusp yakuman) kazoe)
+       (values (* (yakuman-multiple yakuman-limit han yakuman) (second yakuman-limit)) :yakuman))
+      ((scoring-points scoring)
+       (values (points-base (scoring-points scoring) han) nil))
+      (t
         (let* ((reached (find-if (lambda (limit) (and (third limit) (>= han (third limit))))
                                  limits :from-end t))
                (formula (* fu (expt 2 (+ han 2))))
@@ -353,7 +375,7 @@
                 ((or (>= formula (second lowest))
                      (and (getf options :kiriage) (eql formula (scoring-kiriage scoring))))
                  (values (second lowest) (first lowest)))
-                (t (values formula nil)))))))
+                (t (values formula nil))))))))
 
 (defun apply-floors (scoring names base limit)
   "The higher of the hand's own score and the floors of the yaku it holds."
@@ -471,28 +493,30 @@ Each liable seat pays its yakuman as a ron; PAYMENTS gains a :pao list of (seat 
                         (t (+ dora ura aka nuki
                               (loop for (name . value) in (reading-yaku reading)
                                     unless (member name floored) sum value)))))
-             (fu (reading-fu (scoring-fu scoring) reading)))
-        (multiple-value-bind (base limit)
-            (if aotenjou
-                (values (* fu (expt 2 (+ han 2))) nil)
-                (multiple-value-call #'apply-floors scoring names
-                  (base-points scoring han fu yakuman options)))
-          (multiple-value-bind (payments total)
-              (cond ((rinshan-pao-giver scoring context)
-                     (giver-payments (scoring-payments scoring)
-                                     (rinshan-pao-giver scoring context) base
-                                     (win-context-dealer context) (win-context-tsumo context)
+             (fu (if (scoring-fu scoring) (reading-fu (scoring-fu scoring) reading) 0)))
+        (when (or (null (scoring-minimum scoring)) (plusp yakuman)
+                  (>= han (scoring-minimum scoring)))
+          (multiple-value-bind (base limit)
+              (if aotenjou
+                  (values (* fu (expt 2 (+ han 2))) nil)
+                  (multiple-value-call #'apply-floors scoring names
+                    (base-points scoring han fu yakuman options)))
+            (multiple-value-bind (payments total)
+                (cond ((rinshan-pao-giver scoring context)
+                       (giver-payments (scoring-payments scoring)
+                                       (rinshan-pao-giver scoring context) base
+                                       (win-context-dealer context) (win-context-tsumo context)
+                                       honba players))
+                      ((and (reading-pao reading) (not aotenjou))
+                       (pao-payments (scoring-payments scoring) (reading-pao reading)
+                                     (second (assoc :yakuman (scoring-limits scoring)))
+                                     base (win-context-dealer context) (win-context-tsumo context)
                                      honba players))
-                    ((and (reading-pao reading) (not aotenjou))
-                     (pao-payments (scoring-payments scoring) (reading-pao reading)
-                                   (second (assoc :yakuman (scoring-limits scoring)))
-                                   base (win-context-dealer context) (win-context-tsumo context)
-                                   honba players))
-                    (t (payments-for (scoring-payments scoring) base (win-context-dealer context)
-                                     (win-context-tsumo context) honba players)))
-            (make-score reading fu han (list :dora dora :ura ura :aka aka :nuki nuki) limit base
-                        (+ total (* riichi-sticks (payment-table-stick (scoring-payments scoring))))
-                        payments)))))))
+                      (t (payments-for (scoring-payments scoring) base (win-context-dealer context)
+                                       (win-context-tsumo context) honba players)))
+              (make-score reading fu han (list :dora dora :ura ura :aka aka :nuki nuki) limit base
+                          (+ total (* riichi-sticks (payment-table-stick (scoring-payments scoring))))
+                          payments))))))))
 
 (defun evaluate-score (scoring tileset shapes yaku counts melds context
                        &key options (honba 0) (riichi-sticks 0) (players 4))

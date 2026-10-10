@@ -455,3 +455,34 @@
              (cl-mahjong:score-points
               (best-scored ts "19m19p119s1234567z" "1s" :scoring 'aotenjou :options options
                                                         :honba 3 :riichi-sticks 2)))))))
+
+;;; Fan table
+
+(cl-mahjong:defscoring test-fan
+  (:points (0 1) (1 2) (2 4) (3 8) (4 16) (5 24) (6 32))
+  (:minimum 2)
+  (:limits (yakuman 128 :max 1))
+  (:payments (:ron :dealer 1 :other 1) (:tsumo :dealer 1 :other (1 1))))
+
+(test fan-table-scores-without-fu
+  (with-riichi (ts)
+    (let ((score (best-scored ts "234m567p345s678s66p" "8s" :scoring 'test-fan)))
+      (is (equal '(0 2 4) (summary score)))
+      (is (equal '(:ron 4) (cl-mahjong:score-payments score))))))
+
+(test fan-table-stops-at-its-last-row
+  (with-riichi (ts)
+    (let ((score (best-scored ts "112233m445566m77m" "7m" :scoring 'test-fan)))
+      (is (> (cl-mahjong:score-han score) 6))
+      (is (= 32 (cl-mahjong:score-points score))))))
+
+(test minimum-han-rejects-a-hand
+  (with-riichi (ts)
+    (is (null (best-scored ts "234m567p345s678s66p" "3m" :scoring 'test-fan)))
+    (is (best-scored ts "234m567p345s678s66p" "3m" :scoring 'test-fan
+                     :context-args '(:tsumo t)))))
+
+(test yakuman-ignores-the-minimum
+  (with-riichi (ts)
+    (is (= 128 (cl-mahjong:score-points
+                (best-scored ts "19m19p19s12345677z" "7z" :scoring 'test-fan))))))
