@@ -71,3 +71,44 @@
         (is (eq :deal-over (cl-mahjong:game-phase game)))
         (is (= 0 (reduce #'+ (cl-mahjong:game-points game))))
         (setf game (cl-mahjong:next-deal game))))))
+
+(defun hk-game-holding (&rest holdings)
+  "A new hk game where each seat holds the bonus kinds in HOLDINGS, a list per seat."
+  (let* ((game (cl-mahjong:start-game 'hk :seed 1))
+         (ts (tileset-of game))
+         (deal (cl-mahjong:game-deal game)))
+    (loop for names in holdings
+          for seat from 0
+          do (let ((player (copy-structure (cl-mahjong::deal-player deal seat))))
+               (setf (cl-mahjong:player-bonus player)
+                     (mapcar (lambda (name) (bonus-tile ts name)) names)
+                     deal (cl-mahjong::set-player deal seat player))))
+    (cl-mahjong::replace-deal game deal)))
+
+(defparameter *flowers* '(plum orchid chrysanthemum bamboo spring summer autumn winter))
+
+(test eight-flowers-win-at-once
+  (let* ((game (hk-game-holding (subseq *flowers* 0 7) '() '() '()))
+         (cl-mahjong::*events* '())
+         (won (cl-mahjong::set-aside-bonus game 0 (bonus-tile (tileset-of game) 'winter)
+                                           (cl-mahjong::deal-wall (cl-mahjong:game-deal game)) nil)))
+    (is (eq :deal-over (cl-mahjong:game-phase won)))
+    (is (eq :tsumo (result-of won :type)))
+    (is (equal '(384 -128 -128 -128) (coerce (cl-mahjong:game-points won) 'list)))
+    (is (eq :yakuman (getf (rest (assoc :win (reverse cl-mahjong::*events*))) :limit)))))
+
+(test seven-flowers-rob-the-eighth
+  (let* ((game (hk-game-holding '() '() (subseq *flowers* 0 7) '()))
+         (cl-mahjong::*events* '())
+         (won (cl-mahjong::set-aside-bonus game 1 (bonus-tile (tileset-of game) 'winter)
+                                           (cl-mahjong::deal-wall (cl-mahjong:game-deal game)) nil)))
+    (is (eq :ron (result-of won :type)))
+    (is (equal '(2) (result-of won :winners)))
+    (is (equal '(-64 -128 256 -64) (coerce (cl-mahjong:game-points won) 'list)))))
+
+(test seven-flowers-do-not-win-without-the-eighth-being-set-aside
+  (let* ((game (hk-game-holding '() '() (subseq *flowers* 0 6) '()))
+         (cl-mahjong::*events* '())
+         (next (cl-mahjong::set-aside-bonus game 1 (bonus-tile (tileset-of game) 'winter)
+                                            (cl-mahjong::deal-wall (cl-mahjong:game-deal game)) nil)))
+    (is (eq :playing (cl-mahjong:game-phase next)))))

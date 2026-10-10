@@ -75,7 +75,7 @@
    pure-one-suit mixed-terminals great-three-dragons
    kokushi chuuren suuankou tsuuiisou chinroutou suukantsu great-four-winds tenhou chiihou)
   (:scoring hk)
-  (:options :bonus-tiles t :riichi nil :furiten nil :renchan :draw :length :full
+  (:options :bonus-tiles t :bonus-win (8 :yakuman) :bonus-rob t :riichi nil :furiten nil :renchan :draw :length :full
             :west-extension nil :agari-yame nil :tobi nil
             :start-points 0 :target-points 0 :uma (0 0 0 0) :oka nil
             :noten-payment 0 :nagashi-mangan nil

@@ -24,6 +24,7 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 | Open riichi cannot be declared in game flow; sashikomi is any ron in open riichi | [#20](https://github.com/takeiteasy/cl-mahjong/issues/20) |
 | No WRC rules variant | [#9](https://github.com/takeiteasy/cl-mahjong/issues/9) |
 | Sanma logs before 2022-01-23 are not replayed | [#18](https://github.com/takeiteasy/cl-mahjong/issues/18) |
+| Bonus wins are not checked while dealing | [#26](https://github.com/takeiteasy/cl-mahjong/issues/26) |
 | No MCR variant | [#2](https://github.com/takeiteasy/cl-mahjong/issues/2) |
 | No CLI; the library has no UI | [#3](https://github.com/takeiteasy/cl-mahjong/issues/3) |
 | No bot interface | [#4](https://github.com/takeiteasy/cl-mahjong/issues/4) |

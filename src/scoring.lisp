@@ -474,13 +474,13 @@ Each liable seat pays its yakuman as a ron; PAYMENTS gains a :pao list of (seat 
 
 ;;; Scoring
 
-(defun limit-payments (scoring limit &key dealer (players 4))
-  "(values payments total) for a tsumo worth exactly LIMIT, laid out as `score-payments' is."
+(defun limit-payments (scoring limit &key dealer (players 4) (tsumo t))
+  "(values payments total) for a tsumo, or with TSUMO nil a ron, worth exactly LIMIT, laid out as `score-payments' is."
   (let* ((scoring (resolve-scoring scoring))
          (base (second (assoc limit (scoring-limits scoring)))))
     (unless base
       (invalid "Unknown limit ~(~a~)" limit))
-    (payments-for (scoring-payments scoring) base dealer t 0 players)))
+    (payments-for (scoring-payments scoring) base dealer tsumo 0 players)))
 
 (defun reading-score (scoring reading &key (honba 0) (riichi-sticks 0) (players 4))
   "A SCORE for READING, or NIL when it has no yaku. Dora never make a yaku."

@@ -16,7 +16,7 @@
     :nagashi-mangan :mangan :noten-payment 3000
     :riichi-cost 1000 :riichi-min-tiles 4 :renchan :tenpai
     :uma (15 5 -5 -15) :oka t :score-rounding nil :initial-dora 1
-    :bonus-tiles nil :bonus-rinshan t :riichi t :furiten t
+    :bonus-tiles nil :bonus-rinshan t :bonus-win nil :bonus-rob nil :riichi t :furiten t
     :nukidora nil :kita-ippatsu nil :kita-interrupts t :kita-rinshan t :kita-ron t
     :winds (:east :south :west :north))
   "Game-flow options a variant's :options may override.")
@@ -165,6 +165,7 @@ POINTS, KYOKU, HONBA and STICKS start the game part way through."
 (defun settle-deal-bonus (game wall hands dealer)
   "(values wall bonuses events): each seat from DEALER sets aside its bonus tiles, replacing them in turn.
 HANDS is changed to the tiles kept; BONUSES holds the set-aside tiles of each seat."
+  ;; TODO: :bonus-win and :bonus-rob are not checked while dealing (https://github.com/takeiteasy/cl-mahjong/issues/26)
   (let ((bonuses (make-array (game-seats game) :initial-element '()))
         (events '()))
     (dotimes (step (game-seats game))
@@ -241,12 +242,43 @@ HANDS is changed to the tiles kept; BONUSES holds the set-aside tiles of each se
                                     (append (player-bonus player) (list tile))))))
                   (setf (deal-wall deal) wall)
                   deal))))
-    (multiple-value-bind (new next) (wall-draw-nuki (deal-wall (game-deal game)))
-      (if (null new)
-          (exhaustive-draw game)
-          (let ((rinshan (or rinshan (and (opt game :bonus-rinshan) :bonus))))
-            (emit :draw :seat seat :tile new :bonus t :rinshan (and rinshan t))
-            (take-tile game seat new next rinshan))))))
+    (let ((winner (bonus-winner game seat)))
+      (if winner
+          (conclude-bonus-win game winner (and (/= winner seat) seat))
+          (multiple-value-bind (new next) (wall-draw-nuki (deal-wall (game-deal game)))
+            (if (null new)
+                (exhaustive-draw game)
+                (let ((rinshan (or rinshan (and (opt game :bonus-rinshan) :bonus))))
+                  (emit :draw :seat seat :tile new :bonus t :rinshan (and rinshan t))
+                  (take-tile game seat new next rinshan))))))))
+
+(defun bonus-winner (game seat)
+  "The seat that wins at once on the bonus tile SEAT just set aside, or NIL: SEAT with enough tiles, else
+with :bonus-rob another seat one tile short."
+  (let ((count (first (opt game :bonus-win)))
+        (deal (game-deal game)))
+    (when count
+      (flet ((held (other) (length (player-bonus (deal-player deal other)))))
+        (cond ((>= (held seat) count) seat)
+              ((opt game :bonus-rob)
+               (loop for other below (game-seats game)
+                     when (and (/= other seat) (= (held other) (1- count))) return other)))))))
+
+(defun conclude-bonus-win (game winner from)
+  "WINNER wins the limit of :bonus-win with no hand, as a tsumo or, paid by FROM, a ron."
+  (let* ((deal (game-deal game))
+         (limit (second (opt game :bonus-win)))
+         (scoring (resolve-scoring (variant-scoring (game-variant game)))))
+    (multiple-value-bind (payments total)
+        (limit-payments scoring limit :dealer (= winner (deal-dealer deal))
+                                      :players (game-seats game) :tsumo (null from))
+      (let ((reading (make-reading nil nil nil (list (cons :bonus-win 1)) 0 1 nil nil)))
+        (conclude-win game deal (list winner)
+                      (list (list* winner
+                                   (make-score reading 0 0 nil limit
+                                               (second (assoc limit (scoring-limits scoring)))
+                                               total payments)
+                                   from)))))))
 
 (defun take-live-tile (game seat tile wall rinshan)
   (updating-deal (deal game)

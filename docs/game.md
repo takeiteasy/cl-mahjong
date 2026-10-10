@@ -75,6 +75,8 @@ Exhaustive draws pay noten payments (a hand is tenpai unless the concealed hand 
 
 With `:bonus-tiles` a seat sets every bonus tile aside as soon as it holds one, and draws a replacement from the [`:nuki` slots](wall.md#layout). The deal does this seat by seat from the dealer, and a replacement that is a bonus tile is set aside in turn. The tiles stay in `player-bonus` and in the win context's `bonus`; they never count as dora. A tileset with bonus kinds needs the option.
 
+With `:bonus-win (8 :yakuman)` the seat that sets its eighth bonus tile aside wins the `yakuman` limit at once, paid like a tsumo. With `:bonus-rob` a seat holding seven wins instead when another seat sets the eighth aside, paid by that seat like a ron. The win has the yaku `bonus-win`.[^deal]
+
 ## Game end
 
 | Condition | Option |
@@ -110,6 +112,8 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 | `:riichi-cost`, `:riichi-min-tiles` | 1000, 4 | |
 | `:bonus-tiles` | off | Set bonus tiles aside; see [below](#bonus-tiles) |
 | `:bonus-rinshan` | on | A win on a bonus replacement scores rinshan |
+| `:bonus-win` | off | `(count limit)`: holding `count` bonus tiles wins at once; see [below](#bonus-tiles) |
+| `:bonus-rob` | off | A seat one tile short of `:bonus-win` wins on another seat's bonus tile |
 | `:nukidora` | off | Offer `(:kita)` for a north |
 | `:kita-ippatsu` | off | A kita keeps ippatsu; off breaks every seat's ippatsu |
 | `:kita-interrupts` | on | A kita counts as an interruption: no later double riichi, first-turn win or kyuushu |
@@ -128,3 +132,5 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 ## Limitations
 
 See [PLAN.md](PLAN.md#limitations): legal actions are recomputed on every move ([#8](https://github.com/takeiteasy/cl-mahjong/issues/8)).
+
+[^deal]: The deal does not check these wins; see [PLAN.md](PLAN.md#limitations).

@@ -16,6 +16,13 @@ Flowers and seasons are [bonus tiles](game.md#bonus-tiles): a seat sets one asid
 | `no-flowers` | 1 | No bonus tile |
 | `all-flowers`, `all-seasons` | 2 | All four of a group |
 
+## Fixed-fan hands
+
+| Hand | Result |
+|---|---|
+| Eight flowers | The seat that sets aside all eight bonus tiles wins the limit at once, paid as a tsumo |
+| Seven robs one | A seat holding seven wins the limit when another seat sets aside the eighth; that seat pays as for a ron |
+
 ## Yaku
 
 Haku, hatsu, chun, jikaze, bakaze, haitei, houtei, rinshan and chankan score 1 fan as in [riichi](yaku.md#riichi). A win on a flower replacement scores `rinshan`.
@@ -58,6 +65,7 @@ The dealer pays and receives the same as any seat. No sticks or honba are paid.
 | East, south, west and north rounds | `:length :full` |
 | The dealer repeats on a win or any exhaustive draw | `:renchan :draw` |
 | No riichi, furiten, kuikae, noten payment or abortive draws | `:riichi nil`, `:furiten nil`, `:kuikae nil`, `:noten-payment 0` |
+| Eight flowers and seven robs one | `:bonus-win (8 :yakuman)`, `:bonus-rob t` |
 | Every seat starts at 0 and the game ends after the last round | `:start-points 0`, `:west-extension nil` |
 
 The yaku and table are definitions in `variants/hk.lisp`, so another parlour's values are a variant that extends `hk`.[^extend]
