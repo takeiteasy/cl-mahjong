@@ -236,3 +236,85 @@
     (let ((game (play-kita-game (cl-mahjong:start-game 'sanma :seed seed))))
       (is (cl-mahjong:game-over-p game))
       (is (= 105000 (reduce #'+ (getf (cl-mahjong:game-final game) :points)))))))
+
+;;; Split north share
+
+(defun split-payments (base &rest args)
+  (multiple-value-list
+   (apply #'cl-mahjong::payments-for
+          (cl-mahjong::scoring-payments (cl-mahjong::resolve-scoring 'sanma-split))
+          base args)))
+
+(test sanma-split-shares-the-missing-north-between-the-payers
+  (is (equal '((:dealer 700 :other 500) 1200) (split-payments 240 nil t 0 3)))
+  (is (equal '((:dealer nil :other 800) 1600) (split-payments 240 t t 0 3)))
+  (is (equal '((:dealer 5000 :other 3000) 8000) (split-payments 2000 nil t 0 3)))
+  (is (equal '((:dealer nil :other 6000) 12000) (split-payments 2000 t t 0 3))))
+
+(test sanma-split-leaves-ron-and-honba-alone
+  (is (equal '((:ron 8000) 8000) (split-payments 2000 nil nil 0 3)))
+  (is (equal '((:dealer 5100 :other 3100) 8200) (split-payments 2000 nil t 1 3))))
+
+(test sanma-split-limit-payments-and-variant
+  (multiple-value-bind (payments total) (cl-mahjong:limit-payments 'sanma-split :mangan :dealer nil :players 3)
+    (is (equal '(:dealer 5000 :other 3000) payments))
+    (is (= 8000 total)))
+  (is (eq (cl-mahjong:find-scoring 'sanma-split)
+          (cl-mahjong:find-scoring (cl-mahjong:variant-scoring (cl-mahjong:find-variant 'sanma-split)))))
+  (is (equal '((:dealer 4000 :other 2000) 6000)
+             (multiple-value-list
+              (cl-mahjong::payments-for (cl-mahjong::scoring-payments (cl-mahjong::resolve-scoring 'sanma))
+                                        2000 nil t 0 3)))))
+
+(test sanma-split-games-finish-and-conserve-points
+  (dolist (seed '(1 2 3))
+    (let ((game (play-game (cl-mahjong:start-game 'sanma-split :seed seed))))
+      (is (cl-mahjong:game-over-p game))
+      (is (= 105000 (reduce #'+ (getf (cl-mahjong:game-final game) :points)))))))
+
+;;; Wait checks count the nuki
+
+(defun notation-tiles (tileset notation &key (skip 0))
+  "Distinct tiles for NOTATION; SKIP leaves that many copies of each kind unused first."
+  (let ((counts (hand tileset notation)))
+    (loop for id below (length counts)
+          when (plusp (aref counts id))
+            append (subseq (cl-mahjong:tiles-of-kind tileset (cl-mahjong:tileset-kind tileset id))
+                           skip (+ skip (aref counts id))))))
+
+(defun north-tiles (tileset count)
+  (subseq (cl-mahjong:tiles-of-kind tileset (cl-mahjong:find-kind tileset 'north)) 0 count))
+
+(defun north-wait-live-p (nuki-count)
+  (let* ((game (cl-mahjong:start-game 'sanma :seed 1))
+         (ts (tileset-of game))
+         (north (kind-of ts 'north)))
+    (member north (cl-mahjong::winning-kinds game (hand ts "234p567p789p123s4z") '()
+                                             :nuki (north-tiles ts nuki-count)))))
+
+(test winning-kinds-counts-the-tiles-set-aside
+  (is (north-wait-live-p 2))
+  (is (not (north-wait-live-p 3))))
+
+(defun tenpai-with (game notation &key nuki melds)
+  (let ((player (cl-mahjong::make-player (notation-tiles (tileset-of game) notation))))
+    (setf (cl-mahjong:player-nuki player) nuki
+          (cl-mahjong:player-melds player) melds)
+    (cl-mahjong::tenpai-p game player)))
+
+(test a-wait-on-four-held-tiles-is-noten
+  (let ((game (new-game)))
+    (is (tenpai-with game "123m456m789p1112s"))
+    (is (not (tenpai-with game "123m456m789p1111s")))))
+
+(test a-north-wait-set-aside-in-full-is-noten
+  (let* ((game (sanma-game 'sanma))
+         (ts (tileset-of game)))
+    (is (tenpai-with game "234p567p789p123s4z"))
+    (is (not (tenpai-with game "234p567p789p123s4z" :nuki (north-tiles ts 3))))))
+
+(test a-tanki-on-the-fourth-tile-of-a-pon-is-tenpai
+  (let ((game (new-game)))
+    (is (tenpai-with game "123m456m789p5s"
+                     :melds (list (cl-mahjong:make-meld :triplet (kind-ids (tileset-of game) "555s")
+                                                        :open t))))))

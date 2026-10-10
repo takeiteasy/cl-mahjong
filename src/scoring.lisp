@@ -9,7 +9,7 @@
 
 ;; ron and tsumo are (dealer . other) multipliers of the base points.
 (defstruct payment-table
-  ron tsumo (round 1) (honba 0) (stick 0) (pao-ron :split) (pao-honba :discarder))
+  ron tsumo (round 1) (honba 0) (stick 0) (pao-ron :split) (pao-honba :discarder) (absent :none))
 
 (defstruct (score (:constructor make-score (reading fu han dora limit base points payments)))
   reading fu han dora limit base points payments)
@@ -190,6 +190,9 @@
           (:honba (setf (payment-table-honba table) (amount-arg args ":honba" 0)))
           (:riichi-stick (setf (payment-table-stick table) (amount-arg args ":riichi-stick" 0)))
           (:pao (build-pao args table))
+          (:absent (unless (= 1 (length args))
+                     (invalid ":absent takes one of none, split, got ~s" args))
+           (setf (payment-table-absent table) (choice-arg (first args) '(:none :split) ":absent")))
           (t (invalid "Unknown :payments entry ~s" entry)))))
     (unless (and (payment-table-ron table) (payment-table-tsumo table))
       (invalid "Scoring ~(~a~) needs :ron and :tsumo payments" name))
@@ -330,9 +333,16 @@
 
 (defun payments-for (table base dealer tsumo honba players)
   "(values payments total): PAYMENTS is (:ron n) or (:dealer n :other n), :dealer NIL when the winner deals."
-  (let ((honba-points (* honba (payment-table-honba table))))
+  (let* ((round (payment-table-round table))
+         (honba-points (* honba (payment-table-honba table)))
+         (missing (if (eq (payment-table-absent table) :split) (max 0 (- 4 players)) 0)))
     (flet ((share (multiplier extra)
-             (+ (round-up (* base multiplier) (payment-table-round table)) extra)))
+             (+ (round-up (* base multiplier) round) extra))
+           (with-absent (paid absent-multiplier)
+             ;; the multipliers are defined for 4 seats; the absent seats' shares are split between the payers
+             (round-up (+ paid (ceiling (* missing (round-up (* base absent-multiplier) round))
+                                        (1- players)))
+                       round)))
       (cond ((not tsumo)
              (let* ((ron (payment-table-ron table))
                     (paid (share (if dealer (car ron) (cdr ron)) honba-points)))
@@ -341,11 +351,11 @@
              (let ((extra (ceiling honba-points (1- players)))
                    (tsumo (payment-table-tsumo table)))
                (if dealer
-                   (let ((paid (share (car tsumo) extra)))
+                   (let ((paid (+ (with-absent (share (car tsumo) 0) (car tsumo)) extra)))
                      (values (list :dealer nil :other paid) (* paid (1- players))))
                    (destructuring-bind (from-dealer from-other) (cdr tsumo)
-                     (let ((dealer-paid (share from-dealer extra))
-                           (other-paid (share from-other extra)))
+                     (let ((dealer-paid (+ (with-absent (share from-dealer 0) from-other) extra))
+                           (other-paid (+ (with-absent (share from-other 0) from-other) extra)))
                        (values (list :dealer dealer-paid :other other-paid)
                                (+ dealer-paid (* other-paid (- players 2)))))))))))))
 

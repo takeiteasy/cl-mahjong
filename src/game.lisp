@@ -264,16 +264,22 @@ POINTS, KYOKU, HONBA and STICKS start the game part way through."
                                   :honba honba :riichi-sticks sticks
                                   :players (game-seats game))))))
 
-(defun winning-kinds (game counts melds)
-  "Kind ids that complete the hand of COUNTS and MELDS."
+(defun winning-kinds (game counts melds &key nuki concealed-only)
+  "Kind ids that complete the hand of COUNTS and MELDS.
+NUKI are the player's own tiles set aside. Copies in the hand, melds and NUKI are used up, or with
+CONCEALED-ONLY just those in COUNTS and NUKI, so a tile whose other copies are in a meld still waits."
   ;; TODO: one decomposition per tile kind; derive waits from the shanten search (#19)
-  (let ((tileset (game-tileset game))
-        (shapes (variant-shapes (game-variant game)))
-        (counts (copy-counts counts)))
+  (let* ((tileset (game-tileset game))
+         (shapes (variant-shapes (game-variant game)))
+         (counts (copy-counts counts))
+         (nuki-ids (tile-kind-ids game nuki))
+         (*check-copies* (not concealed-only)))
     (loop for kind across (tileset-kinds tileset)
           for id = (kind-id kind)
           when (and (not (eq (kind-category kind) :bonus))
-                    (< (held-count counts melds id) (kind-copies kind))
+                    (< (+ (if concealed-only (aref counts id) (held-count counts melds id))
+                          (count id nuki-ids))
+                       (kind-copies kind))
                     (progn (incf (aref counts id))
                            (prog1 (complete-p tileset shapes counts melds)
                              (decf (aref counts id)))))
@@ -284,7 +290,7 @@ POINTS, KYOKU, HONBA and STICKS start the game part way through."
     (or (player-temp-furiten player)
         (player-riichi-furiten player)
         (let ((waits (winning-kinds game (hand-counts (game-tileset game) (player-tiles player))
-                                    (player-melds player))))
+                                    (player-melds player) :nuki (player-nuki player))))
           (some (lambda (id) (member id waits))
                 (tile-kind-ids game (player-discards player)))))))
 
@@ -449,10 +455,13 @@ scores with uma and oka)."
                                                                 (getf payments :other))))))))))))
 
 (defun tenpai-p (game player)
-  (let ((variant (game-variant game)))
-    (eql 0 (shanten (game-tileset game) (variant-shapes variant)
-                    (hand-counts (game-tileset game) (player-tiles player))
-                    (player-melds player)))))
+  "True when PLAYER is one tile from a win and a winning kind is not held in full in the concealed hand."
+  (let* ((tileset (game-tileset game))
+         (counts (hand-counts tileset (player-tiles player))))
+    (and (eql 0 (shanten tileset (variant-shapes (game-variant game)) counts (player-melds player)))
+         (winning-kinds game counts (player-melds player)
+                        :nuki (player-nuki player) :concealed-only t)
+         t)))
 
 (defun exhaustive-draw (game)
   (let* ((deal (game-deal game))

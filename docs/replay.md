@@ -52,11 +52,9 @@ The suite also records seeded self-play games in the same format and replays the
 
 ## Results
 
-11,460 of 11,463 houou logs (2011 to 2026) replay exactly. The other three are in the limitations. All 2,107 sanma houou logs (2024-07 to 2026-07) replay exactly.
+All 11,463 houou logs (2011 to 2026) replay exactly. All 2,107 sanma houou logs (2024-07 to 2026-07) replay exactly.
 
 ## Limitations
-
-Three logs diverge where a player holds all four of a wait's tiles; Tenhou counts that hand noten and the engine counts it tenpai ([#27](https://todo.sr.ht/~takeiteasy/cl-mahjong/27)).
 
 See [PLAN.md](PLAN.md#limitations): sanma logs before 2022-01-23 are not replayed ([#36](https://todo.sr.ht/~takeiteasy/cl-mahjong/36)), and legal actions are recomputed on every move ([#19](https://todo.sr.ht/~takeiteasy/cl-mahjong/19)).
 

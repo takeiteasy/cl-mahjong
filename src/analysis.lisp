@@ -37,11 +37,14 @@
   "Tiles of kind ID in COUNTS and MELDS together."
   (+ (aref counts id) (loop for meld in melds sum (count id (meld-kinds meld)))))
 
+(defvar *check-copies* t
+  "Whether a hand holding more copies of a kind than the tileset has is invalid.")
+
 (defun check-copies (tileset counts melds)
   (loop for id below (length counts)
         for held = (held-count counts melds id)
         for kind = (tileset-kind tileset id)
-        when (> held (kind-copies kind))
+        when (and *check-copies* (> held (kind-copies kind)))
           do (bad-hand "A hand holds ~a ~(~a~), the tileset has ~a" held (kind-name kind)
                        (kind-copies kind))))
 

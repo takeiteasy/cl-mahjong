@@ -11,6 +11,10 @@
 (defscoring sanma :extends riichi
   (:payments (:honba 200)))
 
+;; The missing north's share is split between the payers.
+(defscoring sanma-split :extends sanma
+  (:payments (:absent split)))
+
 ;; Tsumo-son: the missing north's share is not paid.
 (defvariant sanma :extends riichi
   (:players 3)
@@ -20,3 +24,6 @@
         :start-points 35000 :target-points 40000 :uma (15 0 -15)
         :noten-payment 2000 :suufon-renda nil :suucha-riichi nil
         :riichi-min-tiles 3 :nukidora t))
+
+(defvariant sanma-split :extends sanma
+  (:scoring sanma-split))

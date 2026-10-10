@@ -244,9 +244,7 @@
 ;;; Real logs
 
 (defparameter *replay-known-failures*
-  '(("2012121117gm-00a9-0000-bf2db132&tw=1" . "#27: tenpai hand holds all four tiles of its wait")
-    ("2021032012gm-0029-0000-e0b9e6c1&tw=0" . "#27: tenpai hand holds all four tiles of its wait")
-    ("2025102709gm-00a9-0000-af75dfc4&tw=3" . "#27: tenpai hand holds all four tiles of its wait"))
+  '()
   "Alist of log id to the ticket that tracks its divergence.")
 
 (defun replay-log-files ()

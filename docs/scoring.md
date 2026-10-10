@@ -22,7 +22,7 @@
 | `(:floor yaku limit)` | A hand holding `yaku` scores at least `limit`; the yaku's han are not added |
 | `(:kiriage base)` | The base points that round up to the lowest limit when the `kiriage` option is on |
 | `(:dora (:indicator next))` | Indicator to dora: the next kind of the same suit or honor group, wrapping round; or a function `(tileset kind) -> kind id` |
-| `(:payments entry...)` | `(:ron :dealer m :other m)`, `(:tsumo :dealer m :other (from-dealer from-other))`, `(:pao [:ron r] [:honba h])`, `(:round n)`, `(:honba n)`, `(:riichi-stick n)` |
+| `(:payments entry...)` | `(:ron :dealer m :other m)`, `(:tsumo :dealer m :other (from-dealer from-other))`, `(:pao [:ron r] [:honba h])`, `(:round n)`, `(:honba n)`, `(:riichi-stick n)`, `(:absent none\|split)` |
 
 `:extends` inherits a scoring. A child entry replaces the parent's entry with the same key, and a new entry is added.
 
@@ -136,6 +136,19 @@ A seat [liable](yaku.md#pao) for a yakuman pays that yakuman as a ron. The rest 
 | `rinshan-tsumo-fu` | on | A win on a replacement draw earns tsumo fu |
 | `renhou` | off | `:yakuman` scores renhou as a yakuman, `:mangan` as a mangan floor |
 
-## Limitations
+## Sanma
 
-See [PLAN.md](PLAN.md#limitations): sanma tsumo is paid by the two other seats and the missing north is not split ([#23](https://todo.sr.ht/~takeiteasy/cl-mahjong/23)).
+A sanma tsumo is paid by the two other seats. `(:absent split)` splits the missing north's share between the payers: the share is the rounded four-player amount, added to each payer's and rounded up again.
+
+| Hand | `sanma` (none) | `sanma-split` |
+|---|---|---|
+| Non-dealer tsumo, base 240 | 500 / 300 | 700 / 500 |
+| Dealer tsumo, base 240 | 500 all | 800 all |
+| Mangan | 4000 / 2000 | 5000 / 3000 |
+
+```lisp
+(defscoring sanma-split :extends sanma
+  (:payments (:absent split)))
+```
+
+The `sanma-split` variant uses it.

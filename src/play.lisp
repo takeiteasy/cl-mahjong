@@ -179,8 +179,9 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
                                              :key (lambda (tile) (tile-kind-id tileset tile))))))
     (and (= id (tile-kind-id tileset drawn))
          (let ((quad (make-meld :quad (make-list 4 :initial-element id))))
-           (equal (winning-kinds game before (player-melds player))
-                  (winning-kinds game after (append (player-melds player) (list quad))))))))
+           (equal (winning-kinds game before (player-melds player) :nuki (player-nuki player))
+                  (winning-kinds game after (append (player-melds player) (list quad))
+                                 :nuki (player-nuki player)))))))
 
 (defun shouminkan-tiles (game deal seat)
   (let* ((player (deal-player deal seat))

@@ -68,7 +68,7 @@ Each event is `(type . plist)`.
 | Multiple ron | Honba and sticks go to the nearest winner |
 | Deal end | `game-result` holds `:type` (`:tsumo :ron :exhaustive :abortive`), `:deltas`, and details such as `:winners` or `:reason` |
 
-Exhaustive draws pay noten payments, or nagashi mangan like a tsumo of that limit. The dealer repeats on a win or, with `:renchan :tenpai`, when tenpai; honba reset after a non-dealer win. After a deal, game fields describe the next deal.
+Exhaustive draws pay noten payments (a hand is tenpai unless the concealed hand and own nukidora hold every copy of each winning tile; copies in a meld do not count), or nagashi mangan like a tsumo of that limit. The dealer repeats on a win or, with `:renchan :tenpai`, when tenpai; honba reset after a non-dealer win. After a deal, game fields describe the next deal.
 
 ## Game end
 
