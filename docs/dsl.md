@@ -10,14 +10,17 @@ A [tileset](tileset.md) delta, then a [variant](variant.md) delta on riichi.
 (deftileset sanma-108 :extends riichi-136
   (:remove (man 2 8)))
 
+(defscoring sanma :extends riichi
+  (:payments (:honba 200)))
+
 (defvariant sanma :extends riichi
-  (:players 3) (:tileset sanma-108)
+  (:players 3) (:tileset sanma-108) (:scoring sanma)
   (:set :chi nil :winds (:east :south :west)
         :start-points 35000 :target-points 40000 :uma (15 0 -15)
         :noten-payment 2000 :suufon-renda nil :suucha-riichi nil))
 ```
 
-A tsumo is paid by the two other seats at the normal multipliers.[^sanma]
+A tsumo is paid by the two other seats at the normal multipliers.[^sanma] Each honba is worth 200: the discarder pays it on a ron, each payer pays 100 on a tsumo.
 
 ## Event rulesets
 

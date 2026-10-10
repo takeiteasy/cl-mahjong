@@ -13,17 +13,17 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 | 4 | Scoring DSL | [#4](https://todo.sr.ht/~takeiteasy/cl-mahjong/4) | done |
 | 5 | Game-flow state machine, multiple ron | [#5](https://todo.sr.ht/~takeiteasy/cl-mahjong/5), [#18](https://todo.sr.ht/~takeiteasy/cl-mahjong/18) | done |
 | 6 | Variant deltas, sanma, event examples | [#6](https://todo.sr.ht/~takeiteasy/cl-mahjong/6) | done |
-| 7 | Riichi validation corpus | [#7](https://todo.sr.ht/~takeiteasy/cl-mahjong/7) | open |
+| 7 | Riichi validation corpus | [#7](https://todo.sr.ht/~takeiteasy/cl-mahjong/7) | done |
 
 ## Limitations
 
 | Limitation | Ticket |
 |---|---|
+| Impossible win contexts are not validated | [#25](https://todo.sr.ht/~takeiteasy/cl-mahjong/25) |
 | No Tenhou log replay validation | [#9](https://todo.sr.ht/~takeiteasy/cl-mahjong/9) |
 | No WRC or Tenhou rules variants | [#20](https://todo.sr.ht/~takeiteasy/cl-mahjong/20), [#21](https://todo.sr.ht/~takeiteasy/cl-mahjong/21) |
 | No sanma nukidora (kita) | [#22](https://todo.sr.ht/~takeiteasy/cl-mahjong/22) |
 | Sanma tsumo does not split the missing north share | [#23](https://todo.sr.ht/~takeiteasy/cl-mahjong/23) |
-| Sanma honba value unverified | [#24](https://todo.sr.ht/~takeiteasy/cl-mahjong/24) |
 | No HK variant | [#10](https://todo.sr.ht/~takeiteasy/cl-mahjong/10) |
 | No MCR variant | [#11](https://todo.sr.ht/~takeiteasy/cl-mahjong/11) |
 | No CLI; the library has no UI | [#12](https://todo.sr.ht/~takeiteasy/cl-mahjong/12) |

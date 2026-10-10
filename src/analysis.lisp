@@ -33,14 +33,27 @@
 (defun hand-size (counts melds)
   (+ (reduce #'+ counts) (* 3 (length melds))))
 
+(defun held-count (counts melds id)
+  "Tiles of kind ID in COUNTS and MELDS together."
+  (+ (aref counts id) (loop for meld in melds sum (count id (meld-kinds meld)))))
+
+(defun check-copies (tileset counts melds)
+  (loop for id below (length counts)
+        for held = (held-count counts melds id)
+        for kind = (tileset-kind tileset id)
+        when (> held (kind-copies kind))
+          do (bad-hand "A hand holds ~a ~(~a~), the tileset has ~a" held (kind-name kind)
+                       (kind-copies kind))))
+
 (defun check-hand (analysis counts melds)
-  "Signal INVALID-HAND unless the hand has 3n+1 or 3n+2 tiles; returns the size."
+  "Signal INVALID-HAND unless the hand has 3n+1 or 3n+2 tiles within the tileset's copies; returns the size."
   (unless (and (vectorp counts)
                (= (length counts) (tileset-kind-count (analysis-tileset analysis))))
     (bad-hand "Counts must be a vector with one entry per tile kind"))
   (let ((size (hand-size counts melds)))
     (unless (member (mod size 3) '(1 2))
       (bad-hand "A hand has 3n+1 or 3n+2 tiles, got ~a" size))
+    (check-copies (analysis-tileset analysis) counts melds)
     size))
 
 (defun kind-in-class-p (tileset kind class)
@@ -87,25 +100,33 @@
              (name (shape-name shape))
              (melded (mapcar #'meld-group melds))
              (results '()))
-        ;; The lowest remaining kind always starts its group, so each split is found once.
-        (labels ((walk (i sets pairs trail)
-                   (loop while (and (< i end) (zerop (aref counts i))) do (incf i))
+        ;; The lowest remaining kind always starts its group. Groups starting at the same kind are
+        ;; taken triplet, sequence, pair (FLOOR is the rank of the last), so each split is found once.
+        (labels ((walk (i sets pairs trail floor)
+                   (let ((start i))
+                     (loop while (and (< i end) (zerop (aref counts i))) do (incf i))
+                     (unless (= i start)
+                       (setf floor 0)))
                    (if (= i end)
                        (push (make-decomposition name (append melded (reverse trail))) results)
                        (let ((one (svref next i))
                              (two (svref next2 i)))
-                         (when (and (member :triplet types) (>= (aref counts i) 3) (plusp sets))
+                         (when (and (member :triplet types) (>= (aref counts i) 3) (plusp sets)
+                                    (<= floor 0))
                            (without (i i i)
-                             (walk i (1- sets) pairs (cons (make-group :triplet (list i i i)) trail))))
+                             (walk i (1- sets) pairs (cons (make-group :triplet (list i i i)) trail)
+                                   0)))
                          (when (and (member :sequence types) two (plusp sets)
-                                    (plusp (aref counts one)) (plusp (aref counts two)))
+                                    (plusp (aref counts one)) (plusp (aref counts two))
+                                    (<= floor 1))
                            (without (i one two)
                              (walk i (1- sets) pairs
-                                   (cons (make-group :sequence (list i one two)) trail))))
+                                   (cons (make-group :sequence (list i one two)) trail) 1)))
                          (when (and (>= (aref counts i) 2) (plusp pairs))
                            (without (i i)
-                             (walk i sets (1- pairs) (cons (make-group :pair (list i i)) trail))))))))
-          (walk 0 needed (shape-pair shape) '()))
+                             (walk i sets (1- pairs) (cons (make-group :pair (list i i)) trail)
+                                   2)))))))
+          (walk 0 needed (shape-pair shape) '() 0))
         (nreverse results)))))
 
 (defun decompose-pairs (shape counts melds)

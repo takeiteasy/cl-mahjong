@@ -2,7 +2,7 @@
 
 Mahjong rules engine for Common Lisp. A whole variant (tiles, wall, hand shapes, yaku, scoring, game flow) is defined in a DSL, and every definition can inherit from another.
 
-> **Work in progress.** The API will change before v1. Riichi plays end to end; other variants and the validation corpus are not done. See [docs/PLAN.md](docs/PLAN.md).
+> **Work in progress.** The API will change before v1. Riichi plays end to end and passes the [validation corpus](docs/corpus.md); other variants are not done. See [docs/PLAN.md](docs/PLAN.md).
 
 ```lisp
 (let ((game (start-game 'riichi :seed 42)))
@@ -25,6 +25,7 @@ Mahjong rules engine for Common Lisp. A whole variant (tiles, wall, hand shapes,
 | Variants and deltas | [docs/variant.md](docs/variant.md) |
 | DSL examples (sanma, events) | [docs/dsl.md](docs/dsl.md) |
 | Game flow | [docs/game.md](docs/game.md) |
+| Validation corpus | [docs/corpus.md](docs/corpus.md) |
 | Roadmap and limitations | [docs/PLAN.md](docs/PLAN.md) |
 
 ## Tests

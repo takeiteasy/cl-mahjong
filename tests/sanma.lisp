@@ -30,6 +30,16 @@
     (is (equal '(:dealer nil :other 4000) payments))
     (is (= 8000 total))))
 
+(test sanma-honba-is-200-split-between-the-payers
+  (flet ((payments (&rest args)
+           (multiple-value-list
+            (apply #'cl-mahjong::payments-for
+                   (cl-mahjong::scoring-payments (cl-mahjong::resolve-scoring 'sanma))
+                   2000 args))))
+    (is (equal '((:ron 8000) 8000) (payments nil nil 0 3)))
+    (is (equal '((:ron 8600) 8600) (payments nil nil 3 3)))
+    (is (equal '((:dealer 4100 :other 2100) 6200) (payments nil t 1 3)))))
+
 (test sanma-games-finish-and-conserve-points
   (dolist (seed '(1 2 3 4))
     (let* ((game (play-game (cl-mahjong:start-game 'sanma :seed seed)))

@@ -265,7 +265,7 @@ POINTS, KYOKU, HONBA and STICKS start the game part way through."
     (loop for kind across (tileset-kinds tileset)
           for id = (kind-id kind)
           when (and (not (eq (kind-category kind) :bonus))
-                    (< (aref counts id) (kind-copies kind))
+                    (< (held-count counts melds id) (kind-copies kind))
                     (progn (incf (aref counts id))
                            (prog1 (complete-p tileset shapes counts melds)
                              (decf (aref counts id)))))

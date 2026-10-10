@@ -18,7 +18,7 @@ Analysis tells whether a hand is complete, how it splits into groups, how far it
 | `counts` | Vector with one count per kind id: `(hand-counts tileset tiles)` builds one from tile ids |
 | `melds` | List of `(make-meld type kinds :open bool)`; type is `:sequence`, `:triplet` or `:quad` |
 
-A hand has 3n+1 or 3n+2 tiles, counting each meld as 3; other sizes signal `invalid-hand`. Bonus tiles do not belong in a hand.
+A hand has 3n+1 or 3n+2 tiles, counting each meld as 3, and holds no more copies of a kind than the tileset has, melds included; anything else signals `invalid-hand`. Bonus tiles do not belong in a hand.
 
 `(hand-closed-p melds)` is true when no meld is open. A closed kan keeps a hand closed.
 

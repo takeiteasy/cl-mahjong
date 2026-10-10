@@ -4,25 +4,30 @@
 
 (defparameter *riichi-shapes* '(standard seven-pairs kokushi))
 
-(defun hand (tileset notation)
-  "Kind counts from notation such as \"123m456p11z\" (z is east south west north white green red)."
-  (let ((counts (make-array (cl-mahjong:tileset-kind-count tileset)
-                            :element-type 'fixnum :initial-element 0))
-        (digits '()))
+(defun notation-entries (notation)
+  "(suit-letter rank red-p) for each tile of NOTATION; 0 is a red five."
+  (let ((digits '())
+        (entries '()))
     (loop for char across notation
           do (cond ((digit-char-p char) (push (digit-char-p char) digits))
                    ((char= char #\Space))
                    (t (dolist (digit (nreverse digits))
-                        (incf (aref counts
-                                    (cl-mahjong:kind-id
-                                     (if (char= char #\z)
-                                         (cl-mahjong:find-kind
-                                          tileset (nth (1- digit)
-                                                       '(east south west north white green red)))
-                                         (cl-mahjong:find-kind
-                                          tileset (ecase char (#\m 'man) (#\p 'pin) (#\s 'sou))
-                                          digit))))))
+                        (push (list char (if (zerop digit) 5 digit) (zerop digit)) entries))
                       (setf digits '()))))
+    (nreverse entries)))
+
+(defun entry-kind-id (tileset letter rank)
+  (cl-mahjong:kind-id
+   (if (char= letter #\z)
+       (cl-mahjong:find-kind tileset (nth (1- rank) '(east south west north white green red)))
+       (cl-mahjong:find-kind tileset (ecase letter (#\m 'man) (#\p 'pin) (#\s 'sou)) rank))))
+
+(defun hand (tileset notation)
+  "Kind counts from notation such as \"123m456p11z\" (z is east south west north white green red)."
+  (let ((counts (make-array (cl-mahjong:tileset-kind-count tileset)
+                            :element-type 'fixnum :initial-element 0)))
+    (loop for (letter rank) in (notation-entries notation)
+          do (incf (aref counts (entry-kind-id tileset letter rank))))
     counts))
 
 (defun kind-of (tileset name &optional rank)
@@ -90,6 +95,13 @@
     (signals cl-mahjong:invalid-hand
       (cl-mahjong:shanten ts '(standard) (make-array 3) '()))))
 
+(test hand-copies-are-checked
+  (with-riichi (ts)
+    (signals cl-mahjong:invalid-hand (shanten-of ts '(standard) "11111m234p567s11z"))
+    (signals cl-mahjong:invalid-hand
+      (shanten-of ts '(standard) "1111m234p567s1z" (list (meld ts :triplet "111m"))))
+    (finishes (shanten-of ts '(standard) "1111m234p567s111z"))))
+
 ;;; Sanma
 
 (test sanma-sequences-follow-rank-not-id
@@ -119,6 +131,12 @@
       (is (= 1 (length results)))
       (is (equal '(:sequence :sequence :sequence :sequence :pair)
                  (group-summary (first results)))))))
+
+(test groups-starting-on-the-same-kind-are-found-once
+  (with-riichi (ts)
+    (is (= 1 (length (decompositions-of ts 'standard "111123666789s11z"))))
+    (is (= 2 (length (decompositions-of ts 'standard "11122233388899m"))))
+    (is (= 1 (length (decompositions-of ts 'standard "22234m234s567s666z"))))))
 
 (test ryanpeikou-is-standard-and-seven-pairs
   (with-riichi (ts)
