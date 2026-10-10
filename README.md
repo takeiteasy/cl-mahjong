@@ -27,6 +27,7 @@ Mahjong rules engine for Common Lisp. A whole variant (tiles, wall, hand shapes,
 | Game flow | [docs/game.md](docs/game.md) |
 | Validation corpus | [docs/corpus.md](docs/corpus.md) |
 | Tenhou log replay | [docs/replay.md](docs/replay.md) |
+| Hong Kong variant | [docs/hk.md](docs/hk.md) |
 | Roadmap and limitations | [docs/PLAN.md](docs/PLAN.md) |
 
 ## Tests

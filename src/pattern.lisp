@@ -41,11 +41,14 @@
               (win-context-bonus (win-hand-context hand)))))
 
 (defun compile-selector (form)
-  "FORM is a symbol, or a list of them meaning any."
+  "FORM is a symbol, a list of them meaning any, or (and ...) meaning every one."
   (if (consp form)
-      (let ((selectors (mapcar #'compile-selector form)))
+      (let* ((every (eq :and (keyword-of (first form))))
+             (selectors (mapcar #'compile-selector (if every (rest form) form))))
         (lambda (hand kind)
-          (some (lambda (selector) (funcall selector hand kind)) selectors)))
+          (if every
+              (every (lambda (selector) (funcall selector hand kind)) selectors)
+              (some (lambda (selector) (funcall selector hand kind)) selectors))))
       (let ((key (keyword-of form)))
         (case key
           (:simple (lambda (hand kind)

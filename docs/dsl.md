@@ -84,6 +84,21 @@ A [variant](variant.md) delta on riichi, used by the [log replay](replay.md).
 
 The variant sets `sashikomi`, `daisharin :all`, `daichisei` and `pao-held`; its scoring adds `(:pao :rinshan tsumo)`. The [`aotenjou` scoring](scoring.md#aotenjou) extends that scoring and the `aotenjou` variant extends `house-rules` with it.
 
+## Hong Kong
+
+A tileset with [bonus tiles](tileset.md), a [fan table](scoring.md#fan-table) and game options with no riichi; see [hk.md](hk.md).
+
+```lisp
+(defscoring hk
+  (:points (0 1) (1 2) (2 4) (3 8) (4 16))
+  (:minimum 3)
+  (:limits (yakuman 128 :max 1))
+  (:payments (:ron :dealer 1 :other 1 :others 1/2) (:tsumo :dealer 1 :other (1 1))))
+
+(defvariant hk-full-shooter :extends hk
+  (:scoring hk-full-shooter))
+```
+
 ## Pages
 
 | Kind | Page |
@@ -93,5 +108,6 @@ The variant sets `sashikomi`, `daisharin :all`, `daichisei` and `pao-held`; its 
 | Yaku | [yaku.md](yaku.md) |
 | Scoring | [scoring.md](scoring.md) |
 | Variant, game options | [variant.md](variant.md), [game.md](game.md) |
+| Hong Kong | [hk.md](hk.md) |
 
 [^sanma]: The missing north's share is not paid. Limitations: [PLAN.md](PLAN.md#limitations).

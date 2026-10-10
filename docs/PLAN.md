@@ -15,6 +15,7 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 | 6 | Variant deltas, sanma, event examples | sr.ht #6 | done |
 | 7 | Riichi validation corpus | sr.ht #7 | done |
 | 8 | Tenhou variant and log replay | n/a | done |
+| 9 | Hong Kong variant: bonus tiles, fan table, game switches | #1, #21, #22, #23, #24 | done |
 
 ## Limitations
 
@@ -23,7 +24,6 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 | Open riichi cannot be declared in game flow; sashikomi is any ron in open riichi | [#20](https://github.com/takeiteasy/cl-mahjong/issues/20) |
 | No WRC rules variant | [#9](https://github.com/takeiteasy/cl-mahjong/issues/9) |
 | Sanma logs before 2022-01-23 are not replayed | [#18](https://github.com/takeiteasy/cl-mahjong/issues/18) |
-| No HK variant | [#1](https://github.com/takeiteasy/cl-mahjong/issues/1) |
 | No MCR variant | [#2](https://github.com/takeiteasy/cl-mahjong/issues/2) |
 | No CLI; the library has no UI | [#3](https://github.com/takeiteasy/cl-mahjong/issues/3) |
 | No bot interface | [#4](https://github.com/takeiteasy/cl-mahjong/issues/4) |

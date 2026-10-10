@@ -53,6 +53,7 @@ A selector picks tile kinds. A list of selectors means any of them.
 | `seat-bonus` | A bonus kind whose rank is the seat number, east being 1 |
 | `value` | Dragons, the seat wind and the round wind |
 | `man`, `sou-2`, `white`, `flower`... | A suit name, a kind name or a group name |
+| `(and sel...)` | Kinds matching every selector, such as `(and flower seat-bonus)` |
 
 ```lisp
 (every-tile (sou-2 sou-3 sou-4 sou-6 sou-8 green))
