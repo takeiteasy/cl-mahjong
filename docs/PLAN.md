@@ -22,8 +22,6 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 |---|---|
 | Impossible win contexts are not validated | [#10](https://github.com/takeiteasy/cl-mahjong/issues/10) |
 | Open riichi cannot be declared in game flow; sashikomi is any ron in open riichi | [#20](https://github.com/takeiteasy/cl-mahjong/issues/20) |
-| Pinfu fu rules are fixed | [#13](https://github.com/takeiteasy/cl-mahjong/issues/13) |
-| Renhou is a mangan floor, not a 5 han yaku | [#14](https://github.com/takeiteasy/cl-mahjong/issues/14) |
 | Upstream yaku class unit tests are not ported | [#15](https://github.com/takeiteasy/cl-mahjong/issues/15) |
 | No WRC rules variant | [#9](https://github.com/takeiteasy/cl-mahjong/issues/9) |
 | Sanma logs before 2022-01-23 are not replayed | [#18](https://github.com/takeiteasy/cl-mahjong/issues/18) |

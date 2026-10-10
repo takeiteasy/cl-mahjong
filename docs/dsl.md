@@ -59,7 +59,7 @@ A [variant](variant.md) delta on riichi, used by the [log replay](replay.md).
 
 (defvariant yaku-festival :extends riichi
   (:add :yaku daisharin)
-  (:remove :yaku renhou-mangan)
+  (:remove :yaku renhou-mangan renhou-han)
   (:set :renhou :yakuman :daisharin t))
 
 (defvariant sanma-tonpuu :extends sanma

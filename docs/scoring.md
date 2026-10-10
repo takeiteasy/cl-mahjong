@@ -54,7 +54,7 @@ A concealed group is one [`group-concealed-p`](pattern.md#win-hand) accepts, so 
 |---|---|
 | Pinfu tsumo / ron | 20 / 30 |
 | Chiitoitsu | 25 |
-| Open hand, no other fu | 30 |
+| Open hand, no other fu | 30 (`open-pinfu-fu`) |
 | Concealed terminal quad | 32 |
 
 ## Han and limits
@@ -164,7 +164,9 @@ A seat [liable](yaku.md#pao) for a yakuman pays that yakuman as a ron. The rest 
 | `kiriage` | off | 30 fu 4 han and 60 fu 3 han score mangan |
 | `double-wind-fu` | 4 | Most fu a pair earns; 2 pays a double wind pair 2 |
 | `rinshan-tsumo-fu` | on | A win on a replacement draw earns tsumo fu |
-| `renhou` | off | `:yakuman` scores renhou as a yakuman, `:mangan` as a mangan floor |
+| `renhou` | off | `:yakuman` scores renhou as a yakuman, `:mangan` as a mangan floor, `:han` as a 5 han yaku that stacks |
+| `open-pinfu-fu` | on | An open hand with no other fu scores 30 |
+| `pinfu-tsumo-fu` | off | Pinfu tsumo earns tsumo fu (30 instead of 20) |
 
 ## Sanma
 

@@ -28,7 +28,7 @@ KAZOE = {KAZOE_LIMITED: "limited", KAZOE_SANBAIMAN: "sanbaiman", KAZOE_NO_LIMIT:
 YAKU = {
     "Menzen Tsumo": "menzen-tsumo", "Riichi": "riichi", "Ippatsu": "ippatsu", "Chankan": "chankan",
     "Rinshan Kaihou": "rinshan", "Haitei Raoyue": "haitei", "Houtei Raoyui": "houtei",
-    "Double Riichi": "double-riichi", "Renhou": "renhou-mangan", "Pinfu": "pinfu",
+    "Double Riichi": "double-riichi", "Renhou": "renhou-han", "Pinfu": "pinfu",
     "Tanyao": "tanyao", "Iipeiko": "iipeikou", "Yakuhai (haku)": "haku",
     "Yakuhai (hatsu)": "hatsu", "Yakuhai (chun)": "chun", "Sanshoku Doujun": "sanshoku",
     "Ittsu": "ittsu", "Chantai": "chanta", "Chiitoitsu": "chiitoitsu", "Toitoi": "toitoi",
@@ -144,17 +144,13 @@ def our_yaku(names):
     return sorted(out)
 
 
-def unsupported_config(config):
-    options = config["options"]
-    if not options["fu_for_open_pinfu"] or options["fu_for_pinfu_tsumo"]:
-        raise Skip("fu rules for pinfu are not options")
-
-
 def our_options(options):
     daisharin = kw("all") if options["has_daisharin_other_suits"] else options["has_daisharin"]
     return {"kuitan": options["has_open_tanyao"], "double-yakuman": options["has_double_yakuman"],
-            "renhou": kw("yakuman" if options["renhou_as_yakuman"] else "mangan"),
+            "renhou": kw("yakuman" if options["renhou_as_yakuman"] else "han"),
             "kiriage": options["kiriage"], "double-wind-fu": 4, "rinshan-tsumo-fu": True,
+            "open-pinfu-fu": options["fu_for_open_pinfu"],
+            "pinfu-tsumo-fu": options["fu_for_pinfu_tsumo"],
             "sashikomi": options["has_sashikomi_yakuman"], "daisharin": daisharin,
             "daichisei": options["has_daichisei"],
             "paarenchan-without-yaku": not options["paarenchan_needs_yaku"]}
@@ -242,7 +238,6 @@ def hand_entry(record):
     aotenjou = inp["factory"] == "Aotenjou"
     if config["is_nagashi_mangan"]:
         return nagashi_entry(record)
-    unsupported_config(config)
     aka = config["options"]["has_aka_dora"]
     if result["error"] and result["error"] not in NO_SCORE_ERRORS:
         raise Skip("impossible contexts are not validated")
@@ -265,8 +260,7 @@ def hand_entry(record):
     expect = {"yaku": names, "yakuman": result["yakuman"]}
     if aotenjou or not result["yakuman"]:
         expect["fu"] = result["fu"]
-        if "renhou-mangan" not in names:
-            expect["han"] = result["han"]
+        expect["han"] = result["han"]
     entry["expect"] = {**expect, **expectation(result["cost"], config)}
     return entry
 
@@ -276,7 +270,6 @@ def scores_entry(record):
     config = inp["config"]
     if "raised" in result:
         raise Skip("upstream raises")
-    unsupported_config(config)
     return {"kind": kw("scores"), "han": inp["han"], "fu": inp["fu"],
             "yakuman": bool(inp.get("is_yakuman")),
             "context": {"tsumo": config["is_tsumo"], "dealer": config["is_dealer"]},

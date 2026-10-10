@@ -152,6 +152,8 @@
   (:when (context renhou) (option renhou :yakuman)))
 (defyaku renhou-mangan (:han 5 :closed-only t)
   (:when (context renhou) (option renhou :mangan)))
+(defyaku renhou-han (:han 5 :closed-only t)
+  (:when (context renhou) (option renhou :han)))
 
 
 ;;; Scoring
@@ -185,10 +187,11 @@
    chiitoitsu chanta junchan ittsu sanshoku sanshoku-doukou sanankou sankantsu
    toitoi shousangen honroutou honitsu chinitsu
    kokushi suuankou chuuren daisangen shousuushii daisuushii tsuuiisou chinroutou
-   ryuuiisou suukantsu tenhou chiihou renhou renhou-mangan)
+   ryuuiisou suukantsu tenhou chiihou renhou renhou-mangan renhou-han)
   (:scoring riichi)
   (:options :kuitan t :double-yakuman t :renhou nil
-            :kiriage nil :double-wind-fu 4 :rinshan-tsumo-fu t))
+            :kiriage nil :double-wind-fu 4 :rinshan-tsumo-fu t
+            :open-pinfu-fu t :pinfu-tsumo-fu nil))
 
 (defparameter *riichi-yaku* (variant-yaku (find-variant 'riichi)))
 (defparameter *riichi-options* (variant-options (find-variant 'riichi)))

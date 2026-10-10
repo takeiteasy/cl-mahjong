@@ -72,7 +72,7 @@ House-rule yaku are in [dsl.md](dsl.md#house-rules).
 |---|---|---|
 | `kuitan` | on | Tanyao scores with open melds |
 | `double-yakuman` | on | Yakuman with `:double-when` can double |
-| `renhou` | off | `:yakuman` scores renhou as a yakuman, `:mangan` as `renhou-mangan`, a 5 han yaku that [scoring](scoring.md) treats as a mangan floor |
+| `renhou` | off | `:yakuman` scores renhou as a yakuman, `:mangan` as `renhou-mangan`, a 5 han yaku that [scoring](scoring.md) treats as a mangan floor, `:han` as `renhou-han`, a 5 han yaku that stacks with the others |
 
 | Han (closed / open) | Yaku |
 |---|---|

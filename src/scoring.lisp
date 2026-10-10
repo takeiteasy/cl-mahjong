@@ -262,7 +262,8 @@
 (defun tsumo-fu (table hand names)
   (let ((context (win-hand-context hand)))
     (if (and (win-context-tsumo context)
-             (notany (lambda (name) (member name names)) (fu-table-no-tsumo-fu table))
+             (or (getf (win-hand-options hand) :pinfu-tsumo-fu)
+                 (notany (lambda (name) (member name names)) (fu-table-no-tsumo-fu table)))
              (or (not (win-context-rinshan context))
                  (getf (win-hand-options hand) :rinshan-tsumo-fu)))
         (fu-table-tsumo table)
@@ -289,7 +290,9 @@
                                     (pair-fu table hand)
                                     (wait-fu table hand))
                                  (fu-table-round table))))
-               (if closed fu (max fu (fu-table-open-minimum table))))))))
+               (if (or closed (not (getf (win-hand-options hand) :open-pinfu-fu)))
+                   fu
+                   (max fu (fu-table-open-minimum table))))))))
 
 ;;; Dora
 

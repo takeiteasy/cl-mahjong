@@ -141,7 +141,10 @@
     (is-score '((:pinfu :tanyao) 2 0) (ts "234m567p345s678s66p" "8s" :context-args '(:renhou t)))
     (is-score '((:renhou) 0 1)
               (ts "234m567p345s678s66p" "8s" :context-args '(:renhou t)
-                                             :options '(:renhou :yakuman)))))
+                                             :options '(:renhou :yakuman)))
+    (is-score '((:pinfu :renhou-han :tanyao) 7 0)
+              (ts "234m567p345s678s66p" "8s" :context-args '(:renhou t)
+                                             :options '(:renhou :han)))))
 
 (test double-yakuman
   (with-riichi (ts)

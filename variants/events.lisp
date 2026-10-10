@@ -65,7 +65,7 @@
 
 (defvariant yaku-festival :extends riichi
   (:add :yaku daisharin)
-  (:remove :yaku renhou-mangan)
+  (:remove :yaku renhou-mangan renhou-han)
   (:set :renhou :yakuman :daisharin t))
 
 (defvariant sanma-tonpuu :extends sanma

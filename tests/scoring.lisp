@@ -39,6 +39,18 @@
     (is-points '(20 3 2700) (ts "234m567p345s678s66p" "8s" :context-args '(:tsumo t)))
     (is-points '(30 2 2000) (ts "234m567p345s678s66p" "8s"))))
 
+(test pinfu-fu-rules-are-options
+  (with-riichi (ts)
+    (flet ((fu (options notation win &rest args)
+             (cl-mahjong:score-fu
+              (apply #'best-scored ts notation win
+                     :options (append options cl-mahjong:*riichi-options*) args))))
+      (is (= 20 (fu '() "234m567p345s678s66p" "8s" :context-args '(:tsumo t))))
+      (is (= 30 (fu '(:pinfu-tsumo-fu t) "234m567p345s678s66p" "8s" :context-args '(:tsumo t))))
+      (let ((melds (list (meld ts :sequence "234m" :open t))))
+        (is (= 30 (fu '() "567p345s678s66p" "8s" :melds melds)))
+        (is (= 20 (fu '(:open-pinfu-fu nil) "567p345s678s66p" "8s" :melds melds)))))))
+
 (test chiitoitsu-is-25-fu
   (with-riichi (ts)
     (is-points '(25 2 1600) (ts "1122m3344p5566s77z" "7z"))))
@@ -272,6 +284,14 @@
     (is (eq :mangan (cl-mahjong:score-limit
                      (best-scored ts "234m567p345s678s66p" "8s" :context-args '(:renhou t)
                                   :options '(:renhou :mangan)))))))
+
+(test renhou-han-stacks
+  (with-riichi (ts)
+    (flet ((best (renhou)
+             (best-scored ts *sanshoku-hand* "7m" :context-args '(:renhou t)
+                          :options (list* :renhou renhou cl-mahjong:*riichi-options*))))
+      (is (= 9 (cl-mahjong:score-han (best :han))))
+      (is (eq :baiman (cl-mahjong:score-limit (best :han)))))))
 
 ;;; Definitions
 

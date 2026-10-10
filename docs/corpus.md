@@ -1,6 +1,6 @@
 # Validation corpus
 
-The riichi rules are checked against 509 cases recorded from the test suite of the MIT-licensed Python [`mahjong`](https://github.com/MahjongRepository/mahjong) library. 479 run and the rest are skipped with a reason. The corpus passes when every run case matches.
+The riichi rules are checked against 509 cases recorded from the test suite of the MIT-licensed Python [`mahjong`](https://github.com/MahjongRepository/mahjong) library. 482 run and the rest are skipped with a reason. The corpus passes when every run case matches.
 
 ```
 sbcl --noinform --non-interactive --eval '(asdf:test-system "cl-mahjong")'
@@ -27,7 +27,6 @@ Each case names its variant and sets every option, so none inherits `*riichi-opt
 | Open tanyao off by default | `kuitan` is set per case |
 | Winds default to none | `seat-wind` and `round-wind` may be `NIL` |
 | Red fives count with `has_aka_dora` | `tiles` is passed only then |
-| Renhou is a 5 han yaku | Renhou is a mangan floor; han is not compared |
 | Kazoe and sextuple limits are config | `yakuman` limit `:han`, `:per` and `:max` |
 | `Aotenjou` calculator | `aotenjou` variant |
 | House yaku are config flags | [`house-rules` variant](dsl.md#house-rules) and its options |
@@ -40,7 +39,6 @@ Each case names its variant and sets every option, so none inherits `*riichi-opt
 |---|---|
 | Impossible contexts are not validated | 23 |
 | Meld tiles absent from the hand | 4 |
-| Pinfu fu rules as options | 1 |
 | Aotenjou kokushi with riichi or menzen-tsumo[^kokushi] | 2 |
 
 Whole-game checks against recorded games are in [replay.md](replay.md).
@@ -62,8 +60,6 @@ See [PLAN.md](PLAN.md#limitations):
 | Skipped | Ticket |
 |---|---|
 | Impossible win contexts are not validated | [#10](https://github.com/takeiteasy/cl-mahjong/issues/10) |
-| Pinfu fu rules are fixed | [#13](https://github.com/takeiteasy/cl-mahjong/issues/13) |
-| Renhou is a mangan floor, not a 5 han yaku | [#14](https://github.com/takeiteasy/cl-mahjong/issues/14) |
 | Upstream yaku class unit tests are not ported | [#15](https://github.com/takeiteasy/cl-mahjong/issues/15) |
 
 [^mapping]: Hands are written as notation with `0` for a red five. A case lists the concealed tiles with the winning tile, its melds, dora and ura indicators, honba and sticks. The mapping lives in `tools/riichi-corpus/generate.py`.
