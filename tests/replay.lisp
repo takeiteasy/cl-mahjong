@@ -200,12 +200,12 @@
     (loop for expected in (getf owari :scores)
           for actual across (getf final :scores)
           for seat from 0
-          unless (<= (abs (- expected actual)) 1000)
+          unless (= expected actual)
             do (diverge "final score of seat ~a: log has ~s, engine has ~s" seat expected actual))))
 
 ;;; Replaying a game
 
-(defun replay-game (data &optional (variant 'tenhou))
+(defun replay-game (data &optional (variant (or (getf data :variant) 'tenhou)))
   "NIL when the engine reproduces the logged game, else a description of the first divergence."
   (handler-case
       (let* ((deals (getf data :deals))
@@ -235,12 +235,21 @@
 
 ;;; Real logs
 
-(defparameter *replay-known-failures* '()
+(defparameter *replay-known-failures*
+  '(("2012121117gm-00a9-0000-bf2db132&tw=1" . "#27: tenpai hand holds all four tiles of its wait")
+    ("2021032012gm-0029-0000-e0b9e6c1&tw=0" . "#27: tenpai hand holds all four tiles of its wait")
+    ("2025102709gm-00a9-0000-af75dfc4&tw=3" . "#27: tenpai hand holds all four tiles of its wait"))
   "Alist of log id to the ticket that tracks its divergence.")
 
 (defun replay-log-files ()
-  (let ((dir (uiop:getenv "CL_MAHJONG_REPLAY_DIR")))
-    (and dir (directory (merge-pathnames "*.sexp" (uiop:ensure-directory-pathname dir))))))
+  "The converted logs in CL_MAHJONG_REPLAY_DIR, thinned to CL_MAHJONG_REPLAY_LIMIT evenly spaced ones."
+  (let* ((dir (uiop:getenv "CL_MAHJONG_REPLAY_DIR"))
+         (files (and dir (directory (merge-pathnames "*.sexp" (uiop:ensure-directory-pathname dir)))))
+         (limit (parse-integer (or (uiop:getenv "CL_MAHJONG_REPLAY_LIMIT") "") :junk-allowed t)))
+    (if (and limit (< 0 limit (length files)))
+        (loop for index below limit
+              collect (nth (floor (* index (length files)) limit) files))
+        files)))
 
 (defun read-replay-file (path)
   (with-open-file (in path)
@@ -248,18 +257,42 @@
           (*package* (find-package '#:cl-mahjong/tests)))
       (read in))))
 
+(defun replay-threads ()
+  (or (parse-integer (or (uiop:getenv "CL_MAHJONG_REPLAY_THREADS") "") :junk-allowed t) 4))
+
+(defun replay-file (path)
+  "(id . problem) for the converted log at PATH; a Lisp error counts as a problem."
+  (let ((data (read-replay-file path)))
+    (cons (getf data :id)
+          (handler-case (replay-game data)
+            (error (condition) (format nil "~a: ~a" (getf data :id) condition))))))
+
+(defun replay-files (files)
+  "A vector of (id . problem) in the order of FILES, replayed on REPLAY-THREADS threads."
+  (let* ((files (coerce files 'vector))
+         (results (make-array (length files)))
+         (next (list 0)))
+    ;; Workers only read the registry once the variants are compiled.
+    (dolist (name '(tenhou tenhou-2021))
+      (cl-mahjong:find-variant name))
+    (flet ((work ()
+             (loop for index = (sb-ext:atomic-incf (car next))
+                   while (< index (length files))
+                   do (setf (aref results index) (replay-file (aref files index))))))
+      (mapc #'sb-thread:join-thread
+            (loop repeat (max 1 (replay-threads)) collect (sb-thread:make-thread #'work))))
+    results))
+
 (test tenhou-logs-replay
   (let ((files (replay-log-files)))
     (if (null files)
         (skip "set CL_MAHJONG_REPLAY_DIR to a directory of converted Tenhou logs (docs/replay.md)")
-        (dolist (path files)
-          (let* ((data (read-replay-file path))
-                 (problem (replay-game data))
-                 (known (assoc (getf data :id) *replay-known-failures* :test #'string=)))
-            (cond ((and problem known) (skip "~a: ~a" (getf data :id) (cdr known)))
-                  (problem (fail "~a" problem))
-                  (known (fail "~a passes now; drop it from *replay-known-failures*" (getf data :id)))
-                  (t (pass))))))))
+        (loop for (id . problem) across (replay-files files)
+              for known = (assoc id *replay-known-failures* :test #'string=)
+              do (cond ((and problem known) (skip "~a: ~a" id (cdr known)))
+                       (problem (fail "~a" problem))
+                       (known (fail "~a passes now; drop it from *replay-known-failures*" id))
+                       (t (pass)))))))
 
 ;;; Self-play round trip: checks the replay machinery, not the rules
 

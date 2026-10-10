@@ -264,7 +264,8 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
                          (deal-rinshan deal) nil)
                    deal))))
     (emit :discard :seat seat :tile tile :riichi riichi)
-    (open-claim game tile seat)))
+    (open-claim (if (eq (opt game :kan-dora) :on-discard) (reveal-pending-dora game) game)
+                tile seat)))
 
 (defun open-claim (game tile from)
   (let ((options (loop for seat below (game-seats game)

@@ -1,4 +1,7 @@
+import gzip
+import tempfile
 import unittest
+from pathlib import Path
 
 import convert
 
@@ -72,6 +75,29 @@ class GameTest(unittest.TestCase):
         self.assertEqual([3900, -1300, -1300, -1300], win["deltas"])
         self.assertEqual([28900, 23700, 23700, 23700], game["owari"]["points"])
         self.assertEqual(30000, game["owari"]["scores"][0])
+
+    def test_double_ron_takes_ura_from_the_riichi_winner(self):
+        deal = {}
+        wins = [{"from": 1, "ura": []}, {"from": 1, "ura": [60]}]
+        convert.finish_deal(deal, {}, wins, "AGARI")
+        self.assertEqual([60], deal["ura"])
+
+
+class ScoringEraTest(unittest.TestCase):
+    def test_picks_the_variant_by_final_score_precision_and_date(self):
+        self.assertEqual(":tenhou-2021", convert.scoring_variant("2013010100gm", [60000, -20000]))
+        self.assertEqual(":tenhou", convert.scoring_variant("2013010100gm", [56100, -20000]))
+        self.assertEqual(":tenhou", convert.scoring_variant("2023010100gm", [60000, -20000]))
+
+
+class ReadLogTest(unittest.TestCase):
+    def test_reads_plain_and_gzip_logs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            plain, packed = Path(directory, "a.mjlog"), Path(directory, "b.mjlog")
+            plain.write_bytes("<mjloggm/>".encode())
+            packed.write_bytes(gzip.compress("<mjloggm/>".encode()))
+            self.assertEqual("<mjloggm/>", convert.read_log(plain))
+            self.assertEqual("<mjloggm/>", convert.read_log(packed))
 
 
 if __name__ == "__main__":

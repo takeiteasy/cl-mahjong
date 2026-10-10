@@ -74,7 +74,7 @@ Exhaustive draws pay noten payments, or nagashi mangan like a tsumo of that limi
 | A player below 0 | `:tobi` |
 | East (`:tonpuu`) or east and south (`:hanchan`) played | `:length` |
 | Nobody at the target after the last round, and a further wind remains | `:west-extension` |
-| The leading dealer wins (or is tenpai) in the last round | `:agari-yame`, `:tenpai-yame` |
+| The leading dealer wins (or is tenpai) in the last round or the extension | `:agari-yame`, `:tenpai-yame` |
 
 `game-final` holds `:order` (seats, first place first), `:points` (leftover sticks go to first place) and `:scores`: points over the target, plus `:uma` by place, plus the oka for first place.
 
@@ -89,7 +89,7 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 | `:west-extension` | on | Play one more wind below the target |
 | `:tobi`, `:agari-yame`, `:tenpai-yame` | on, on, off | Early game end |
 | `:kuikae` | `:forbid` | Discard forbidden after a call: `:forbid` the kind and the sequence's far end, `:same-kind`, or `nil` |
-| `:kan-dora` | `:after-discard` | Open kan dora timing; `:immediate` flips at once. A closed kan always flips at once |
+| `:kan-dora` | `:after-discard` | Open kan dora timing: `:after-discard` flips once the discard passes, `:on-discard` flips as the discard is made so a ron on it counts it, `:immediate` flips at once. A closed kan always flips at once |
 | `:chi` | on | |
 | `:ankan-chankan` | `:kokushi` | Who may rob a closed kan; `nil` for nobody |
 | `:multi-ron` | `:double` | Winners allowed: `:head-bump`, `:double`, `:triple` |
@@ -101,6 +101,7 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 | `:renchan` | `:tenpai` | Dealer repeats when tenpai; `:win-only` |
 | `:initial-dora` | 1 | Dora indicators showing at the start of a deal |
 | `:uma`, `:oka` | `(15 5 -5 -15)`, on | Thousands by place; oka is players x (target - start) to first |
+| `:score-rounding` | off | `:half-away` rounds each other seat's points to thousands, a half going away from zero, and gives first place the negated sum |
 | `:winds` | east south west north | Seat and round wind kinds |
 
 ## Starting mid-game

@@ -15,7 +15,7 @@
     :kyuushu t :suufon-renda t :suucha-riichi t :suukaikan t
     :nagashi-mangan :mangan :noten-payment 3000
     :riichi-cost 1000 :riichi-min-tiles 4 :renchan :tenpai
-    :uma (15 5 -5 -15) :oka t :initial-dora 1
+    :uma (15 5 -5 -15) :oka t :score-rounding nil :initial-dora 1
     :winds (:east :south :west :north))
   "Game-flow options a variant's :options may override.")
 
@@ -312,6 +312,10 @@ POINTS, KYOKU, HONBA and STICKS start the game part way through."
 
 ;;; Ending a deal
 
+(defun round-half-away (points)
+  "POINTS rounded to thousands, a half going away from zero."
+  (* (signum points) (floor (+ (abs points) 500) 1000)))
+
 (defun standings (game points sticks)
   "Plist (:order seats best first :points points with the table's STICKS given to first :scores final
 scores with uma and oka)."
@@ -323,14 +327,21 @@ scores with uma and oka)."
          (target (opt game :target-points))
          (oka (and (opt game :oka)
                    (* seats (- target (opt game :start-points)))))
+         (rounded (eq (opt game :score-rounding) :half-away))
          (scores (make-array seats)))
     (incf (aref points (first order)) (* sticks (opt game :riichi-cost)))
     (loop for seat in order
           for place from 0
           do (setf (aref scores seat)
-                   (+ (- (aref points seat) target)
-                      (* 1000 (or (nth place uma) 0))
-                      (if (and oka (zerop place)) oka 0))))
+                   (if rounded
+                       (+ (- (* 1000 (round-half-away (aref points seat))) target)
+                          (* 1000 (or (nth place uma) 0)))
+                       (+ (- (aref points seat) target)
+                          (* 1000 (or (nth place uma) 0))
+                          (if (and oka (zerop place)) oka 0)))))
+    (when rounded
+      (setf (aref scores (first order))
+            (- (loop for seat in (rest order) sum (aref scores seat)))))
     (list :order order :points points :scores scores)))
 
 (defun game-ends-p (game points kyoku renchan yame)
@@ -343,8 +354,8 @@ scores with uma and oka)."
          (dealer (mod kyoku seats)))
     (cond ((and (opt game :tobi) (some #'minusp points)) t)
           ((>= kyoku limit) t)
-          ((and (>= kyoku regular) (>= top target)) t)
-          ((and renchan yame (= kyoku (1- regular)) (>= top target)
+          ((and (>= kyoku regular) (not renchan) (>= top target)) t)
+          ((and renchan yame (>= kyoku (1- regular)) (>= top target)
                 (= dealer (position top points))
                 (if (eq yame :agari) (opt game :agari-yame) (opt game :tenpai-yame)))
            t))))

@@ -361,6 +361,18 @@ A notation picks a tile of that kind from SEAT's hand, a different one each time
     (setf game (act game 1 :daiminkan "5z" "5z" "5z"))
     (is (= 2 (dora-count game)))))
 
+(test on-discard-kan-dora-appears-before-the-discard-is-claimed
+  (variant-with 'kan-on-discard :kan-dora :on-discard)
+  (let ((game (cl-mahjong:start-game
+               'kan-on-discard
+               :walls (list (stacked :hands *kan-hands* :draws '("5z") :rinshan '("6z")
+                                     :dora '("1m" "2m"))))))
+    (setf game (act game 0 :discard "5z"))
+    (setf game (act game 1 :daiminkan "5z" "5z" "5z"))
+    (is (= 1 (dora-count game)))
+    (setf game (act game 1 :discard "6z"))
+    (is (= 2 (dora-count game)))))
+
 (test rinshan-win
   (let ((game (new-game :hands *kan-hands* :draws '("5z") :rinshan '("9m"))))
     (setf game (act game 0 :discard "5z"))
@@ -687,6 +699,12 @@ A notation picks a tile of that kind from SEAT's hand, a different one each time
     (is (cl-mahjong:game-over-p game))
     (is (minusp (aref (cl-mahjong:game-points game) 0)))))
 
+(test the-extension-continues-when-a-trailing-dealer-repeats
+  (let ((game (cl-mahjong:start-game 'riichi :walls (list (stacked)))))
+    (is (not (cl-mahjong::game-ends-p game #(36000 20000 20000 24000) 11 t :agari)))
+    (is (cl-mahjong::game-ends-p game #(24000 20000 20000 36000) 11 t :agari))
+    (is (cl-mahjong::game-ends-p game #(36000 20000 20000 24000) 11 nil :agari))))
+
 (defun tenhou-game (&rest options)
   (let ((game (cl-mahjong:start-game
                (if options (apply #'variant-with 'tenhou-test options) 'riichi)
@@ -989,3 +1007,27 @@ A notation picks a tile of that kind from SEAT's hand, a different one each time
   (is (equal '((0 . 0) (1 . 32000) (2 . 0) (3 . -32000)) (pao-deltas 1 nil :tsumo t)))
   (is (equal '((1 . 32000) (2 . -16000) (3 . -16000)) (pao-deltas 1 2)))
   (is (equal '((1 . 32000) (3 . -32000)) (pao-deltas 1 3))))
+
+(test score-rounding-rounds-each-seat-and-pays-first-the-remainder
+  (variant-with 'rounded :score-rounding :half-away)
+  (let* ((game (cl-mahjong:start-game 'rounded :walls (list (stacked))))
+         (standings (cl-mahjong::standings game #(18700 25700 4500 51100) 0)))
+    (is (equal '(3 1 0 2) (getf standings :order)))
+    (is (equal '(-16000 1000 -40000 55000)
+               (coerce (getf standings :scores) 'list)))))
+
+(test score-rounding-rounds-each-seat-and-pays-first-the-remainder
+  (variant-with 'rounded :score-rounding :half-away)
+  (let* ((game (cl-mahjong:start-game 'rounded :walls (list (stacked))))
+         (standings (cl-mahjong::standings game #(18700 25700 4500 51100) 0)))
+    (is (equal '(3 1 0 2) (getf standings :order)))
+    (is (equal '(-16000 1000 -40000 55000)
+               (coerce (getf standings :scores) 'list)))))
+
+(test the-extension-ends-when-a-leading-dealer-repeats
+  (let ((game (cl-mahjong:start-game
+               'riichi :kyoku 11 :points '(24000 20000 20000 36000)
+                       :walls (list (stacked :hands '("159m159p159s2345z" "246m246p246s6677z"
+                                                      "357m357p357s3344z" "123m456m789p234s1z")
+                                             :draws '("1z") :dealer 3)))))
+    (is (cl-mahjong:game-over-p (cl-mahjong:apply-action game 3 '(:tsumo))))))

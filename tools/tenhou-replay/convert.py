@@ -7,6 +7,7 @@ Logs are not included in this repository; download your own (see docs/replay.md)
 Only 4-player hanchan with red fives and open tanyao are accepted.
 """
 import argparse
+import gzip
 import json
 import re
 import sys
@@ -133,10 +134,19 @@ def owari(tag):
             "scores": [round(float(s) * 1000) for s in parts[1::2]]}
 
 
+ROUNDING_ENDED = "20220123"
+
+
+def scoring_variant(name, scores):
+    """Tenhou rounded final scores to whole thousands until January 2022, then kept one decimal."""
+    exact = any(score % 1000 for score in scores) or name[:8] >= ROUNDING_ENDED
+    return Sym(":tenhou" if exact else ":tenhou-2021")
+
+
 def finish_deal(deal, tag, wins, kind):
     if kind == "AGARI":
         deal["result"] = {"type": Sym(":tsumo" if wins[0]["from"] is None else ":ron"), "wins": wins}
-        deal["ura"] = wins[0]["ura"]
+        deal["ura"] = next((win["ura"] for win in wins if win["ura"]), [])
     else:
         reason = RYUUKYOKU.get(tag["type"]) if "type" in tag else None
         revealed = [seat for seat in range(4) if f"hai{seat}" in tag]
@@ -201,7 +211,16 @@ def convert(text, name):
             finish_deal(deal, tag, wins, "AGARI")
     if "owari" not in game:
         raise ValueError("the log has no final result (owari)")
+    game["variant"] = scoring_variant(name, game["owari"]["scores"])
     return game
+
+
+def read_log(path):
+    """Log text; houou zips store gzip-compressed logs under a .mjlog name."""
+    raw = path.read_bytes()
+    if raw[:2] == b"\x1f\x8b":
+        raw = gzip.decompress(raw)
+    return raw.decode("utf-8")
 
 
 def main():
@@ -215,7 +234,7 @@ def main():
         if path.suffix not in (".mjlog", ".xml"):
             continue
         try:
-            game = convert(path.read_text(encoding="utf-8"), path.stem)
+            game = convert(read_log(path), path.stem)
         except (ValueError, KeyError) as error:
             print(f"{path.name}: {error}", file=sys.stderr)
             failed += 1

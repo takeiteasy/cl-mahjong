@@ -1,3 +1,12 @@
 *.fasl
 .DS_Store
 __pycache__/
+# Tenhou logs and converter output (docs/replay.md, tools/tenhou-replay/fetch_logs.py)
+logs/
+converted/
+data/
+*.mjlog
+*.zip
+tools/tenhou-replay/logs/
+tools/tenhou-replay/zips/
+tools/tenhou-replay/converted/
