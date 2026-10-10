@@ -24,7 +24,7 @@
 
 (defun make-meld (type kinds &key open from tiles)
   "TYPE is :sequence, :triplet or :quad; KINDS lists the kind id of every tile.
-FROM is the seat the called tile came from and TILES the tile ids; scoring ignores both."
+FROM is the seat the called tile came from, which decides who is liable for pao, and TILES the tile ids."
   (unless (member type '(:sequence :triplet :quad))
     (bad-hand "Unknown meld type ~s" type))
   (unless (= (length kinds) (if (eq type :quad) 4 3))

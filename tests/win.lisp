@@ -8,8 +8,8 @@
         for id from 0
         append (make-list count :initial-element id)))
 
-(defun meld (tileset type notation &key open)
-  (cl-mahjong:make-meld type (kind-ids tileset notation) :open open))
+(defun meld (tileset type notation &key open from)
+  (cl-mahjong:make-meld type (kind-ids tileset notation) :open open :from from))
 
 (defun context (tileset win &rest args)
   "A win context for the tile WIN (notation such as \"4m\"); both winds are east unless given."

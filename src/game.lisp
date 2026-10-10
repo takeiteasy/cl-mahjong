@@ -292,13 +292,15 @@ POINTS, KYOKU, HONBA and STICKS start the game part way through."
   (let ((payments (score-payments score))
         (dealer (deal-dealer deal)))
     (cons (cons winner (score-points score))
-          (if from
-              (list (cons from (- (second payments))))
-              (loop for seat below (game-seats game)
-                    unless (= seat winner)
-                      collect (cons seat (- (if (and (/= winner dealer) (= seat dealer))
-                                                (getf payments :dealer)
-                                                (getf payments :other)))))))))
+          (append (if from
+                      (list (cons from (- (second payments))))
+                      (loop for seat below (game-seats game)
+                            unless (= seat winner)
+                              collect (cons seat (- (if (and (/= winner dealer) (= seat dealer))
+                                                        (getf payments :dealer)
+                                                        (getf payments :other))))))
+                  (loop for (seat . amount) in (getf payments :pao)
+                        collect (cons seat (- amount)))))))
 
 (defun merge-deltas (&rest lists)
   (let ((totals '()))
@@ -386,7 +388,7 @@ scores with uma and oka)."
         (emit :win :seat winner :from (cddr (assoc winner score-table))
                    :han (score-han score) :fu (score-fu score) :limit (score-limit score)
                    :points (score-points score) :yaku (reading-yaku (score-reading score))
-                   :score score)))
+                   :pao (getf (score-payments score) :pao) :score score)))
     (conclude-deal game deal (if (cddr (assoc (first winners) score-table)) :ron :tsumo) deltas
                    :renchan dealer-wins :reset-honba (not dealer-wins) :collect t :yame :agari
                    :detail (list :winners winners))))

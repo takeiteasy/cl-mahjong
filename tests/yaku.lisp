@@ -210,3 +210,43 @@
     (invalid 'test-bad-han '(:han 0) '(:when t))
     (invalid 'test-bad-clause '(:han 1) '(:when t) '(:colour red))
     (invalid 'test-stray-clause '(:han 1) 'bogus '(:when t))))
+
+;;; Pao
+
+(defun pao-melds (ts &rest givers)
+  (loop for notation in '("555z" "666z" "777z")
+        for from in givers
+        collect (meld ts :triplet notation :open t :from from)))
+
+(defun pao-of (ts notation win &rest args)
+  (cl-mahjong:reading-pao (apply #'best ts notation win args)))
+
+(test pao-is-the-giver-of-the-last-completing-meld
+  (with-riichi (ts)
+    (is (equal '((3 . 1)) (pao-of ts "234m11p" "2m" :melds (pao-melds ts 1 2 3))))
+    (is (equal '((1 . 1)) (pao-of ts "234m11p" "2m" :melds (pao-melds ts 3 2 1))))
+    (is (equal '((2 . 2))
+               (pao-of ts "11p" "1p" :melds (append (list (meld ts :triplet "111z" :open t :from 1)
+                                                          (meld ts :triplet "222z" :open t :from 3)
+                                                          (meld ts :triplet "333z" :open t :from 0)
+                                                          (meld ts :triplet "444z" :open t :from 2))))))))
+
+(test pao-needs-an-open-meld-and-no-concealed-set
+  (with-riichi (ts)
+    (is (null (pao-of ts "777z234m11p" "2m" :melds (pao-melds ts 1 2))))
+    (is (null (pao-of ts "234m11p" "2m"
+                      :melds (list (meld ts :triplet "555z" :open t :from 1)
+                                   (meld ts :triplet "666z" :open t :from 2)
+                                   (meld ts :quad "7777z")))))
+    (is (equal '((2 . 1))
+               (pao-of ts "234m11p" "2m"
+                       :melds (list (meld ts :quad "7777z")
+                                    (meld ts :triplet "555z" :open t :from 1)
+                                    (meld ts :triplet "666z" :open t :from 2)))))
+    (is (null (pao-of ts "234m567p345s678s11p" "2m")))))
+
+(test pao-is-only-for-yakuman
+  (signals cl-mahjong:invalid-definition
+    (cl-mahjong::register-definition :yaku 'test-han-pao nil
+                                     '((:name test-han-pao) (:han 1 :pao dragon) (:when t)))
+    (cl-mahjong:find-yaku 'test-han-pao)))

@@ -277,3 +277,84 @@
     (invalid 'test-bad-fu '(:fu (:colour 2)) '(:limits (yakuman 8000)))
     (invalid 'test-bad-floor '(:fu (:base 20)) '(:limits (yakuman 8000)) '(:floor x mangan))
     (invalid 'test-no-payments '(:fu (:base 20)) '(:limits (yakuman 8000)))))
+
+;;; Pao
+
+(defun pao-score (ts &key tsumo dealer honba (scoring 'riichi) (givers '(1 2 3))
+                       (notation "234m11p") (win "2m") melds)
+  (best-scored ts notation win
+               :melds (or melds
+                          (loop for dragon in '("555z" "666z" "777z")
+                                for from in givers
+                                collect (meld ts :triplet dragon :open t :from from)))
+               :context-args (list :tsumo tsumo :dealer dealer)
+               :honba honba :scoring scoring))
+
+(defun pao-scoring (honba ron)
+  (let ((name (intern (format nil "TEST-PAO-~a-~a" ron honba) :cl-mahjong/tests)))
+    (cl-mahjong::register-definition
+     :scoring name 'riichi `((:name ,name) (:payments (:pao :ron ,ron :honba ,honba))))
+    name))
+
+(test pao-ron-is-split-with-the-discarder
+  (with-riichi (ts)
+    (let ((score (pao-score ts)))
+      (is (equal '(:ron 16000 :pao ((3 . 16000))) (cl-mahjong:score-payments score)))
+      (is (= 32000 (cl-mahjong:score-points score))))
+    (let ((score (pao-score ts :dealer t)))
+      (is (equal '(:ron 24000 :pao ((3 . 24000))) (cl-mahjong:score-payments score)))
+      (is (= 48000 (cl-mahjong:score-points score))))))
+
+(test pao-tsumo-is-paid-by-the-liable-seat
+  (with-riichi (ts)
+    (let ((score (pao-score ts :tsumo t :honba 2)))
+      (is (equal '(:dealer 0 :other 0 :pao ((3 . 32600))) (cl-mahjong:score-payments score)))
+      (is (= 32600 (cl-mahjong:score-points score))))
+    (is (equal '(:dealer nil :other 0 :pao ((3 . 48000)))
+               (cl-mahjong:score-payments (pao-score ts :tsumo t :dealer t))))))
+
+(test pao-honba-follows-the-scoring
+  (with-riichi (ts)
+    (flet ((payments (scoring)
+             (cl-mahjong:score-payments (pao-score ts :honba 3 :scoring scoring))))
+      (is (equal '(:ron 16900 :pao ((3 . 16000))) (payments 'riichi)))
+      (is (equal '(:ron 16000 :pao ((3 . 16900))) (payments (pao-scoring 'liable 'split))))
+      (is (equal '(:ron 16450 :pao ((3 . 16450))) (payments (pao-scoring 'split 'split))))
+      (is (equal '(:ron 0 :pao ((3 . 32900))) (payments (pao-scoring 'liable 'liable)))))))
+
+(test pao-covers-only-its-own-yakuman
+  (with-riichi (ts)
+    (let ((score (pao-score ts :tsumo t :notation "11z222z" :win "2z")))
+      (is (equal '(:dealer 16000 :other 8000 :pao ((3 . 32000)))
+                 (cl-mahjong:score-payments score)))
+      (is (= 64000 (cl-mahjong:score-points score))))
+    (let ((score (pao-score ts :notation "11z222z" :win "2z")))
+      (is (equal '(:ron 48000 :pao ((3 . 16000))) (cl-mahjong:score-payments score))))))
+
+(test double-pao-yakuman-is-split-as-two
+  (with-riichi (ts)
+    (let ((score (pao-score ts :notation "11p" :win "1p"
+                               :melds (list (meld ts :triplet "111z" :open t :from 0)
+                                            (meld ts :triplet "222z" :open t :from 2)
+                                            (meld ts :triplet "333z" :open t :from 3)
+                                            (meld ts :triplet "444z" :open t :from 1)))))
+      (is (equal '(:ron 32000 :pao ((1 . 32000))) (cl-mahjong:score-payments score)))
+      (is (= 64000 (cl-mahjong:score-points score))))))
+
+(test no-pao-leaves-payments-alone
+  (with-riichi (ts)
+    (is (equal '(:ron 32000)
+               (cl-mahjong:score-payments
+                (pao-score ts :melds (list (meld ts :triplet "555z" :open t)
+                                           (meld ts :triplet "666z" :open t)
+                                           (meld ts :triplet "777z" :open t))))))))
+
+(test invalid-pao-payments
+  (flet ((invalid (name &rest entry)
+           (cl-mahjong::register-definition
+            :scoring name 'riichi `((:name ,name) (:payments (:pao ,@entry))))
+           (signals cl-mahjong:invalid-definition (cl-mahjong:find-scoring name))))
+    (invalid 'test-pao-bad-ron :ron 'half)
+    (invalid 'test-pao-bad-honba :honba 'nobody)
+    (invalid 'test-pao-bad-key :colour 'red)
+    (invalid 'test-pao-bad-value :ron 3)))

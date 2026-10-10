@@ -3,10 +3,12 @@
 (defstruct yaku
   spec name
   han open-han yakuman closed-only
-  double-when patterns implies excludes)
+  double-when pao patterns implies excludes)
 
-(defstruct (reading (:constructor make-reading (decomposition win-group wait yaku han yakuman hand)))
-  decomposition win-group wait yaku han yakuman hand)
+;; pao is an alist of (liable-seat . yakuman) for the yakuman the liable seats fed.
+(defstruct (reading (:constructor make-reading (decomposition win-group wait yaku han yakuman hand
+                                                pao)))
+  decomposition win-group wait yaku han yakuman hand pao)
 
 (defparameter *yaku-clauses* '(:name :han :yakuman :when :implies :excludes))
 
@@ -47,7 +49,7 @@
          (options (clause-options (rest args) (if han-args ":han" ":yakuman")
                                   (if han-args
                                       '(:open :closed-only)
-                                      '(:closed-only :double-when)))))
+                                      '(:closed-only :double-when :pao)))))
     (unless (xor (clause-present-p spec :han) (clause-present-p spec :yakuman))
       (invalid "Yaku ~(~a~) needs exactly one of :han and :yakuman" name))
     (unless (getf spec :when)
@@ -63,6 +65,7 @@
                  :closed-only (and (getf options :closed-only) t)
                  :double-when (and (getf options :double-when)
                                    (compile-pattern (getf options :double-when)))
+                 :pao (and (getf options :pao) (compile-selector (getf options :pao)))
                  :patterns (compile-patterns (getf spec :when))
                  :implies (name-list (getf spec :implies) ":implies")
                  :excludes (name-list (getf spec :excludes) ":excludes")))))
@@ -112,6 +115,21 @@
   (let ((yakuman (remove-if-not (lambda (award) (yaku-yakuman (car award))) awards)))
     (drop-excluded (drop-implied (or yakuman awards)))))
 
+(defun pao-seat (yaku hand)
+  "The seat that fed the last meld completing YAKU, or NIL.
+The matching sets must all be melds and the last of them open."
+  (let ((selector (yaku-pao yaku)))
+    (flet ((matches (group)
+             (and (member (group-type group) '(:triplet :quad))
+                  (funcall selector hand (kind-of-id hand (first (group-kinds group)))))))
+      (when selector
+        (let* ((melds (win-hand-melds hand))
+               (last (find-if (lambda (meld) (matches (meld-group meld))) melds :from-end t)))
+          (and last
+               (meld-open-p last)
+               (notany #'matches (nthcdr (length melds) (hand-groups hand)))
+               (meld-from last)))))))
+
 (defun read-win-hand (hand yaku)
   (let* ((awards (settle-awards (remove nil (mapcar (lambda (item) (award hand item)) yaku))))
          (yakuman (loop for (item . value) in awards
@@ -120,7 +138,10 @@
                   (mapcar (lambda (award) (cons (yaku-name (car award)) (cdr award))) awards)
                   (if (plusp yakuman) 0 (reduce #'+ awards :key #'cdr))
                   yakuman
-                  hand)))
+                  hand
+                  (loop for (item . value) in awards
+                        for seat = (and (yaku-yakuman item) (pao-seat item hand))
+                        when seat collect (cons seat value)))))
 
 (defun evaluate-yaku (tileset shapes yaku counts melds context &key options)
   "Every reading of a winning hand: each decomposition at each winning-tile placement.

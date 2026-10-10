@@ -958,3 +958,21 @@ A notation picks a tile of that kind from SEAT's hand, a different one each time
                  (setf game (cl-mahjong:next-deal game))))
       (is (= 100000 (reduce #'+ (getf (cl-mahjong:game-final game) :points))))
       (is (= 0 (reduce #'+ (getf (cl-mahjong:game-final game) :scores)))))))
+
+;;; Pao
+
+(defun pao-deltas (winner from &key tsumo)
+  (let* ((ts (cl-mahjong:find-tileset 'riichi-136))
+         (game (cl-mahjong:start-game 'riichi :seed 1))
+         (score (best-scored ts "234m11p" "2m"
+                             :melds (loop for dragon in '("555z" "666z" "777z")
+                                          for giver in '(1 2 3)
+                                          collect (meld ts :triplet dragon :open t :from giver))
+                             :context-args (list :tsumo tsumo))))
+    (cl-mahjong::merge-deltas
+     (cl-mahjong::win-deltas game (cl-mahjong::game-deal game) score winner from))))
+
+(test pao-seat-pays-for-the-yakuman
+  (is (equal '((0 . 0) (1 . 32000) (2 . 0) (3 . -32000)) (pao-deltas 1 nil :tsumo t)))
+  (is (equal '((1 . 32000) (2 . -16000) (3 . -16000)) (pao-deltas 1 2)))
+  (is (equal '((1 . 32000) (3 . -32000)) (pao-deltas 1 3))))

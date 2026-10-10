@@ -121,11 +121,11 @@
                                                    (win-hand-pre-win-counts hand) t)))
   (:when (:lambda (hand)
            (chuuren-counts-p (win-hand-tileset hand) (win-hand-counts hand) nil))))
-(defyaku daisangen (:yakuman 1)
+(defyaku daisangen (:yakuman 1 :pao dragon)
   (:when (count-groups 3 (triplet quad) dragon)))
 (defyaku shousuushii (:yakuman 1)
   (:when (count-groups 3 (triplet quad) wind) (pair wind)))
-(defyaku daisuushii (:yakuman 1 :double-when t)
+(defyaku daisuushii (:yakuman 1 :double-when t :pao wind)
   (:when (count-groups 4 (triplet quad) wind)))
 (defyaku tsuuiisou (:yakuman 1)
   (:when (every-tile honor)))
@@ -161,6 +161,7 @@
   (:kiriage 1920)
   (:dora (:indicator next))
   (:payments (:ron :dealer 6 :other 4) (:tsumo :dealer 2 :other (2 1))
+             (:pao :ron split :honba discarder)
              (:round 100) (:honba 300) (:riichi-stick 1000)))
 
 ;;; Variant

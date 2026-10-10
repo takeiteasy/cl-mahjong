@@ -19,7 +19,7 @@
 | Clause | Meaning |
 |---|---|
 | `(:han n [:open m] [:closed-only t])` | `n` han closed, `m` open (default `n`); `:closed-only` never scores with an open meld |
-| `(:yakuman n [:closed-only t] [:double-when pattern])` | `n` yakuman; doubles when `pattern` holds and the `double-yakuman` option is on |
+| `(:yakuman n [:closed-only t] [:double-when pattern] [:pao selector])` | `n` yakuman; doubles when `pattern` holds and the `double-yakuman` option is on; see [Pao](#pao) |
 | `(:when pattern...)` | All must hold; see [pattern.md](pattern.md) |
 | `(:implies yaku...)` | When this scores, those are dropped |
 | `(:excludes yaku...)` | Never together; the lower value is dropped, on a tie the later in the list |
@@ -31,6 +31,17 @@ A yaku has `:han` or `:yakuman`, and needs `:when`. `:extends` inherits a yaku; 
 ```
 
 Yakuman replace every other yaku in a reading.
+
+## Pao
+
+`:pao selector` makes the seat that fed the last meld completing the yakuman liable for it. Riichi sets `dragon` on daisangen and `wind` on daisuushii.
+
+| Hand | Liable seat |
+|---|---|
+| Every triplet or quad matching `selector` is a meld and the last one is open | The `from` of that meld |
+| One matching set is concealed, or the last matching meld is a closed kan | Nobody |
+
+Melds record the giver with `make-meld ... :from`; a shouminkan keeps the giver of its pon. How a liable seat pays is in [Scoring](scoring.md#pao).
 
 ## Evaluation
 
@@ -47,6 +58,7 @@ Yakuman replace every other yaku in a reading.
 | `reading-yaku` | `(name . value)` pairs; `value` is han, or the yakuman multiple in a yakuman reading |
 | `reading-han` | Total han; `0` in a yakuman reading |
 | `reading-yakuman` | Total yakuman multiple |
+| `reading-pao` | `(seat . yakuman)` for each liable seat; `NIL` without pao |
 
 Dora do not count towards han; [scoring](scoring.md) adds them and picks the best reading.[^dora]
 

@@ -109,6 +109,7 @@
    #:reading-yaku
    #:reading-han
    #:reading-yakuman
+   #:reading-pao
    #:reading-hand
    ;; scoring
    #:defscoring

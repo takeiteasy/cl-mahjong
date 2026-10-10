@@ -48,7 +48,7 @@ Each event is `(type . plist)`.
 | `:call` | `:type :seat :tiles`, `:from` for open calls |
 | `:riichi` | `:seat`, once the discard passes |
 | `:dora` | `:tile`, a new indicator |
-| `:win` | `:seat :from :han :fu :limit :points :yaku :score` |
+| `:win` | `:seat :from :han :fu :limit :points :yaku :pao :score`; `:pao` lists `(seat . amount)` for liable seats |
 | `:deal-end` | `:type :deltas :points` |
 | `:game-end` | `:final` |
 
@@ -109,4 +109,4 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 
 ## Limitations
 
-See [PLAN.md](PLAN.md#limitations): the game ignores pao ([#17](https://todo.sr.ht/~takeiteasy/cl-mahjong/17)), sanma has no nukidora ([#22](https://todo.sr.ht/~takeiteasy/cl-mahjong/22)), and legal actions are recomputed on every move ([#19](https://todo.sr.ht/~takeiteasy/cl-mahjong/19)).
+See [PLAN.md](PLAN.md#limitations): sanma has no nukidora ([#22](https://todo.sr.ht/~takeiteasy/cl-mahjong/22)), and legal actions are recomputed on every move ([#19](https://todo.sr.ht/~takeiteasy/cl-mahjong/19)).

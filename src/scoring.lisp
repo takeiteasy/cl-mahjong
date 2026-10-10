@@ -9,7 +9,7 @@
 
 ;; ron and tsumo are (dealer . other) multipliers of the base points.
 (defstruct payment-table
-  ron tsumo (round 1) (honba 0) (stick 0))
+  ron tsumo (round 1) (honba 0) (stick 0) (pao-ron :split) (pao-honba :discarder))
 
 (defstruct (score (:constructor make-score (reading fu han dora limit base points payments)))
   reading fu han dora limit base points payments)
@@ -162,6 +162,18 @@
       (invalid "~a needs a :dealer and an :other multiplier, got ~s" what args))
     (cons (getf options :dealer) (getf options :other))))
 
+(defun choice-arg (value allowed what)
+  (unless (symbolp value)
+    (invalid "~a needs one of ~{~(~a~)~^, ~}, got ~s" what allowed value))
+  (first (keyword-list (list value) allowed what)))
+
+(defun build-pao (args table)
+  (let ((options (clause-options args ":pao" '(:ron :honba))))
+    (setf (payment-table-pao-ron table)
+          (choice-arg (getf options :ron :split) '(:split :liable) ":pao :ron")
+          (payment-table-pao-honba table)
+          (choice-arg (getf options :honba :discarder) '(:discarder :liable :split) ":pao :honba"))))
+
 (defun build-payments (entries name)
   (let ((table (make-payment-table)))
     (dolist (entry entries)
@@ -177,6 +189,7 @@
           (:round (setf (payment-table-round table) (amount-arg args ":round" 1)))
           (:honba (setf (payment-table-honba table) (amount-arg args ":honba" 0)))
           (:riichi-stick (setf (payment-table-stick table) (amount-arg args ":riichi-stick" 0)))
+          (:pao (build-pao args table))
           (t (invalid "Unknown :payments entry ~s" entry)))))
     (unless (and (payment-table-ron table) (payment-table-tsumo table))
       (invalid "Scoring ~(~a~) needs :ron and :tsumo payments" name))
@@ -333,6 +346,38 @@
                        (values (list :dealer dealer-paid :other other-paid)
                                (+ dealer-paid (* other-paid (- players 2)))))))))))))
 
+(defun pao-payments (table pao yakuman-base base dealer tsumo honba players)
+  "(values payments total) like `payments-for' when the seats of PAO, an alist of (seat . yakuman), are liable.
+Each liable seat pays its yakuman as a ron; PAYMENTS gains a :pao list of (seat . amount)."
+  (let* ((round (payment-table-round table))
+         (honba-points (* honba (payment-table-honba table)))
+         (ron (payment-table-ron table))
+         (rate (if dealer (car ron) (cdr ron)))
+         (full (loop for (seat . units) in pao
+                     collect (cons seat (round-up (* units yakuman-base rate) round)))))
+    (flet ((with-honba (entries honba)
+             (cons (cons (car (first entries)) (+ honba (cdr (first entries)))) (rest entries))))
+      (if tsumo
+          (multiple-value-bind (payments total)
+              (payments-for table (- base (* yakuman-base (reduce #'+ pao :key #'cdr)))
+                            dealer t 0 players)
+            (let ((liable (with-honba full honba-points)))
+              (values (append payments (list :pao liable))
+                      (+ total (reduce #'+ liable :key #'cdr)))))
+          (let* ((shares (if (eq (payment-table-pao-ron table) :split)
+                             (mapcar (lambda (entry) (cons (car entry) (round-up (/ (cdr entry) 2) round)))
+                                     full)
+                             full))
+                 (liable-honba (ecase (payment-table-pao-honba table)
+                                 (:discarder 0)
+                                 (:liable honba-points)
+                                 (:split (ceiling honba-points 2))))
+                 (whole (round-up (* base rate) round))
+                 (discarder (+ (- whole (reduce #'+ shares :key #'cdr))
+                               (- honba-points liable-honba))))
+            (values (list :ron discarder :pao (with-honba shares liable-honba))
+                    (+ whole honba-points)))))))
+
 ;;; Scoring
 
 (defun limit-payments (scoring limit &key dealer (players 4))
@@ -367,8 +412,13 @@
         (multiple-value-bind (base limit) (base-points scoring han fu yakuman options)
           (multiple-value-bind (base limit) (apply-floors scoring names base limit)
             (multiple-value-bind (payments total)
-                (payments-for (scoring-payments scoring) base (win-context-dealer context)
-                              (win-context-tsumo context) honba players)
+                (if (reading-pao reading)
+                    (pao-payments (scoring-payments scoring) (reading-pao reading)
+                                  (second (assoc :yakuman (scoring-limits scoring)))
+                                  base (win-context-dealer context) (win-context-tsumo context)
+                                  honba players)
+                    (payments-for (scoring-payments scoring) base (win-context-dealer context)
+                                  (win-context-tsumo context) honba players))
               (make-score reading fu han (list :dora dora :ura ura :aka aka) limit base
                           (+ total (* riichi-sticks (payment-table-stick (scoring-payments scoring))))
                           payments))))))))

@@ -22,7 +22,7 @@
 | `(:floor yaku limit)` | A hand holding `yaku` scores at least `limit`; the yaku's han are not added |
 | `(:kiriage base)` | The base points that round up to the lowest limit when the `kiriage` option is on |
 | `(:dora (:indicator next))` | Indicator to dora: the next kind of the same suit or honor group, wrapping round; or a function `(tileset kind) -> kind id` |
-| `(:payments entry...)` | `(:ron :dealer m :other m)`, `(:tsumo :dealer m :other (from-dealer from-other))`, `(:round n)`, `(:honba n)`, `(:riichi-stick n)` |
+| `(:payments entry...)` | `(:ron :dealer m :other m)`, `(:tsumo :dealer m :other (from-dealer from-other))`, `(:pao [:ron r] [:honba h])`, `(:round n)`, `(:honba n)`, `(:riichi-stick n)` |
 
 `:extends` inherits a scoring. A child entry replaces the parent's entry with the same key, and a new entry is added.
 
@@ -88,6 +88,24 @@ Each payer's share rounds up on its own. `:honba n` is paid per honba by the dis
 |---|---|
 | `(:ron n)` | Paid by the discarder |
 | `(:dealer n :other m)` | Tsumo; `:dealer` is `NIL` when the winner deals |
+| `:pao ((seat . n)...)` | Added when a seat is [liable](#pao); the other amounts are what remains |
+
+## Pao
+
+A seat [liable](yaku.md#pao) for a yakuman pays that yakuman as a ron. The rest of the hand is paid as usual.
+
+| Win | Liable seat pays | Others pay |
+|---|---|---|
+| Tsumo | The pao yakuman and every honba | The rest, as a tsumo |
+| Ron, `:ron split` | Half the pao yakuman | The discarder pays the rest of the ron |
+| Ron, `:ron liable` | The whole pao yakuman | The discarder pays the rest of the ron |
+
+`:honba` says who pays the honba of a ron: `discarder`, `liable` or `split`. The defaults are `split` and `discarder`. A liable discarder pays both parts.
+
+```lisp
+(defscoring strict :extends riichi
+  (:payments (:pao :ron liable :honba liable)))
+```
 
 ## Results
 
@@ -119,4 +137,4 @@ Each payer's share rounds up on its own. `:honba n` is paid per honba by the dis
 
 ## Limitations
 
-See [PLAN.md](PLAN.md#limitations): pao is not applied ([#17](https://todo.sr.ht/~takeiteasy/cl-mahjong/17)), sanma tsumo is paid by the two other seats and the missing north is not split ([#23](https://todo.sr.ht/~takeiteasy/cl-mahjong/23)).
+See [PLAN.md](PLAN.md#limitations): sanma tsumo is paid by the two other seats and the missing north is not split ([#23](https://todo.sr.ht/~takeiteasy/cl-mahjong/23)).
