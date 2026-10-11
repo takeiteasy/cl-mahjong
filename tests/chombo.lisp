@@ -213,3 +213,13 @@ A false win ends the deal, or with FALSE-WIN :dead makes the hand dead."
   (signals cl-mahjong:invalid-definition (variant-with-options :false-win :dead))
   (signals cl-mahjong:invalid-definition (variant-with-options :false-win :alive :chombo :mangan))
   (is (variant-with-options :false-win :dead :chombo :mangan)))
+
+(test a-none-penalty-accepts-the-declaration-and-charges-nothing
+  (let ((game (cl-mahjong:apply-action (chombo-game :none :draws '("9m")) 0 '(:tsumo))))
+    (is (eq :chombo (result-of game :type)))
+    (is (equal '(25000 25000 25000 25000) (points-of game)))))
+
+(test a-dead-hand-costs-nothing-with-the-none-penalty
+  (let ((game (cl-mahjong:apply-action (chombo-game :none :false-win :dead :draws '("9m")) 0 '(:tsumo))))
+    (is (eq :playing (cl-mahjong:game-phase game)))
+    (is (eq :false-tsumo (cl-mahjong:player-dead (seat-player game 0))))))

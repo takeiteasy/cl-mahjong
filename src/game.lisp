@@ -616,7 +616,8 @@ Honba grow unless RESET-HONBA or KEEP-HONBA."
          (others (1- seats)))
     (apply #'merge-deltas
            (loop for offender in offenders
-                 collect (cond ((keywordp penalty)
+                 collect (cond ((eq penalty :none) nil)
+                               ((keywordp penalty)
                                 (loop for (seat . points) in (limit-tsumo-deltas game deal offender penalty)
                                       collect (cons seat (- points))))
                                ((eq (first penalty) :split)

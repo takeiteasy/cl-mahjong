@@ -99,6 +99,7 @@ The deal result is `:chombo` with `:seats` and `:reason`. The dealer repeats and
 | A limit, such as `:mangan` | Pays that limit as a tsumo: 4000 all as dealer, 2000/4000 otherwise |
 | `(:split 20000)` | Pays 20000 shared by the others, rounded down to hundreds |
 | `(:final 20000)` | Pays nothing now; 20000 comes off the final score |
+| `:none` | Pays nothing; the wrong declaration is still accepted |
 
 A variant with any other `:chombo` value, or a `:chombo-sticks` other than `:return` or `:keep`, is rejected when it is built, like every [bad option](variant.md#option-validation).
 
@@ -106,7 +107,7 @@ Riichi sticks put down in the void deal go back to their owners, or with `:chomb
 
 ### Dead hands
 
-`:false-win :dead` (with a `:chombo` penalty) makes a false tsumo, false ron or noten open riichi kill the offender's hand instead of ending the deal. The deal goes on.
+`:false-win :dead` (with a `:chombo` value, `:none` included) makes a false tsumo, false ron or noten open riichi kill the offender's hand instead of ending the deal. The deal goes on.
 
 | Dead seat | Effect |
 |---|---|
@@ -154,7 +155,7 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 | `:bonus-rinshan` | on | A win on a bonus replacement scores rinshan |
 | `:bonus-win` | off | `(count limit)`: holding `count` bonus tiles wins at once; see [below](#bonus-tiles) |
 | `:bonus-rob` | off | A seat one tile short of `:bonus-win` wins on another seat's bonus tile |
-| `:chombo` | off | Penalty for a wrong declaration: a limit keyword, `(:split points)` or `(:final points)`; see [below](#chombo) |
+| `:chombo` | off | Penalty for a wrong declaration: a limit keyword, `:none`, `(:split points)` or `(:final points)`; see [below](#chombo) |
 | `:false-win` | `:void` | A false win under `:chombo` ends the deal (`:void`) or kills the hand (`:dead`); see [below](#dead-hands) |
 | `:chombo-sticks` | `:return` | Riichi sticks of a chombo deal: `:return` to their owners or `:keep` on the table |
 | `:nukidora` | off | Offer `(:kita)` for a north |
@@ -167,6 +168,20 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 | `:uma`, `:oka` | `(15 5 -5 -15)`, on | Thousands by place; oka is players x (target - start) to first |
 | `:score-rounding` | off | `:half-away` rounds each other seat's points to thousands, a half going away from zero, and gives first place the negated sum |
 | `:winds` | east south west north | Seat and round wind kinds |
+
+### Scoring options
+
+These `:options` keys are read by the scoring engine, not the game flow. They are off unless the variant sets them; `riichi` sets the values shown.
+
+| Option | `riichi` | Effect |
+|---|---|---|
+| `:kiriage` | off | Rounds 30 fu 4 han and 60 fu 3 han up to mangan; see [scoring](scoring.md#riichi) |
+| `:double-wind-fu` | 4 | Most fu a pair earns |
+| `:rinshan-tsumo-fu` | on | A win on a replacement draw earns tsumo fu |
+| `:open-pinfu-fu` | on | An open hand with no other fu scores 30 |
+| `:pinfu-tsumo-fu` | off | Pinfu tsumo earns tsumo fu |
+| `:double-yakuman` | on | Yakuman with `:double-when` can double; see [yaku](yaku.md) |
+| `:pao-held` | off | A concealed set held at the last call keeps [pao](yaku.md#pao) |
 
 ## Starting mid-game
 
