@@ -19,7 +19,7 @@
 |---|---|
 | `(:fu entry...)` | The fu table; see [Fu](#fu). Optional with `:points` |
 | `(:points (fan base)...)` | A fan table; see [Fan table](#fan-table) |
-| `(:minimum n)` | Fewest han a hand scores with; see [Fan table](#fan-table) |
+| `(:minimum n [:excluding yaku...])` | Fewest han a hand scores with, not counting the named yaku; see [Fan table](#fan-table) |
 | `(:limits (name base [:han n])...)` | Base points of each limit; `:han` is the han that reaches it. A `yakuman` limit is required and is the base of one yakuman; see [Kazoe](#kazoe-and-the-yakuman-cap) |
 | `(:floor yaku limit)` | A hand holding `yaku` scores at least `limit`; the yaku's han are not added |
 | `(:kiriage base)` | The base points that round up to the lowest limit when the `kiriage` option is on |
@@ -74,7 +74,11 @@ Han are the reading's yaku plus dora, ura dora and red fives. A reading with no 
 
 `(:points (fan base)...)` replaces the fu formula: the base points are those of the highest row at or below the hand's han, so the last row caps the table. Fu is `0`. Yakuman readings still use the `yakuman` limit.
 
-`(:minimum n)` rejects a hand with fewer han, dora included, unless it is a yakuman.
+`(:minimum n)` rejects a hand with fewer han, dora included, unless it is a yakuman. `:excluding` names yaku whose han do not count towards `n`; they still score.
+
+```lisp
+(:minimum 8 :excluding own-flower own-season)
+```
 
 ```lisp
 (defscoring fan

@@ -112,3 +112,17 @@
          (next (cl-mahjong::set-aside-bonus game 1 (bonus-tile (tileset-of game) 'winter)
                                             (cl-mahjong::deal-wall (cl-mahjong:game-deal game)) nil)))
     (is (eq :playing (cl-mahjong:game-phase next)))))
+
+(test per-counts-bonus-tiles
+  (let* ((variant (cl-mahjong:find-variant 'hk))
+         (ts (cl-mahjong:variant-tileset variant)))
+    (cl-mahjong:defyaku test-flower-count (:han 1 :per (bonus flower))
+      (:when t))
+    (flet ((han (&rest names)
+             (cl-mahjong:reading-han
+              (best-reading
+               (readings ts "234m567p345s678s66p" "8s" :yaku '(test-flower-count)
+                         :options (cl-mahjong:variant-options variant)
+                         :context-args (apply #'hk-bonus names))))))
+      (is (= 2 (han 'plum 'orchid 'spring)))
+      (is (= 3 (han 'plum 'orchid 'bamboo))))))

@@ -1,7 +1,7 @@
 (in-package #:cl-mahjong)
 
 (defstruct scoring
-  spec name fu points minimum limits floors kiriage aotenjou indicator payments)
+  spec name fu points minimum not-counted limits floors kiriage aotenjou indicator payments)
 
 (defstruct fu-table
   (base 0) (round 1) (closed-ron 0) (tsumo 0) (open-minimum 0) (concealed 1) (quad 1)
@@ -235,24 +235,33 @@
       (invalid "Scoring ~(~a~) needs :ron and :tsumo payments" name))
     table))
 
+(defun build-minimum (entry)
+  "(values MINIMUM NOT-COUNTED) from (N [:excluding yaku...])."
+  (destructuring-bind (&optional amount marker &rest names) entry
+    (unless (and amount (or (null marker) (and (eq :excluding (keyword-of marker)) names)))
+      (invalid ":minimum takes a number and optionally :excluding with yaku names, got ~s" entry))
+    (values (count-arg amount ":minimum" 0) (and names (names-arg names ":minimum :excluding")))))
+
 (defun build-scoring (spec)
   (let* ((name (keyword-of (second (assoc :name spec))))
          (kiriage (entries-of spec :kiriage))
          (aotenjou (entries-of spec :aotenjou))
          (points (build-points (entries-of spec :points)))
-         (minimum (entries-of spec :minimum))
+         (minimum (first (entries-of spec :minimum)))
          (limits (build-limits (entries-of spec :limits) name)))
-    (make-scoring :spec spec :name name
-                  :fu (and (or (null points) (entries-of spec :fu))
-                           (build-fu (entries-of spec :fu) name))
-                  :points points
-                  :minimum (and minimum (amount-arg (first minimum) ":minimum" 0))
-                  :limits limits
-                  :floors (build-floors (entries-of spec :floor) limits)
-                  :kiriage (and kiriage (amount-arg (first kiriage) ":kiriage" 1))
-                  :aotenjou (and aotenjou (amount-arg (first aotenjou) ":aotenjou" 1))
-                  :indicator (build-indicator (entries-of spec :dora))
-                  :payments (build-payments (entries-of spec :payments) name))))
+    (multiple-value-bind (minimum not-counted) (and minimum (build-minimum minimum))
+      (make-scoring :spec spec :name name
+                    :fu (and (or (null points) (entries-of spec :fu))
+                             (build-fu (entries-of spec :fu) name))
+                    :points points
+                    :minimum minimum
+                    :not-counted not-counted
+                    :limits limits
+                    :floors (build-floors (entries-of spec :floor) limits)
+                    :kiriage (and kiriage (amount-arg (first kiriage) ":kiriage" 1))
+                    :aotenjou (and aotenjou (amount-arg (first aotenjou) ":aotenjou" 1))
+                    :indicator (build-indicator (entries-of spec :dora))
+                    :payments (build-payments (entries-of spec :payments) name)))))
 
 (defun resolve-scoring (scoring)
   (if (scoring-p scoring) scoring (find-scoring scoring)))
@@ -507,7 +516,9 @@ Each liable seat pays its yakuman as a ron; PAYMENTS gains a :pao list of (seat 
                                     unless (member name floored) sum value)))))
              (fu (if (scoring-fu scoring) (reading-fu (scoring-fu scoring) reading) 0)))
         (when (or (null (scoring-minimum scoring)) (plusp yakuman)
-                  (>= han (scoring-minimum scoring)))
+                  (>= (- han (loop for (name . value) in (reading-yaku reading)
+                                   when (member name (scoring-not-counted scoring)) sum value))
+                      (scoring-minimum scoring)))
           (multiple-value-bind (base limit)
               (if aotenjou
                   (values (* fu (expt 2 (+ han 2))) nil)

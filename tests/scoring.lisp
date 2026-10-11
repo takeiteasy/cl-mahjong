@@ -487,6 +487,30 @@
     (is (= 128 (cl-mahjong:score-points
                 (best-scored ts "19m19p19s12345677z" "7z" :scoring 'test-fan))))))
 
+(cl-mahjong:defscoring test-fan-excluding :extends test-fan
+  (:minimum 2 :excluding menzen-tsumo))
+
+(test minimum-does-not-count-excluded-yaku
+  (with-riichi (ts)
+    (is (null (best-scored ts "234m567p345s678s66p" "3m" :scoring 'test-fan-excluding
+                                                        :context-args '(:tsumo t))))
+    (let ((score (best-scored ts "234m567p345s678s66p" "3m" :scoring 'test-fan-excluding
+                                                            :context-args '(:riichi t))))
+      (is (= 2 (cl-mahjong:score-han score))))))
+
+(test excluded-yaku-still-score
+  (with-riichi (ts)
+    (let ((score (best-scored ts "234m567p345s678s66p" "3m" :scoring 'test-fan-excluding
+                                                            :context-args '(:riichi t :tsumo t))))
+      (is (= 3 (cl-mahjong:score-han score))))))
+
+(test minimum-takes-a-number-and-excluded-names
+  (dolist (clause '((:minimum) (:minimum 2 :excluding) (:minimum 2 :without riichi)
+                    (:minimum 2 :excluding 3)))
+    (cl-mahjong::register-definition :scoring 'test-bad-minimum nil
+                                     (list '(:name test-bad-minimum) clause))
+    (signals cl-mahjong:invalid-definition (cl-mahjong:find-scoring 'test-bad-minimum))))
+
 ;;; Ron paid by every seat
 
 (cl-mahjong:defscoring test-half-shooter :extends test-fan

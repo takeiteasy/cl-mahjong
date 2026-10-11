@@ -18,7 +18,7 @@
 
 | Clause | Meaning |
 |---|---|
-| `(:han n [:open m] [:closed-only t] [:needs-yaku pattern])` | `n` han closed, `m` open (default `n`); `:closed-only` never scores with an open meld; `:needs-yaku` drops the yaku when `pattern` holds and it is the reading's only yaku |
+| `(:han n [:open m] [:closed-only t] [:needs-yaku pattern] [:per counter])` | `n` han closed, `m` open (default `n`); `:closed-only` never scores with an open meld; `:needs-yaku` drops the yaku when `pattern` holds and it is the reading's only yaku; `:per` multiplies the han by a [count](#counted-yaku) |
 | `(:yakuman n [:closed-only t] [:double-when pattern] [:needs-yaku pattern] [:pao selector])` | `n` yakuman, or `(:lambda (hand) ...)` returning the multiple; doubles when `pattern` holds and the `double-yakuman` option is on; see [Pao](#pao) |
 | `(:when pattern...)` | All must hold; see [pattern.md](pattern.md) |
 | `(:implies yaku...)` | When this scores, those are dropped |
@@ -31,6 +31,23 @@ A yaku has `:han` or `:yakuman`, and needs `:when`. `:extends` inherits a yaku; 
 ```
 
 Yakuman replace every other yaku in a reading, unless `:stack-yakuman` is given to `evaluate-yaku` (a scoring with `:aotenjou` does).
+
+## Counted yaku
+
+`:per` scores the han once for every match. A count of 0 scores nothing.
+
+| Counter | Counts |
+|---|---|
+| `(group types [sel] [:concealed t])` | Groups as in [pattern.md](pattern.md#patterns) |
+| `(tile sel)` | Tiles of the hand and melds matching `sel` |
+| `(bonus [sel])` | Set-aside [bonus tiles](game.md#bonus-tiles) matching `sel`, or all |
+
+```lisp
+(defyaku terminal-pung (:han 1 :per (group (triplet quad) (terminal honor)))
+  (:when t))
+```
+
+Four terminal or honor pungs score 4. `:per` is for `:han` only.
 
 ## Pao
 

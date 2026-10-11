@@ -141,6 +141,33 @@
 (defun count-matching-groups (hand test)
   (count-if (lambda (group) (funcall test hand group)) (hand-groups hand)))
 
+;;; Counters
+
+(defun count-matching-tiles (hand selector)
+  "How many tiles of the hand and melds match SELECTOR."
+  (+ (loop for count across (win-hand-counts hand)
+           for id from 0
+           when (funcall selector hand (kind-of-id hand id)) sum count)
+     (loop for meld in (win-hand-melds hand)
+           sum (count-if (lambda (id) (funcall selector hand (kind-of-id hand id)))
+                         (meld-kinds meld)))))
+
+(defun compile-counter (form)
+  "Compile (group TYPES [SEL] [:concealed t]), (tile SEL) or (bonus [SEL]) into a function from a WIN-HAND to a count."
+  (unless (and (consp form) (symbolp (first form)))
+    (invalid ":per takes (group ...), (tile ...) or (bonus ...), got ~s" form))
+  (let ((args (rest form)))
+    (case (keyword-of (first form))
+      (:group (let ((test (compile-group-test form args)))
+                (lambda (hand) (count-matching-groups hand test))))
+      (:tile (check-arity form 1 1)
+       (let ((selector (compile-selector (first args))))
+         (lambda (hand) (count-matching-tiles hand selector))))
+      (:bonus (check-arity form 0 1)
+       (let ((selector (if args (compile-selector (first args)) (constantly t))))
+         (lambda (hand) (bonus-count hand selector))))
+      (t (invalid ":per takes (group ...), (tile ...) or (bonus ...), got ~s" form)))))
+
 ;;; Pattern compiler
 
 (defun twin-sequence-pairs (hand)

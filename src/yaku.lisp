@@ -3,7 +3,7 @@
 (defstruct yaku
   spec name
   han open-han yakuman closed-only
-  double-when needs-yaku pao patterns implies excludes)
+  double-when needs-yaku per pao patterns implies excludes)
 
 ;; pao is an alist of (liable-seat . yakuman) for the yakuman the liable seats fed.
 (defstruct (reading (:constructor make-reading (decomposition win-group wait yaku han yakuman hand
@@ -55,7 +55,7 @@
          (args (or han-args yakuman-args))
          (options (clause-options (rest args) (if han-args ":han" ":yakuman")
                                   (if han-args
-                                      '(:open :closed-only :needs-yaku)
+                                      '(:open :closed-only :needs-yaku :per)
                                       '(:closed-only :double-when :needs-yaku :pao)))))
     (unless (xor (clause-present-p spec :han) (clause-present-p spec :yakuman))
       (invalid "Yaku ~(~a~) needs exactly one of :han and :yakuman" name))
@@ -76,6 +76,7 @@
                                    (compile-pattern (getf options :double-when)))
                  :needs-yaku (and (getf options :needs-yaku)
                                   (compile-pattern (getf options :needs-yaku)))
+                 :per (and (getf options :per) (compile-counter (getf options :per)))
                  :pao (pao-selector (getf options :pao))
                  :patterns (compile-patterns (getf spec :when))
                  :implies (name-list (getf spec :implies) ":implies")
@@ -105,8 +106,8 @@
                     (funcall (yaku-double-when yaku) hand))
                (* 2 multiple)
                multiple)))
-        ((win-hand-closed-p hand) (yaku-han yaku))
-        (t (yaku-open-han yaku))))
+        (t (* (if (win-hand-closed-p hand) (yaku-han yaku) (yaku-open-han yaku))
+              (if (yaku-per yaku) (funcall (yaku-per yaku) hand) 1)))))
 
 (defun award (hand yaku)
   "(yaku . value) when YAKU scores for HAND."

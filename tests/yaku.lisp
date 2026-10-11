@@ -286,3 +286,45 @@
     (cl-mahjong::register-definition :yaku 'test-han-pao nil
                                      '((:name test-han-pao) (:han 1 :pao dragon) (:when t)))
     (cl-mahjong:find-yaku 'test-han-pao)))
+
+;;; Counted yaku
+
+(cl-mahjong:defyaku test-honor-pungs (:han 1 :open 2 :per (group (triplet quad) (terminal honor)))
+  (:when t))
+(cl-mahjong:defyaku test-simple-tiles (:han 1 :per (tile simple))
+  (:when t))
+
+(defun han-of (ts notation win yaku &rest args)
+  (cl-mahjong:reading-han
+   (best-reading (readings ts notation win :yaku (list yaku) :context-args args))))
+
+(test per-multiplies-the-value-by-the-matching-groups
+  (with-riichi (ts)
+    (is (= 4 (han-of ts "111m999p111s222z33z" "3z" 'test-honor-pungs)))
+    (is (= 1 (han-of ts "111m234p567s789s22z" "9s" 'test-honor-pungs)))))
+
+(test per-scores-nothing-without-a-match
+  (with-riichi (ts)
+    (is (null (cl-mahjong:reading-yaku
+               (best-reading (readings ts "234m567p345s678s66p" "8s"
+                                       :yaku '(test-honor-pungs))))))))
+
+(test per-uses-the-open-value
+  (with-riichi (ts)
+    (let ((melds (list (meld ts :triplet "111z" :open t))))
+      (is (= 8 (cl-mahjong:reading-han
+                (best-reading (readings ts "999p111s222z33z" "3z" :melds melds
+                                        :yaku '(test-honor-pungs)))))))))
+
+(test per-counts-tiles
+  (with-riichi (ts)
+    (is (= 14 (han-of ts "234m567p345s678s66p" "8s" 'test-simple-tiles)))
+    (is (= 11 (han-of ts "234m567p345s789s99p" "9s" 'test-simple-tiles)))))
+
+(test per-is-only-for-han
+  (dolist (spec '(((:yakuman 1 :per (tile simple)) (:when t))
+                  ((:han 1 :per (group)) (:when t))
+                  ((:han 1 :per (wait ryanmen)) (:when t))
+                  ((:han 1 :per (tile)) (:when t))))
+    (cl-mahjong::register-definition :yaku 'test-bad-per nil (cons '(:name test-bad-per) spec))
+    (signals cl-mahjong:invalid-definition (cl-mahjong:find-yaku 'test-bad-per))))
