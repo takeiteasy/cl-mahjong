@@ -177,6 +177,25 @@
    #:player-called-away
    #:variant-option
    #:limit-payments
+   ;; advice
+   #:seat-visible
+   #:tenpai-waits
+   #:seat-furiten-p
+   #:discard-options
+   #:discard-option-tile
+   #:discard-option-shanten
+   #:discard-option-total
+   #:discard-option-ukeire
+   #:tile-safety
+   ;; bot
+   #:choose-action
+   #:observe
+   #:make-bot
+   #:play-bots
+   #:bot
+   #:dead-bot
+   #:easy-bot
+   #:hard-bot
    ;; riichi
    #:*riichi-yaku*
    #:*riichi-options*))
