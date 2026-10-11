@@ -99,6 +99,8 @@ The deal result is `:chombo` with `:seats` and `:reason`. The dealer repeats and
 | `(:split 20000)` | Pays 20000 shared by the others, rounded down to hundreds |
 | `(:final 20000)` | Pays nothing now; 20000 comes off the final score |
 
+A variant with any other `:chombo` value, or a `:chombo-sticks` other than `:return` or `:keep`, is rejected when it is built.
+
 Riichi sticks put down in the void deal go back to their owners, or with `:chombo-sticks :keep` stay on the table.[^chombo]
 
 ## Game end

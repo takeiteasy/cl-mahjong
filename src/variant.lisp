@@ -81,6 +81,18 @@
       (invalid "Variant clause ~s takes one value, got ~s" key args))
     (first args)))
 
+(defun check-chombo-options (options scoring)
+  (let ((chombo (getf options :chombo))
+        (sticks (getf options :chombo-sticks :return)))
+    (unless (or (null chombo)
+                (and (keywordp chombo) (assoc chombo (scoring-limits scoring)))
+                (and (consp chombo) (member (first chombo) '(:split :final))
+                     (null (cddr chombo)) (typep (second chombo) '(integer 1))))
+      (invalid "Variant option :chombo must be NIL, a limit of the scoring, (:split points) or (:final points), got ~s"
+               chombo))
+    (unless (member sticks '(:return :keep))
+      (invalid "Variant option :chombo-sticks must be :return or :keep, got ~s" sticks))))
+
 (defun build-variant (spec)
   (let ((players (single-arg spec :players))
         (shapes (getf spec :shapes))
@@ -95,7 +107,7 @@
     (unless (evenp (length options))
       (invalid "Variant :options needs keyword/value pairs, got ~s" options))
     (let ((scoring (single-arg spec :scoring)))
-      (find-scoring scoring)
+      (check-chombo-options options (find-scoring scoring))
       (mapc #'find-shape shapes)
       (mapc #'find-yaku yaku)
       (make-variant spec (keyword-of (single-arg spec :name)) players

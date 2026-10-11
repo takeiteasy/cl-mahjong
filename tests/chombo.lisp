@@ -127,3 +127,14 @@
   (let ((game (riichi-then-false-tsumo :keep)))
     (is (equal '(28000 17000 27000 27000) (points-of game)))
     (is (= 1 (cl-mahjong:game-sticks game)))))
+
+(test bad-chombo-options-are-rejected-when-the-variant-is-built
+  (dolist (options '((:chombo :mangna) (:chombo (:split)) (:chombo (:split 0)) (:chombo (:final 1 2))
+                     (:chombo 20000) (:chombo :mangan :chombo-sticks :retrun)))
+    (cl-mahjong::register-definition
+     :variant 'chombo-bad 'riichi
+     (list (list :name 'chombo-bad) (list* :options (append options cl-mahjong:*riichi-options*))))
+    (signals cl-mahjong:invalid-definition (cl-mahjong:find-variant 'chombo-bad)))
+  (dolist (chombo '(nil :mangan (:split 20000) (:final 20000)))
+    (variant-with 'chombo-good :chombo chombo)
+    (is (cl-mahjong:find-variant 'chombo-good))))
