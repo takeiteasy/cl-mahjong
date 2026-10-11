@@ -109,5 +109,6 @@ A tileset with [bonus tiles](tileset.md), a [fan table](scoring.md#fan-table) an
 | Scoring | [scoring.md](scoring.md) |
 | Variant, game options | [variant.md](variant.md), [game.md](game.md) |
 | Hong Kong | [hk.md](hk.md) |
+| WRC | [wrc.md](wrc.md) |
 
 [^sanma]: The missing north's share is not paid. Limitations: [PLAN.md](PLAN.md#limitations).

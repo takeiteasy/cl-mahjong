@@ -16,12 +16,12 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 | 7 | Riichi validation corpus | sr.ht #7 | done |
 | 8 | Tenhou variant and log replay | n/a | done |
 | 9 | Hong Kong variant: bonus tiles, fan table, game switches | #1, #21, #22, #23, #24 | done |
+| 10 | WRC variant | #9 | done |
 
 ## Limitations
 
 | Limitation | Ticket |
 |---|---|
-| No WRC rules variant | [#9](https://github.com/takeiteasy/cl-mahjong/issues/9) |
 | Sanma logs before 2022-01-23 are not replayed | [#18](https://github.com/takeiteasy/cl-mahjong/issues/18) |
 | Bonus wins are not checked while dealing | [#26](https://github.com/takeiteasy/cl-mahjong/issues/26) |
 | Wrong declarations cannot happen: illegal actions are rejected, no chombo | [#27](https://github.com/takeiteasy/cl-mahjong/issues/27) |
