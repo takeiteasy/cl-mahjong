@@ -183,6 +183,10 @@
    #:seat-events
    #:seat-view
    #:view-seat
+   #:view-variant
+   #:view-tileset
+   #:view-opt
+   #:view-own
    #:view-phase
    #:view-deal-phase
    #:view-dealer
@@ -202,6 +206,7 @@
    #:view-drawn
    #:view-forbidden
    #:view-furiten
+   #:view-actions
    #:view-seats
    #:seen-seat
    #:seen-discards

@@ -9,15 +9,14 @@
                            (combinations (rest list) (1- n)))
                    (combinations (rest list) n)))))
 
-(defun distinct-tile-sets (game sets)
+(defun distinct-tile-sets (tileset sets)
   "SETS of tile ids without those that differ only by tile ids of the same kind and attributes."
-  (let ((tileset (game-tileset game)))
-    (remove-duplicates sets :from-end t :test #'equal
-                            :key (lambda (set)
-                                   (mapcar (lambda (tile)
-                                             (cons (tile-kind-id tileset tile)
-                                                   (tile-attrs tileset tile)))
-                                           set)))))
+  (remove-duplicates sets :from-end t :test #'equal
+                          :key (lambda (set)
+                                 (mapcar (lambda (tile)
+                                           (cons (tile-kind-id tileset tile)
+                                                 (tile-attrs tileset tile)))
+                                         set))))
 
 (defun tiles-of-kind-in (game tiles kind-id)
   (remove kind-id tiles :key (lambda (tile) (tile-kind-id (game-tileset game) tile))
@@ -52,7 +51,7 @@
          (wall-live (not (wall-exhausted-p (deal-wall (game-deal game)))))
          (options '()))
     (when (and wall-live (>= (length same) 2))
-      (dolist (pair (distinct-tile-sets game (combinations same 2)))
+      (dolist (pair (distinct-tile-sets (game-tileset game) (combinations same 2)))
         (unless (kuikae-trap-p game player :triplet tile pair)
           (push (cons :pon pair) options))))
     (when (and wall-live (>= (length same) 3) (kan-possible-p game))
@@ -64,7 +63,7 @@
     (let ((options '()))
       (dolist (pair (chi-pairs game tile))
         (dolist (set (distinct-tile-sets
-                      game
+                      (game-tileset game)
                       (loop for a in (tiles-of-kind-in game (player-tiles player) (first pair))
                             append (loop for b in (tiles-of-kind-in game (player-tiles player)
                                                                     (second pair))
@@ -195,8 +194,8 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
                                              :key (lambda (tile) (tile-kind-id tileset tile))))))
     (and (= id (tile-kind-id tileset drawn))
          (let ((quad (make-meld :quad (make-list 4 :initial-element id))))
-           (equal (winning-kinds game before (player-melds player) :nuki (player-nuki player))
-                  (winning-kinds game after (append (player-melds player) (list quad))
+           (equal (winning-kinds (game-variant game) before (player-melds player) :nuki (player-nuki player))
+                  (winning-kinds (game-variant game) after (append (player-melds player) (list quad))
                                  :nuki (player-nuki player)))))))
 
 (defun shouminkan-tiles (game deal seat)

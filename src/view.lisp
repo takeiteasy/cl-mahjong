@@ -31,8 +31,12 @@
 ;;; View
 
 (defstruct (seat-view (:conc-name view-))
-  seat phase deal-phase dealer turn kyoku honba round-wind seat-wind points sticks dora wall-left
-  claim result final hand drawn forbidden furiten seats)
+  seat variant phase deal-phase dealer turn kyoku honba round-wind seat-wind points sticks dora
+  wall-left claim result final hand drawn forbidden furiten actions seats)
+
+(defun view-tileset (view) (variant-tileset (view-variant view)))
+(defun view-opt (view key) (variant-option (view-variant view) key))
+(defun view-own (view) (svref (view-seats view) (view-seat view)))
 
 (defun game-view (game seat)
   "A `seat-view' of GAME: only what SEAT may see. It holds no deal, wall, claim or player."
@@ -44,6 +48,7 @@
          (winds (opt game :winds)))
     (make-seat-view
      :seat seat
+     :variant (game-variant game)
      :phase (game-phase game)
      :deal-phase (deal-phase deal)
      :dealer (deal-dealer deal)
@@ -64,6 +69,7 @@
      :drawn (and turn (deal-drawn deal))
      :forbidden (and turn (copy-list (deal-forbidden deal)))
      :furiten (and (furiten-p game deal seat) t)
+     :actions (legal-actions game seat)
      :seats (seen-seats game seat))))
 
 ;;; Events

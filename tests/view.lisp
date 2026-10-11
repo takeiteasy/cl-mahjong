@@ -2,12 +2,6 @@
 
 (in-suite :cl-mahjong)
 
-(defun view-of (game seat)
-  (cl-mahjong:game-view game seat))
-
-(defun seen-by (view seat)
-  (svref (cl-mahjong:view-seats view) seat))
-
 ;;; Hands
 
 (test a-seat-sees-its-own-hand-and-drawn-tile
@@ -61,6 +55,17 @@
     (is (equal '(:kind :tile :from) (loop for key in claim by #'cddr collect key)))
     (is (= 0 (getf claim :from)))))
 
+(test the-view-carries-the-rules-and-the-legal-actions
+  (let ((game (new-game :hands *ron-hands* :draws '("6z"))))
+    (is (eq (cl-mahjong:game-variant game) (cl-mahjong:view-variant (view-of game 0))))
+    (is (equal (cl-mahjong:legal-actions game 0) (cl-mahjong:view-actions (view-of game 0))))
+    (is (cl-mahjong:view-actions (view-of game 0)))
+    (is (null (cl-mahjong:view-actions (view-of game 1)))))
+  (let ((game (act (new-game :hands *ron-hands* :draws '("6z")) 0 :discard "6z")))
+    (dolist (seat '(0 1 2 3))
+      (is (equal (cl-mahjong:legal-actions game seat)
+                 (cl-mahjong:view-actions (view-of game seat)))))))
+
 ;;; Game end
 
 (test views-work-between-deals-and-after-the-game
@@ -98,3 +103,19 @@
                               (= seat (getf (rest event) :seat))
                               (not (getf (rest event) :tile))))
                         (seen recorder))))))
+
+(test bots-are-given-only-a-view
+  (let* ((dead (cl-mahjong:make-bot :dead))
+         (calls 0)
+         (game (cl-mahjong:play-bots
+                (cl-mahjong:start-game 'riichi :seed 5)
+                (loop repeat 4
+                      collect (lambda (view)
+                                (incf calls)
+                                (is (typep view 'cl-mahjong:seat-view))
+                                (is (member (cl-mahjong:choose-action dead view)
+                                            (cl-mahjong:view-actions view) :test #'equal))
+                                (cl-mahjong:choose-action dead view)))
+                :deals 1)))
+    (is (eq :deal-over (cl-mahjong:game-phase game)))
+    (is (plusp calls))))

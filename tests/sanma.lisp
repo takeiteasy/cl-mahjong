@@ -289,7 +289,7 @@
   (let* ((game (cl-mahjong:start-game 'sanma :seed 1))
          (ts (tileset-of game))
          (north (kind-of ts 'north)))
-    (member north (cl-mahjong::winning-kinds game (hand ts "234p567p789p123s4z") '()
+    (member north (cl-mahjong::winning-kinds (cl-mahjong:game-variant game) (hand ts "234p567p789p123s4z") '()
                                              :nuki (north-tiles ts nuki-count)))))
 
 (test winning-kinds-counts-the-tiles-set-aside

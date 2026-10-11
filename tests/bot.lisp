@@ -2,12 +2,17 @@
 
 (in-suite :cl-mahjong)
 
+(defun view-of (game seat)
+  (cl-mahjong:game-view game seat))
+
+(defun seen-by (view seat)
+  (svref (cl-mahjong:view-seats view) seat))
+
 (defun choose (level game seat)
-  (cl-mahjong:choose-action (cl-mahjong:make-bot level) game seat
-                            (cl-mahjong:legal-actions game seat)))
+  (cl-mahjong:choose-action (cl-mahjong:make-bot level) (view-of game seat)))
 
 (defun visible-count (game seat notation)
-  (aref (cl-mahjong:seat-visible game seat) (first (kind-ids (tileset-of game) notation))))
+  (aref (cl-mahjong:seat-visible (view-of game seat)) (first (kind-ids (tileset-of game) notation))))
 
 (defun indicators-of (game notation)
   (let ((ts (tileset-of game))
@@ -59,37 +64,38 @@
 
 (test tenpai-waits-count-the-remaining-copies
   (let* ((game (new-game :hands *waiting-hands*))
-         (waits (cl-mahjong:tenpai-waits game 1)))
+         (waits (cl-mahjong:tenpai-waits (view-of game 1))))
     (is (equal (kind-ids (tileset-of game) "14s")
                (mapcar (lambda (wait) (cl-mahjong:kind-id (car wait))) waits)))
     (is (equal '(4 4) (mapcar #'cdr waits)))
-    (is (null (cl-mahjong:tenpai-waits game 2)))))
+    (is (null (cl-mahjong:tenpai-waits (view-of game 2))))))
 
 (test tenpai-waits-take-a-discard
   (let* ((game (new-game :hands (cons "123m456m789p23s11z" (rest *waiting-hands*)) :draws '("9s")))
-         (waits (cl-mahjong:tenpai-waits game 0 :discard (drawn-tile game))))
+         (waits (cl-mahjong:tenpai-waits (view-of game 0) :discard (drawn-tile game))))
     (is (= 2 (length waits)))
-    (signals cl-mahjong:invalid-hand (cl-mahjong:tenpai-waits game 0))))
+    (signals cl-mahjong:invalid-hand (cl-mahjong:tenpai-waits (view-of game 0)))))
 
 (test furiten-follows-the-discards
   (let ((game (new-game :hands (cons "123m456m789p23s11z" (rest *waiting-hands*)) :draws '("9s"))))
-    (is (not (cl-mahjong:seat-furiten-p game 0 :discard (drawn-tile game)))))
+    (is (not (cl-mahjong:seat-furiten-p (view-of game 0) :discard (drawn-tile game)))))
   (let ((game (new-game :hands (cons "123m456m789p23s11z" (rest *waiting-hands*)) :draws '("4s"))))
-    (is (cl-mahjong:seat-furiten-p game 0 :discard (drawn-tile game)))
+    (is (cl-mahjong:seat-furiten-p (view-of game 0) :discard (drawn-tile game)))
     (setf game (act game 0 :discard "4s"))
-    (is (cl-mahjong:seat-furiten-p game 0))))
+    (is (cl-mahjong:seat-furiten-p (view-of game 0)))))
 
 ;;; Discards
 
 (test discard-options-rank-the-discards
   (let* ((game (new-game :hands (cons "123m456m789p23s11z" (rest *waiting-hands*)) :draws '("9s")))
-         (options (cl-mahjong:discard-options game 0))
+         (options (cl-mahjong:discard-options (view-of game 0)))
          (best (first options)))
     (is (= (drawn-tile game) (cl-mahjong:discard-option-tile best)))
     (is (= 0 (cl-mahjong:discard-option-shanten best)))
     (is (= 8 (cl-mahjong:discard-option-total best)))
     (is (apply #'<= (mapcar #'cl-mahjong:discard-option-shanten options)))
-    (is (<= (cl-mahjong:discard-option-total (first (cl-mahjong:discard-options game 0 :live t)))
+    (is (<= (cl-mahjong:discard-option-total
+             (first (cl-mahjong:discard-options (view-of game 0) :live t)))
             8))))
 
 (test discard-options-list-each-discard-once
@@ -98,12 +104,12 @@
          (keys (mapcar (lambda (option)
                          (let ((tile (cl-mahjong:discard-option-tile option)))
                            (cons (cl-mahjong:tile-kind-id ts tile) (cl-mahjong:tile-red-p ts tile))))
-                       (cl-mahjong:discard-options game 0))))
+                       (cl-mahjong:discard-options (view-of game 0)))))
     (is (equal keys (remove-duplicates keys :test #'equal)))
     (is (every (lambda (option)
                  (member (list :discard (cl-mahjong:discard-option-tile option))
                          (cl-mahjong:legal-actions game 0) :test #'equal))
-               (cl-mahjong:discard-options game 0)))))
+               (cl-mahjong:discard-options (view-of game 0))))))
 
 ;;; Safety
 
@@ -120,27 +126,27 @@
 
 (test genbutsu-is-the-safest-tile
   (let ((game (discarding-game)))
-    (is (= 4 (cl-mahjong:tile-safety game 1 (tile-of game "4m"))))
-    (is (= 4 (cl-mahjong:tile-safety game 1 (tile-of game "9p"))))))
+    (is (= 4 (cl-mahjong:tile-safety (view-of game 1) (tile-of game "4m"))))
+    (is (= 4 (cl-mahjong:tile-safety (view-of game 1) (tile-of game "9p"))))))
 
 (test suji-and-terminals-are-safer-than-middle-tiles
   (let ((game (discarding-game)))
-    (is (= 2 (cl-mahjong:tile-safety game 1 (kind-tile game 1 "1m"))))
-    (is (= 2 (cl-mahjong:tile-safety game 1 (tile-of game "7m"))))
-    (is (= 1 (cl-mahjong:tile-safety game 1 (kind-tile game 1 "9m"))))
-    (is (= 1 (cl-mahjong:tile-safety game 1 (kind-tile game 1 "5z"))))
-    (is (= 0 (cl-mahjong:tile-safety game 1 (kind-tile game 1 "5m"))))
-    (is (= 0 (cl-mahjong:tile-safety game 1 (tile-of game "6p"))))))
+    (is (= 2 (cl-mahjong:tile-safety (view-of game 1) (kind-tile game 1 "1m"))))
+    (is (= 2 (cl-mahjong:tile-safety (view-of game 1) (tile-of game "7m"))))
+    (is (= 1 (cl-mahjong:tile-safety (view-of game 1) (kind-tile game 1 "9m"))))
+    (is (= 1 (cl-mahjong:tile-safety (view-of game 1) (kind-tile game 1 "5z"))))
+    (is (= 0 (cl-mahjong:tile-safety (view-of game 1) (kind-tile game 1 "5m"))))
+    (is (= 0 (cl-mahjong:tile-safety (view-of game 1) (tile-of game "6p"))))))
 
 (test a-middle-tile-needs-both-its-suji
   (let ((game (with-seat (discarding-game) 0 :discards '("3m"))))
-    (is (= 0 (cl-mahjong:tile-safety game 1 (tile-of game "6m")))))
+    (is (= 0 (cl-mahjong:tile-safety (view-of game 1) (tile-of game "6m")))))
   (let ((game (with-seat (discarding-game) 0 :discards '("3m" "9m"))))
-    (is (= 2 (cl-mahjong:tile-safety game 1 (tile-of game "6m"))))))
+    (is (= 2 (cl-mahjong:tile-safety (view-of game 1) (tile-of game "6m"))))))
 
 (test nothing-is-dangerous-without-a-riichi
   (let ((game (new-game :hands *ron-hands*)))
-    (is (= 4 (cl-mahjong:tile-safety game 1 (kind-tile game 1 "5z"))))))
+    (is (= 4 (cl-mahjong:tile-safety (view-of game 1) (kind-tile game 1 "5z"))))))
 
 ;;; Bots
 
@@ -184,13 +190,13 @@
     (setf game (pass-all game))
     (let ((action (choose :hard game 1)))
       (is (eq :discard (first action)))
-      (is (< 1 (cl-mahjong:tile-safety game 1 (second action)))))))
+      (is (< 1 (cl-mahjong:tile-safety (view-of game 1) (second action)))))))
 
 (defclass recording-bot (cl-mahjong:bot)
   ((seen :initform '() :accessor seen)))
 
-(defmethod cl-mahjong:choose-action ((bot recording-bot) game seat actions)
-  (cl-mahjong:choose-action (cl-mahjong:make-bot :dead) game seat actions))
+(defmethod cl-mahjong:choose-action ((bot recording-bot) view)
+  (cl-mahjong:choose-action (cl-mahjong:make-bot :dead) view))
 
 (defmethod cl-mahjong:observe ((bot recording-bot) seat events)
   (declare (ignore seat))
@@ -202,7 +208,7 @@
          (game (cl-mahjong:play-bots
                 (cl-mahjong:start-game 'riichi :seed 5)
                 (list recorder
-                      (lambda (game seat actions) (cl-mahjong:choose-action dead game seat actions))
+                      (lambda (view) (cl-mahjong:choose-action dead view))
                       dead dead))))
     (is (cl-mahjong:game-over-p game))
     (is (find :game-end (seen recorder) :key #'first))))

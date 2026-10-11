@@ -1,6 +1,6 @@
 # Seat view
 
-`(game-view game seat)` returns what `seat` may see of a [game](game.md): its own hand, and for every seat the public tiles. It holds no deal, wall, claim or player, so nothing hidden can be read from it.
+`(game-view game seat)` returns what `seat` may see of a [game](game.md): its own hand, and for every seat the public tiles. It holds no deal, wall, claim or player, so nothing hidden can be read from it. [Bots](bot.md) are given only this view.
 
 ```lisp
 (let ((view (game-view game 1)))
@@ -14,6 +14,7 @@
 | Reader | Meaning |
 |---|---|
 | `view-seat` | The viewing seat |
+| `view-variant` | The [variant](variant.md); rules are public. `view-tileset` and `(view-opt view key)` read its tileset and options |
 | `view-phase`, `view-deal-phase` | `game-phase`; `deal-phase` (`:ended` between deals and after the game) |
 | `view-dealer`, `view-turn` | Dealer and seat to act |
 | `view-kyoku`, `view-honba`, `view-sticks` | Round, honba and riichi sticks |
@@ -31,10 +32,11 @@
 | `view-hand` | The concealed tiles, drawn tile included |
 | `view-drawn`, `view-forbidden` | The drawn tile and the kinds kuikae forbids; only on the seat's own turn |
 | `view-furiten` | Whether the seat is furiten; while it holds a tile to discard, only a passed ron counts[^furiten] |
+| `view-actions` | `legal-actions` of the seat; `NIL` when it is not the seat's decision |
 
 ## Every seat
 
-`(view-seats view)` is a vector with one `seen-seat` per seat, the viewer included.
+`(view-seats view)` is a vector with one `seen-seat` per seat, the viewer included. `(view-own view)` is the viewer's own.
 
 | Reader | Meaning |
 |---|---|
@@ -52,4 +54,4 @@
 
 `(shown-tiles game viewer seat)` decides which concealed tiles of `seat` the viewer sees. `seen-shown` and `seat-visible` both use it.
 
-[^furiten]: Use `seat-furiten-p` with `:discard` to ask about a discard. [Bots](bot.md) still receive the whole game ([#45](https://github.com/takeiteasy/cl-mahjong/issues/45)).
+[^furiten]: Use `seat-furiten-p` with `:discard` to ask about a discard.

@@ -364,15 +364,15 @@ with :bonus-rob another seat one tile short."
                                   :honba honba :riichi-sticks sticks
                                   :players (game-seats game))))))
 
-(defun winning-kinds (game counts melds &key nuki concealed-only)
-  "Kind ids that complete the hand of COUNTS and MELDS.
+(defun winning-kinds (variant counts melds &key nuki concealed-only)
+  "Kind ids under VARIANT that complete the hand of COUNTS and MELDS.
 NUKI are the player's own tiles set aside. Copies in the hand, melds and NUKI are used up, or with
 CONCEALED-ONLY just those in COUNTS and NUKI, so a tile whose other copies are in a meld still waits."
   ;; TODO: one decomposition per tile kind; derive waits from the shanten search (https://github.com/takeiteasy/cl-mahjong/issues/6)
-  (let* ((tileset (game-tileset game))
-         (shapes (variant-shapes (game-variant game)))
+  (let* ((tileset (variant-tileset variant))
+         (shapes (variant-shapes variant))
          (counts (copy-counts counts))
-         (nuki-ids (tile-kind-ids game nuki))
+         (nuki-ids (mapcar (lambda (tile) (tile-kind-id tileset tile)) nuki))
          (*check-copies* (not concealed-only)))
     (loop for kind across (tileset-kinds tileset)
           for id = (kind-id kind)
@@ -392,7 +392,8 @@ CONCEALED-ONLY just those in COUNTS and NUKI, so a tile whose other copies are i
          (or (player-temp-furiten player)
              (player-riichi-furiten player)
              (and (= 1 (mod (+ (length (player-tiles player)) (* 3 (length (player-melds player)))) 3))
-                  (let ((waits (winning-kinds game (hand-counts (game-tileset game) (player-tiles player))
+                  (let ((waits (winning-kinds (game-variant game)
+                                              (hand-counts (game-tileset game) (player-tiles player))
                                               (player-melds player) :nuki (player-nuki player))))
                     (some (lambda (id) (member id waits))
                           (tile-kind-ids game (player-discards player)))))))))
@@ -575,7 +576,7 @@ scores with uma and oka)."
   (let* ((tileset (game-tileset game))
          (counts (hand-counts tileset (player-tiles player))))
     (and (eql 0 (shanten tileset (variant-shapes (game-variant game)) counts (player-melds player)))
-         (winning-kinds game counts (player-melds player)
+         (winning-kinds (game-variant game) counts (player-melds player)
                         :nuki (player-nuki player) :concealed-only t)
          t)))
 

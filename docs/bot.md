@@ -1,6 +1,6 @@
 # Bots
 
-A bot picks an action for a seat from its [legal actions](game.md). `play-bots` runs a whole game with one bot per seat.
+A bot picks an action from the [view](view.md) of its seat, which holds the seat's [legal actions](game.md). `play-bots` runs a whole game with one bot per seat.
 
 ```lisp
 (multiple-value-bind (game events) (start-game 'riichi :seed 42)
@@ -22,19 +22,20 @@ A bot picks an action for a seat from its [legal actions](game.md). `play-bots` 
 
 | Piece | Meaning |
 |---|---|
-| `(choose-action bot game seat actions)` | Return one of `actions`, the `legal-actions` of `seat` |
+| `(choose-action bot view)` | Return one of `(view-actions view)`, the `legal-actions` of the seat |
 | `(observe bot seat events)` | Called with every batch of [events](game.md#events); does nothing by default |
-| A function | `(lambda (game seat actions) ...)` is a bot |
+| A function | `(lambda (view) ...)` is a bot |
 
 ```lisp
 (defclass greedy (bot) ())
-(defmethod choose-action ((bot greedy) game seat actions)
-  (or (find :tsumo actions :key #'first)
-      (find :ron actions :key #'first)
-      (first actions)))
+(defmethod choose-action ((bot greedy) view)
+  (let ((actions (view-actions view)))
+    (or (find :tsumo actions :key #'first)
+        (find :ron actions :key #'first)
+        (first actions))))
 ```
 
-Choose from `actions`, not the hand: kuikae and riichi restrictions exist only there. `observe` receives [`seat-events`](view.md#events), without other seats' draws. `choose-action` receives the whole game, so every hand is readable; playing fair is up to the bot, which can read its [`game-view`](view.md).[^view]
+Choose from `view-actions`, not the hand: kuikae and riichi restrictions exist only there. A bot sees only its [view](view.md): no other hand, wall or deal. `observe` receives [`seat-events`](view.md#events), without other seats' draws.
 
 ## Running games
 
@@ -55,17 +56,17 @@ The built-in bots use these; so can a UI.
 
 | Function | Result |
 |---|---|
-| `(seat-visible game seat)` | Kind-count vector of the tiles `seat` sees outside its own hand and melds, for the `:visible` key of [`shanten` and `ukeire`](analysis.md#live-shanten) |
-| `(discard-options game seat &key live)` | Each distinct legal discard as `(tile shanten total ukeire)`, best first; readers `discard-option-tile`, `-shanten`, `-total`, `-ukeire` |
-| `(tenpai-waits game seat &key discard)` | `(kind . remaining)` for each winning kind, or `NIL` when not tenpai |
-| `(seat-furiten-p game seat &key discard)` | Whether `seat` is furiten, or would be after the discard |
-| `(tile-safety game seat tile)` | 0 (dangerous) to 4 against the seats in riichi[^safety] |
+| `(seat-visible view)` | Kind-count vector of the tiles the seat sees outside its own hand and melds, for the `:visible` key of [`shanten` and `ukeire`](analysis.md#live-shanten) |
+| `(discard-options view &key live)` | Each distinct legal discard as `(tile shanten total ukeire)`, best first; readers `discard-option-tile`, `-shanten`, `-total`, `-ukeire` |
+| `(tenpai-waits view &key discard)` | `(kind . remaining)` for each winning kind, or `NIL` when not tenpai |
+| `(seat-furiten-p view &key discard)` | Whether the seat is furiten, or would be after the discard |
+| `(tile-safety view tile)` | 0 (dangerous) to 4 against the seats in riichi[^safety] |
 
-`discard` is a tile of a hand that still holds its drawn tile. With `:live`, `discard-options` takes the copies `seat` sees off each kind's count.
+`discard` is a tile of a hand that still holds its drawn tile. With `:live`, `discard-options` takes the copies the seat sees off each kind's count.
 
 ```lisp
-(tenpai-waits game 1)                      ; => ((#<KIND SOU-1> . 4) (#<KIND SOU-4> . 4))
-(first (discard-options game 0))           ; => (17 0 8 ((#<KIND SOU-1> . 4) ...))
+(tenpai-waits (game-view game 1))          ; => ((#<KIND SOU-1> . 4) (#<KIND SOU-4> . 4))
+(first (discard-options (game-view game 0)))   ; => (17 0 8 ((#<KIND SOU-1> . 4) ...))
 ```
 
 ### What `seat-visible` counts
@@ -90,5 +91,4 @@ The built-in bots use these; so can a UI.
 The score is the lowest across the seats in riichi.
 
 [^calls]: A yakuhai tile is a dragon, the seat wind or the round wind. The hard bot makes no other calls ([#42](https://github.com/takeiteasy/cl-mahjong/issues/42)).
-[^view]: See [PLAN.md](PLAN.md#limitations): bots are not given a view instead of the game ([#45](https://github.com/takeiteasy/cl-mahjong/issues/45)).
 [^safety]: Tiles passed since the declaration, kabe and open hands are not read ([#41](https://github.com/takeiteasy/cl-mahjong/issues/41)).
