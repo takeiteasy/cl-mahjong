@@ -18,7 +18,7 @@
 (defstruct (player (:constructor make-player (tiles)))
   tiles melds discards nuki bonus
   (called-away 0)
-  riichi open-riichi double-riichi ippatsu temp-furiten riichi-furiten false-riichi)
+  riichi open-riichi double-riichi ippatsu temp-furiten riichi-furiten false-riichi dead)
 
 (defstruct claim kind tile from options responses)
 
@@ -594,10 +594,14 @@ Honba grow unless RESET-HONBA or KEEP-HONBA."
   (let* ((deal (game-deal game))
          (seats (game-seats game))
          (tenpai (loop for seat below seats
-                       when (tenpai-p game (deal-player deal seat)) collect seat))
+                       when (and (not (player-dead (deal-player deal seat)))
+                                 (tenpai-p game (deal-player deal seat)))
+                         collect seat))
          (nagashi (and (opt game :nagashi-mangan)
                        (loop for seat below seats
-                             when (nagashi-seat-p game (deal-player deal seat)) collect seat)))
+                             when (and (not (player-dead (deal-player deal seat)))
+                                       (nagashi-seat-p game (deal-player deal seat)))
+                               collect seat)))
          (renchan (or (eq (opt game :renchan) :draw)
                       (and (eq (opt game :renchan) :tenpai) (member (deal-dealer deal) tenpai) t))))
     (conclude-deal game deal :exhaustive

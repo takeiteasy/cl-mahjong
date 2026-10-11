@@ -44,6 +44,7 @@
 | `seen-nuki`, `seen-bonus` | Tiles set aside |
 | `seen-hand-size` | Concealed tile count |
 | `seen-riichi`, `seen-open-riichi` | `:pending`, `:active` or `NIL`; whether it is open |
+| `seen-dead` | The reason a [dead hand](game.md#dead-hands) died, or `NIL` |
 | `seen-shown` | Concealed tiles the viewer sees: the hand of another seat in open riichi |
 
 ## Events

@@ -119,3 +119,12 @@
                 :deals 1)))
     (is (eq :deal-over (cl-mahjong:game-phase game)))
     (is (plusp calls))))
+
+(test a-dead-hand-shows-to-every-seat
+  (variant-with 'dead-view :chombo :mangan :false-win :dead)
+  (let ((game (cl-mahjong:apply-action
+               (cl-mahjong:start-game 'dead-view :walls (list (stacked :draws '("9m"))))
+               0 '(:tsumo))))
+    (dolist (viewer '(0 1 2 3))
+      (is (eq :false-tsumo (cl-mahjong:seen-dead (seen-by (view-of game viewer) 0))))
+      (is (null (cl-mahjong:seen-dead (seen-by (view-of game viewer) 1)))))))

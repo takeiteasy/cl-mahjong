@@ -110,9 +110,9 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
 
 (defun claim-options-from (game from tile &rest keys)
   "Alist of (seat . options) for the seats that answer TILE from FROM; KEYS go to `seat-claim-options'.
-With :chombo every seat answers, so any of them can declare a false ron."
+With :chombo every seat answers, so any of them can declare a false ron. Dead hands never answer."
   (loop for seat below (game-seats game)
-        unless (= seat from)
+        unless (or (= seat from) (player-dead (deal-player (game-deal game) seat)))
           append (let ((options (or (apply #'seat-claim-options game seat tile from keys)
                                     (and (opt game :chombo) (list (list :pass))))))
                    (and options (list (cons seat options))))))
@@ -224,7 +224,7 @@ With :chombo every seat answers, so any of them can declare a false ron."
          (drawn (deal-drawn deal))
          (candidates (discard-candidates game deal seat))
          (actions (mapcar (lambda (tile) (list :discard tile)) candidates)))
-    (when drawn
+    (when (and drawn (not (player-dead player)))
       (when (best-win game deal seat drawn :tsumo t)
         (push (list :tsumo) actions))
       (let ((riichi (riichi-candidates game deal seat candidates)))
@@ -261,6 +261,8 @@ With :chombo every seat answers, so any of them can declare a false ron."
          (player (deal-player deal seat))
          (drawn (deal-drawn deal))
          (arg (second action)))
+    (when (and (player-dead player) (not (eq (first action) :discard)))
+      (return-from turn-action-legal-p nil))
     (flet ((discards-p ()
              (and (= (length action) 2) (member arg (discard-candidates game deal seat))))
            (bare-p () (= (length action) 1)))
@@ -301,7 +303,8 @@ With :chombo every seat answers, so any of them can declare a false ron."
 
 (defun chombo-reason (game seat action)
   "Why ACTION, which is not legal, is a wrong declaration that :chombo penalises, or NIL."
-  (when (and (opt game :chombo) (eq (game-phase game) :playing) (consp action))
+  (when (and (opt game :chombo) (eq (game-phase game) :playing) (consp action)
+             (not (player-dead (deal-player (game-deal game) seat))))
     (let ((deal (game-deal game)))
       (case (deal-phase deal)
         (:turn
@@ -317,15 +320,29 @@ With :chombo every seat answers, so any of them can declare a false ron."
         ((:claim :chankan)
          (and (equal action '(:ron)) (claim-actions game seat) :false-ron))))))
 
+(defun kill-hand (game seat reason)
+  "SEAT's hand is dead for the rest of the deal: it only discards."
+  (emit :dead-hand :seat seat :reason reason)
+  (updating-deal (deal game)
+    (updating-player (player deal seat)
+      (setf (player-dead player) reason))))
+
 (defun apply-action (game seat action)
   "(values game events). Signals ILLEGAL-ACTION unless ACTION is one of `legal-actions' for SEAT,
-or with :chombo a wrong declaration, which ends the deal in a penalty (a wrong riichi at the exhaustive draw)."
+or with :chombo a wrong declaration, which ends the deal in a penalty (a wrong riichi at the exhaustive draw)
+or, with :false-win :dead, makes the hand dead."
   (let ((reason (and (not (action-legal-p game seat action))
                      (or (chombo-reason game seat action)
                          (illegal "~s is not a legal action for seat ~a" action seat))))
         (*events* '())
         (deal (game-deal game)))
-    (values (cond ((member reason '(:false-tsumo :false-ron :noten-open-riichi))
+    (values (cond ((and (member reason '(:false-tsumo :false-ron :noten-open-riichi))
+                        (eq (opt game :false-win) :dead))
+                   (let ((game (kill-hand game seat reason)))
+                     (if (eq (deal-phase deal) :turn)
+                         game
+                         (respond game seat '(:pass)))))
+                  ((member reason '(:false-tsumo :false-ron :noten-open-riichi))
                    (conclude-chombo game (list seat) reason))
                   ((eq (deal-phase deal) :turn)
                    (ecase (first action)

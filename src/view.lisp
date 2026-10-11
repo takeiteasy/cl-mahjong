@@ -11,7 +11,7 @@
          (player-tiles player))))
 
 (defstruct (seen-seat (:conc-name seen-))
-  discards melds nuki bonus hand-size riichi open-riichi shown)
+  discards melds nuki bonus hand-size riichi open-riichi dead shown)
 
 (defun seen-seats (game viewer)
   "A vector with the `seen-seat' of every seat, as VIEWER sees it."
@@ -25,6 +25,7 @@
                                             :hand-size (length (player-tiles player))
                                             :riichi (player-riichi player)
                                             :open-riichi (player-open-riichi player)
+                                            :dead (player-dead player)
                                             :shown (shown-tiles game viewer seat))))
             'simple-vector)))
 

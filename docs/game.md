@@ -53,6 +53,7 @@ Each event is `(type . plist)`.
 | `:riichi` | `:seat`, once the discard passes; an open riichi adds `:open T` and the revealed `:tiles` |
 | `:dora` | `:tile`, a new indicator |
 | `:chombo` | `:seat :reason`, a wrong declaration under [`:chombo`](#chombo) |
+| `:dead-hand` | `:seat :reason`, a hand made dead under [`:false-win :dead`](#dead-hands) |
 | `:win` | `:seat :from :han :fu :limit :points :yaku :pao :score`; `:pao` lists `(seat . amount)` for liable seats, including the [rinshan pao](scoring.md#rinshan-pao) giver |
 | `:deal-end` | `:type :deltas :points` |
 | `:game-end` | `:final` |
@@ -103,6 +104,18 @@ A variant with any other `:chombo` value, or a `:chombo-sticks` other than `:ret
 
 Riichi sticks put down in the void deal go back to their owners, or with `:chombo-sticks :keep` stay on the table.[^chombo]
 
+### Dead hands
+
+`:false-win :dead` (with a `:chombo` penalty) makes a false tsumo, false ron or noten open riichi kill the offender's hand instead of ending the deal. The deal goes on.
+
+| Dead seat | Effect |
+|---|---|
+| Turn | Only `(:discard tile)`; any other action signals `illegal-action` |
+| Discards of others | Never answers, so it cannot ron or call |
+| Exhaustive draw | Counts as noten, never nagashi; a dead dealer rotates under `:renchan :tenpai` |
+
+The offence emits `:dead-hand`, and the seat's `seen-dead` holds its reason for every viewer.[^dead]
+
 ## Game end
 
 | Condition | Option |
@@ -142,6 +155,7 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 | `:bonus-win` | off | `(count limit)`: holding `count` bonus tiles wins at once; see [below](#bonus-tiles) |
 | `:bonus-rob` | off | A seat one tile short of `:bonus-win` wins on another seat's bonus tile |
 | `:chombo` | off | Penalty for a wrong declaration: a limit keyword, `(:split points)` or `(:final points)`; see [below](#chombo) |
+| `:false-win` | `:void` | A false win under `:chombo` ends the deal (`:void`) or kills the hand (`:dead`); see [below](#dead-hands) |
 | `:chombo-sticks` | `:return` | Riichi sticks of a chombo deal: `:return` to their owners or `:keep` on the table |
 | `:nukidora` | off | Offer `(:kita)` for a north |
 | `:kita-ippatsu` | off | A kita keeps ippatsu; off breaks every seat's ippatsu |
@@ -163,3 +177,4 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 See [PLAN.md](PLAN.md#limitations): shanten and wait scans use the generic search ([#6](https://github.com/takeiteasy/cl-mahjong/issues/6)).
 
 [^chombo]: A `:final` penalty is kept in `game-penalties` and taken off `game-final`'s `:scores` after uma, oka and rounding. A false `(:riichi tile)` stays a riichi for the rest of the deal.
+[^dead]: A false `(:riichi tile)` is found only at the exhaustive draw, so it stays a chombo there under `:false-win :dead`. A false ron is recorded as the seat's `(:pass)`.

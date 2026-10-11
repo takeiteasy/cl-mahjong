@@ -109,6 +109,7 @@
     (:bonus-rob nil boolean)
     (:riichi t boolean) (:open-riichi nil boolean) (:furiten t boolean)
     (:chombo nil (:chombo)) (:chombo-sticks :return (member :return :keep))
+    (:false-win :void (member :void :dead))
     (:nukidora nil boolean) (:kita-ippatsu nil boolean) (:kita-interrupts t boolean)
     (:kita-rinshan t boolean) (:kita-ron t boolean)
     (:winds (:east :south :west :north) (:winds))
@@ -158,7 +159,9 @@ parent variant know, or a schema key's bad value."
                       (unless (option-valid-p (third row) value scoring players)
                         (invalid "Variant option ~s must be ~a, got ~s" key (option-description (third row)) value)))
                      ((not (member key yaku-keys))
-                      (invalid "Unknown variant option ~s" key)))))))
+                      (invalid "Unknown variant option ~s" key)))))
+    (when (and (eq (getf options :false-win) :dead) (null (getf options :chombo)))
+      (invalid "Variant option :false-win :dead needs a :chombo penalty"))))
 
 (defun build-variant (spec &optional inherited)
   (let ((players (single-arg spec :players))

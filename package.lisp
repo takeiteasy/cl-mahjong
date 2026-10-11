@@ -175,6 +175,7 @@
    #:player-temp-furiten
    #:player-riichi-furiten
    #:player-false-riichi
+   #:player-dead
    #:player-called-away
    #:variant-option
    #:limit-payments
@@ -217,6 +218,7 @@
    #:seen-hand-size
    #:seen-riichi
    #:seen-open-riichi
+   #:seen-dead
    #:seen-shown
    ;; advice
    #:seat-visible

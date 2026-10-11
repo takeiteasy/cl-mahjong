@@ -5,9 +5,10 @@
 (defparameter *noten-dealer*
   (cons "159m159p159s2345z" (rest *junk-hands*)))
 
-(defun chombo-game (chombo &key (hands *junk-hands*) draws (honba 0) (sticks :return))
-  "A riichi game with the :chombo option CHOMBO, whose riichi sticks of a void deal go STICKS."
-  (variant-with 'chombo-test :chombo chombo :chombo-sticks sticks)
+(defun chombo-game (chombo &key (hands *junk-hands*) draws (honba 0) (sticks :return) (false-win :void))
+  "A riichi game with the :chombo option CHOMBO, whose riichi sticks of a void deal go STICKS.
+A false win ends the deal, or with FALSE-WIN :dead makes the hand dead."
+  (variant-with 'chombo-test :chombo chombo :chombo-sticks sticks :false-win false-win)
   (cl-mahjong:start-game 'chombo-test :honba honba
                                       :walls (list (stacked :hands hands :draws draws))))
 
@@ -138,3 +139,77 @@
   (dolist (chombo '(nil :mangan (:split 20000) (:final 20000)))
     (variant-with 'chombo-good :chombo chombo)
     (is (cl-mahjong:find-variant 'chombo-good))))
+
+;;; Dead hands
+
+(defun dead-game (&rest args)
+  (apply #'chombo-game :mangan :false-win :dead args))
+
+(test a-false-tsumo-makes-the-hand-dead
+  (multiple-value-bind (game events) (cl-mahjong:apply-action (dead-game :draws '("9m")) 0 '(:tsumo))
+    (is (equal '(:dead-hand :seat 0 :reason :false-tsumo) (find :dead-hand events :key #'first)))
+    (is (eq :playing (cl-mahjong:game-phase game)))
+    (is (eq :false-tsumo (cl-mahjong:player-dead (seat-player game 0))))
+    (is (= 0 (cl-mahjong:deal-turn (cl-mahjong:game-deal game))))
+    (is (equal '(25000 25000 25000 25000) (points-of game)))))
+
+(test a-dead-seat-only-discards
+  (let ((game (cl-mahjong:apply-action (dead-game :draws '("9m")) 0 '(:tsumo))))
+    (is (equal '(:discard) (action-types game 0)))
+    (is (= 14 (length (cl-mahjong:legal-actions game 0))))))
+
+(test a-dead-seat-cannot-declare-again
+  (let ((game (cl-mahjong:apply-action (dead-game :draws '("9m")) 0 '(:tsumo))))
+    (signals cl-mahjong:illegal-action (cl-mahjong:apply-action game 0 '(:tsumo)))
+    (signals cl-mahjong:illegal-action (cl-mahjong:apply-action game 0 (list :riichi (kind-tile game 0 "9m"))))))
+
+(test a-false-ron-makes-the-hand-dead-and-the-claim-goes-on
+  (let ((game (act (dead-game :draws '("9m")) 0 :discard "9m")))
+    (multiple-value-bind (game events) (cl-mahjong:apply-action game 1 '(:ron))
+      (is (equal '(:dead-hand :seat 1 :reason :false-ron) (find :dead-hand events :key #'first)))
+      (is (eq :playing (cl-mahjong:game-phase game)))
+      (is (equal '(2 3) (cl-mahjong:deciding-seats game)))
+      (setf game (pass-all game))
+      (is (= 1 (cl-mahjong:deal-turn (cl-mahjong:game-deal game))))
+      (is (equal '(:discard) (action-types game 1))))))
+
+(test a-dead-seat-is-skipped-by-later-claims
+  (let* ((game (pass-all (cl-mahjong:apply-action (act (dead-game :draws '("9m" "9m" "9m")) 0 :discard "9m")
+                                                  1 '(:ron))))
+         (game (pass-all (act game 1 :discard "9m")))
+         (game (act game 2 :discard "9m")))
+    (is (equal '(0 3) (cl-mahjong:deciding-seats game)))
+    (is (null (cl-mahjong:legal-actions game 1)))
+    (signals cl-mahjong:illegal-action (cl-mahjong:apply-action game 1 '(:ron)))))
+
+(test an-open-riichi-while-noten-makes-the-hand-dead
+  (variant-with 'dead-open :chombo :mangan :open-riichi t :false-win :dead)
+  (let ((game (cl-mahjong:start-game 'dead-open
+                                     :walls (list (stacked :hands *noten-dealer* :draws '("9m"))))))
+    (setf game (cl-mahjong:apply-action game 0 (list :open-riichi (kind-tile game 0 "9m"))))
+    (is (eq :noten-open-riichi (cl-mahjong:player-dead (seat-player game 0))))
+    (is (null (cl-mahjong:player-riichi (seat-player game 0))))
+    (is (equal '(:discard) (action-types game 0)))))
+
+(test a-noten-riichi-is-still-a-chombo-at-the-draw-under-dead-hands
+  (let ((game (act (dead-game :hands *noten-dealer* :draws '("9m")) 0 :riichi "9m")))
+    (is (eq :chombo (result-of (play-deal game) :type)))))
+
+(test a-dead-seat-is-noten-at-the-exhaustive-draw
+  (let* ((game (cl-mahjong:apply-action
+                (dead-game :hands (cons "123m456m789p234s1z" (rest *junk-hands*)) :draws '("9m"))
+                0 '(:tsumo)))
+         (game (play-deal game)))
+    (is (eq :exhaustive (result-of game :type)))
+    (is (not (member 0 (result-of game :tenpai))))
+    (is (= 1 (cl-mahjong:game-kyoku game)))))
+
+(test bots-play-on-with-a-dead-seat
+  (let ((game (play-game (cl-mahjong:apply-action (dead-game :draws '("9m")) 0 '(:tsumo)))))
+    (is (cl-mahjong:game-over-p game))
+    (is (= 100000 (reduce #'+ (getf (cl-mahjong:game-final game) :points))))))
+
+(test a-dead-hand-needs-a-chombo-penalty
+  (signals cl-mahjong:invalid-definition (variant-with-options :false-win :dead))
+  (signals cl-mahjong:invalid-definition (variant-with-options :false-win :alive :chombo :mangan))
+  (is (variant-with-options :false-win :dead :chombo :mangan)))
