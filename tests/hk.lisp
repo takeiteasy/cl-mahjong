@@ -126,3 +126,51 @@
                          :context-args (apply #'hk-bonus names))))))
       (is (= 2 (han 'plum 'orchid 'spring)))
       (is (= 3 (han 'plum 'orchid 'bamboo))))))
+
+(defun hk-dealt-game (&rest holdings)
+  "An hk game whose deal gives each seat in HOLDINGS, a list per seat, those bonus kinds first.
+Every other bonus tile waits in the live wall, clear of the tiles that refill the dead wall."
+  (let* ((variant (cl-mahjong:find-variant 'hk))
+         (ts (cl-mahjong:variant-tileset variant))
+         (bonus-ids (loop for name in *flowers* collect (bonus-tile ts name)))
+         (plain (loop for tile below (cl-mahjong:tileset-tile-count ts)
+                      unless (member tile bonus-ids) collect tile))
+         (dealt (make-array 52 :initial-element nil))
+         (placed '()))
+    (loop for names in holdings
+          for seat from 0
+          do (let ((slots (append (loop for round below 3
+                                        append (loop for i below 4 collect (+ (* 16 round) (* 4 seat) i)))
+                                  (list (+ 48 seat)))))
+               (dolist (name names)
+                 (let ((tile (bonus-tile ts name)))
+                   (setf (aref dealt (pop slots)) tile)
+                   (push tile placed)))))
+    (dotimes (slot 52)
+      (unless (aref dealt slot)
+        (setf (aref dealt slot) (pop plain))))
+    (let ((dead (last plain 16))
+          (live (butlast plain 16)))
+      (cl-mahjong:start-game
+       variant
+       :walls (list (cl-mahjong:make-wall
+                     ts :tiles (append (coerce dealt 'list)
+                                       (subseq live 0 10) (set-difference bonus-ids placed) (nthcdr 10 live)
+                                       dead)))))))
+
+(test eight-flowers-dealt-win-at-once
+  (let ((game (hk-dealt-game (subseq *flowers* 0 8))))
+    (is (eq :deal-over (cl-mahjong:game-phase game)))
+    (is (eq :tsumo (result-of game :type)))
+    (is (equal '(384 -128 -128 -128) (coerce (cl-mahjong:game-points game) 'list)))))
+
+(test seven-flowers-dealt-rob-the-eighth-dealt-to-a-later-seat
+  (let ((game (hk-dealt-game '() '() (subseq *flowers* 0 7) '(winter))))
+    (is (eq :ron (result-of game :type)))
+    (is (equal '(2) (result-of game :winners)))
+    (is (equal '(-64 -64 256 -128) (coerce (cl-mahjong:game-points game) 'list)))))
+
+(test flowers-short-of-the-eighth-do-not-win-at-the-deal
+  (dolist (holdings (list (list (subseq *flowers* 0 7))
+                          (list '() '() (subseq *flowers* 0 6) '(winter))))
+    (is (eq :playing (cl-mahjong:game-phase (apply #'hk-dealt-game holdings))))))

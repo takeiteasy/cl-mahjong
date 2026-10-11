@@ -77,7 +77,7 @@ Exhaustive draws pay noten payments (a hand is tenpai unless the concealed hand 
 
 With `:bonus-tiles` a seat sets every bonus tile aside as soon as it holds one, and draws a replacement from the [`:nuki` slots](wall.md#layout). The deal does this seat by seat from the dealer, and a replacement that is a bonus tile is set aside in turn. The tiles stay in `player-bonus` and in the win context's `bonus`; they never count as dora. A tileset with bonus kinds needs the option.
 
-With `:bonus-win (8 :yakuman)` the seat that sets its eighth bonus tile aside wins the `yakuman` limit at once, paid like a tsumo. With `:bonus-rob` a seat holding seven wins instead when another seat sets the eighth aside, paid by that seat like a ron. The win has the yaku `bonus-win`.[^deal]
+With `:bonus-win (8 :yakuman)` the seat that sets its eighth bonus tile aside wins the `yakuman` limit at once, paid like a tsumo. With `:bonus-rob` a seat holding seven wins instead when another seat sets the eighth aside, paid by that seat like a ron. The win has the yaku `bonus-win`. The deal checks this too: a seat dealt its eighth tile, or seven with another seat setting the eighth aside, wins before anyone draws.
 
 ## Game end
 
@@ -135,5 +135,3 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 ## Limitations
 
 See [PLAN.md](PLAN.md#limitations): shanten and wait scans use the generic search ([#6](https://github.com/takeiteasy/cl-mahjong/issues/6)).
-
-[^deal]: The deal does not check these wins; see [PLAN.md](PLAN.md#limitations).

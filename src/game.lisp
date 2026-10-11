@@ -163,9 +163,9 @@ POINTS, KYOKU, HONBA and STICKS start the game part way through."
        (eq (kind-category (tile-kind (game-tileset game) tile)) :bonus)))
 
 (defun settle-deal-bonus (game wall hands dealer)
-  "(values wall bonuses events): each seat from DEALER sets aside its bonus tiles, replacing them in turn.
-HANDS is changed to the tiles kept; BONUSES holds the set-aside tiles of each seat."
-  ;; TODO: :bonus-win and :bonus-rob are not checked while dealing (https://github.com/takeiteasy/cl-mahjong/issues/26)
+  "(values wall bonuses events winner from): each seat from DEALER sets aside its bonus tiles, replacing them
+in turn. HANDS is changed to the tiles kept; BONUSES holds the set-aside tiles of each seat. Settling stops at
+a :bonus-win, whose WINNER wins from the seat FROM, or NIL for a tsumo."
   (let ((bonuses (make-array (game-seats game) :initial-element '()))
         (events '()))
     (dotimes (step (game-seats game))
@@ -175,16 +175,21 @@ HANDS is changed to the tiles kept; BONUSES holds the set-aside tiles of each se
         (loop while queue
               do (let ((tile (pop queue)))
                    (cond ((bonus-tile-p game tile)
-                          (push tile (svref bonuses seat))
+                          (setf (svref bonuses seat) (append (svref bonuses seat) (list tile)))
                           (push (list :bonus :seat seat :tile tile) events)
+                          (let ((winner (bonus-winner game seat bonuses)))
+                            (when winner
+                              (setf (svref hands seat) (append queue kept))
+                              (return-from settle-deal-bonus
+                                (values wall bonuses (nreverse events)
+                                        winner (and (/= winner seat) seat)))))
                           (multiple-value-bind (new next) (wall-draw-nuki wall)
                             (setf wall next)
                             (when new
                               (push (list :draw :seat seat :tile new :bonus t) events)
                               (push new queue))))
                          (t (push tile kept)))))
-        (setf (svref hands seat) kept
-              (svref bonuses seat) (nreverse (svref bonuses seat)))))
+        (setf (svref hands seat) kept)))
     (values wall bonuses (nreverse events))))
 
 (defun begin-deal (game)
@@ -192,7 +197,7 @@ HANDS is changed to the tiles kept; BONUSES holds the set-aside tiles of each se
          (stacked (game-walls game))
          (wall (or (first stacked) (make-wall (game-tileset game) :seed (wall-seed game)))))
     (multiple-value-bind (wall hands) (deal-hands game wall dealer)
-      (multiple-value-bind (wall bonuses bonus-events)
+      (multiple-value-bind (wall bonuses bonus-events bonus-winner bonus-from)
           (if (opt game :bonus-tiles)
               (settle-deal-bonus game wall hands dealer)
               (values wall (make-array (game-seats game) :initial-element '()) '()))
@@ -216,7 +221,9 @@ HANDS is changed to the tiles kept; BONUSES holds the set-aside tiles of each se
                           :dora (wall-dora-indicators wall))
         (dolist (event bonus-events)
           (push event *events*))
-        (draw-tile game dealer))))))
+        (if bonus-winner
+            (conclude-bonus-win game bonus-winner bonus-from)
+            (draw-tile game dealer)))))))
 
 (defun next-deal (game)
   "(values game events): start the deal that follows a finished one."
@@ -242,7 +249,8 @@ HANDS is changed to the tiles kept; BONUSES holds the set-aside tiles of each se
                                     (append (player-bonus player) (list tile))))))
                   (setf (deal-wall deal) wall)
                   deal))))
-    (let ((winner (bonus-winner game seat)))
+    (let ((winner (bonus-winner game seat (map 'simple-vector #'player-bonus
+                                               (deal-players (game-deal game))))))
       (if winner
           (conclude-bonus-win game winner (and (/= winner seat) seat))
           (multiple-value-bind (new next) (wall-draw-nuki (deal-wall (game-deal game)))
@@ -252,13 +260,12 @@ HANDS is changed to the tiles kept; BONUSES holds the set-aside tiles of each se
                   (emit :draw :seat seat :tile new :bonus t :rinshan (and rinshan t))
                   (take-tile game seat new next rinshan))))))))
 
-(defun bonus-winner (game seat)
+(defun bonus-winner (game seat bonuses)
   "The seat that wins at once on the bonus tile SEAT just set aside, or NIL: SEAT with enough tiles, else
-with :bonus-rob another seat one tile short."
-  (let ((count (first (opt game :bonus-win)))
-        (deal (game-deal game)))
+with :bonus-rob another seat one tile short. BONUSES holds each seat's set-aside tiles."
+  (let ((count (first (opt game :bonus-win))))
     (when count
-      (flet ((held (other) (length (player-bonus (deal-player deal other)))))
+      (flet ((held (other) (length (svref bonuses other))))
         (cond ((>= (held seat) count) seat)
               ((opt game :bonus-rob)
                (loop for other below (game-seats game)
