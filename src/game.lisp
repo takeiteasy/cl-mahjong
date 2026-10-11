@@ -7,26 +7,11 @@
 (defun illegal (control &rest args)
   (error 'illegal-action :message (apply #'format nil control args)))
 
-(defparameter *game-defaults*
-  '(:start-points 25000 :target-points 30000 :length :hanchan :west-extension t
-    :tobi t :agari-yame t :tenpai-yame nil
-    :kuikae :forbid :kan-dora :after-discard :chi t :ankan-chankan :kokushi
-    :multi-ron :double :sanchahou t
-    :kyuushu t :suufon-renda t :suucha-riichi t :suukaikan t
-    :nagashi-mangan :mangan :noten-payment 3000
-    :riichi-cost 1000 :riichi-min-tiles 4 :renchan :tenpai
-    :uma (15 5 -5 -15) :oka t :score-rounding nil :initial-dora 1
-    :bonus-tiles nil :bonus-rinshan t :bonus-win nil :bonus-rob nil :riichi t :open-riichi nil :furiten t
-    :chombo nil :chombo-sticks :return
-    :nukidora nil :kita-ippatsu nil :kita-interrupts t :kita-rinshan t :kita-ron t
-    :winds (:east :south :west :north))
-  "Game-flow options a variant's :options may override.")
-
 (defparameter *hand-size* 13)
 
 (defun variant-option (variant key)
   (let ((value (getf (variant-options variant) key '%missing)))
-    (if (eq value '%missing) (getf *game-defaults* key) value)))
+    (if (eq value '%missing) (second (assoc key *option-schema*)) value)))
 
 ;;; State
 

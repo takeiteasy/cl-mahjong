@@ -3,7 +3,7 @@
 (defstruct yaku
   spec name
   han open-han yakuman closed-only
-  double-when needs-yaku per pao patterns implies excludes)
+  double-when needs-yaku per pao patterns implies excludes option-keys)
 
 ;; pao is an alist of (liable-seat . yakuman) for the yakuman the liable seats fed.
 (defstruct (reading (:constructor make-reading (decomposition win-group wait yaku han yakuman hand
@@ -61,7 +61,8 @@
       (invalid "Yaku ~(~a~) needs exactly one of :han and :yakuman" name))
     (unless (getf spec :when)
       (invalid "Yaku ~(~a~) needs a :when clause" name))
-    (let ((value (if (and yakuman-args (consp (first args)))
+    (let* ((*option-keys* (list nil))
+           (value (if (and yakuman-args (consp (first args)))
                      (yakuman-function (first args))
                      (count-arg (first args) (if han-args ":han" ":yakuman") 1))))
       (make-yaku :spec spec :name name
@@ -80,7 +81,8 @@
                  :pao (pao-selector (getf options :pao))
                  :patterns (compile-patterns (getf spec :when))
                  :implies (name-list (getf spec :implies) ":implies")
-                 :excludes (name-list (getf spec :excludes) ":excludes")))))
+                 :excludes (name-list (getf spec :excludes) ":excludes")
+                 :option-keys (car *option-keys*)))))
 
 (defun pao-selector (form)
   "FORM is a tile selector, or `kan' for the seat that fed the latest daiminkan."

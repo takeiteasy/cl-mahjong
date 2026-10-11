@@ -13,7 +13,9 @@
   (find-definition :variant name))
 
 (defmethod compile-definition ((kind (eql :variant)) parent clauses)
-  (build-variant (merge-variant-spec (and parent (variant-spec parent)) clauses)))
+  (build-variant (merge-variant-spec (and parent (variant-spec parent)) clauses)
+                 (loop for (key) on (and parent (getf (variant-spec parent) :options)) by #'cddr
+                       collect key)))
 
 (defun delta-target (clause allowed)
   (let ((target (second clause)))
@@ -81,19 +83,84 @@
       (invalid "Variant clause ~s takes one value, got ~s" key args))
     (first args)))
 
-(defun check-chombo-options (options scoring)
-  (let ((chombo (getf options :chombo))
-        (sticks (getf options :chombo-sticks :return)))
-    (unless (or (null chombo)
-                (and (keywordp chombo) (assoc chombo (scoring-limits scoring)))
-                (and (consp chombo) (member (first chombo) '(:split :final))
-                     (null (cddr chombo)) (typep (second chombo) '(integer 1))))
-      (invalid "Variant option :chombo must be NIL, a limit of the scoring, (:split points) or (:final points), got ~s"
-               chombo))
-    (unless (member sticks '(:return :keep))
-      (invalid "Variant option :chombo-sticks must be :return or :keep, got ~s" sticks))))
+;;; Options
 
-(defun build-variant (spec)
+(defparameter *option-schema*
+  '((:start-points 25000 integer) (:target-points 30000 integer)
+    (:length :hanchan (member :tonpuu :hanchan :full))
+    (:west-extension t boolean)
+    (:tobi t boolean) (:agari-yame t boolean) (:tenpai-yame nil boolean)
+    (:kuikae :forbid (member :forbid :same-kind nil))
+    (:kan-dora :after-discard (member :after-discard :on-discard :immediate))
+    (:chi t boolean)
+    (:ankan-chankan :kokushi (member :kokushi nil))
+    (:multi-ron :double (member :head-bump :double :triple))
+    (:sanchahou t boolean)
+    (:kyuushu t boolean) (:suufon-renda t boolean) (:suucha-riichi t boolean) (:suukaikan t boolean)
+    (:nagashi-mangan :mangan (:limit-or-nil))
+    (:noten-payment 3000 (integer 0))
+    (:riichi-cost 1000 (integer 0)) (:riichi-min-tiles 4 (integer 0))
+    (:renchan :tenpai (member :tenpai :win-only :draw))
+    (:uma (15 5 -5 -15) (:integers))
+    (:oka t boolean)
+    (:score-rounding nil (member :half-away nil))
+    (:initial-dora 1 (integer 0))
+    (:bonus-tiles nil boolean) (:bonus-rinshan t boolean) (:bonus-win nil (:bonus-win))
+    (:bonus-rob nil boolean)
+    (:riichi t boolean) (:open-riichi nil boolean) (:furiten t boolean)
+    (:chombo nil (:chombo)) (:chombo-sticks :return (member :return :keep))
+    (:nukidora nil boolean) (:kita-ippatsu nil boolean) (:kita-interrupts t boolean)
+    (:kita-rinshan t boolean) (:kita-ron t boolean)
+    (:winds (:east :south :west :north) (:winds))
+    (:kiriage nil boolean) (:double-wind-fu nil (or null (integer 0)))
+    (:rinshan-tsumo-fu nil boolean) (:open-pinfu-fu nil boolean) (:pinfu-tsumo-fu nil boolean)
+    (:double-yakuman nil boolean) (:pao-held nil boolean))
+  "Each option a variant's :options may set, as (key default type). A type is a Lisp type specifier or a
+one-element list naming a check that needs the scoring or the player count. Options that yaku read with
+(option key) are not here; the variant's yaku declare them.")
+
+(defun limit-p (scoring value)
+  (and (keywordp value) (assoc value (scoring-limits scoring)) t))
+
+(defun option-valid-p (type value scoring players)
+  (if (and (consp type) (null (cdr type)) (keywordp (car type)))
+      (ecase (car type)
+        (:limit-or-nil (or (null value) (limit-p scoring value)))
+        (:integers (and (listp value) (every #'integerp value)))
+        (:winds (and (listp value) (every #'keywordp value) (>= (length value) players)))
+        (:bonus-win (or (null value)
+                        (and (consp value) (null (cddr value)) (typep (first value) '(integer 1))
+                             (limit-p scoring (second value)))))
+        (:chombo (or (null value) (limit-p scoring value)
+                     (and (consp value) (member (first value) '(:split :final))
+                          (null (cddr value)) (typep (second value) '(integer 1))))))
+      (typep value type)))
+
+(defun option-description (type)
+  (if (consp type)
+      (case (car type)
+        (:limit-or-nil "NIL or a limit of the scoring")
+        (:integers "a list of integers")
+        (:winds "a list of at least as many wind keywords as there are players")
+        (:bonus-win "NIL or (count limit) with a limit of the scoring")
+        (:chombo "NIL, a limit of the scoring, (:split points) or (:final points)")
+        (member (format nil "one of ~{~s~^, ~}" (cdr type)))
+        (t (format nil "of type ~s" type)))
+      (format nil "of type ~s" type)))
+
+(defun check-options (options scoring players yaku inherited)
+  "Signals when OPTIONS sets a key that neither the schema, a yaku of YAKU nor the INHERITED keys of the
+parent variant know, or a schema key's bad value."
+  (let ((yaku-keys (append inherited (loop for item in yaku append (yaku-option-keys item)))))
+    (loop for (key value) on options by #'cddr
+          do (let ((row (assoc key *option-schema*)))
+               (cond (row
+                      (unless (option-valid-p (third row) value scoring players)
+                        (invalid "Variant option ~s must be ~a, got ~s" key (option-description (third row)) value)))
+                     ((not (member key yaku-keys))
+                      (invalid "Unknown variant option ~s" key)))))))
+
+(defun build-variant (spec &optional inherited)
   (let ((players (single-arg spec :players))
         (shapes (getf spec :shapes))
         (yaku (getf spec :yaku))
@@ -107,9 +174,8 @@
     (unless (evenp (length options))
       (invalid "Variant :options needs keyword/value pairs, got ~s" options))
     (let ((scoring (single-arg spec :scoring)))
-      (check-chombo-options options (find-scoring scoring))
       (mapc #'find-shape shapes)
-      (mapc #'find-yaku yaku)
+      (check-options options (find-scoring scoring) players (mapcar #'find-yaku yaku) inherited)
       (make-variant spec (keyword-of (single-arg spec :name)) players
                     (find-tileset (single-arg spec :tileset))
                     shapes yaku scoring options))))

@@ -26,7 +26,6 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 |---|---|
 | Sanma logs before 2022-01-23 are not replayed | [#18](https://github.com/takeiteasy/cl-mahjong/issues/18) |
 | A false win ends the deal under `:chombo`; there are no dead hands | [#46](https://github.com/takeiteasy/cl-mahjong/issues/46) |
-| Only `:chombo` option values are validated | [#47](https://github.com/takeiteasy/cl-mahjong/issues/47) |
 | No action log; a game cannot be replayed from its actions | [#29](https://github.com/takeiteasy/cl-mahjong/issues/29) |
 | A game cannot be saved and restored | [#30](https://github.com/takeiteasy/cl-mahjong/issues/30) |
 | No player identities or turn timeouts | [#31](https://github.com/takeiteasy/cl-mahjong/issues/31) |

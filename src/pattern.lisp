@@ -200,6 +200,9 @@
                       when (eq (kind-category kind) :suit) collect (kind-suit kind)))))
     (= 1 (length suits))))
 
+(defvar *option-keys* nil
+  "While a yaku compiles, the cell whose car collects the option keys its patterns read.")
+
 (defun compile-patterns (forms)
   (mapcar #'compile-pattern forms))
 
@@ -232,6 +235,8 @@
         (lambda (hand) (funcall reader (win-hand-context hand)))))
      (:option (check-arity form 1 2)
       (let ((key (keyword-of (first args))))
+        (when *option-keys*
+          (pushnew key (car *option-keys*)))
         (if (rest args)
             (let ((value (second args)))
               (lambda (hand) (eql (getf (win-hand-options hand) key) value)))

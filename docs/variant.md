@@ -32,6 +32,22 @@ A variant bundles the definitions a game plays with. `defvariant` registers it b
   (:set :renhou :yakuman :kuitan nil))
 ```
 
+## Option validation
+
+`build-variant` checks every option when the variant is built.
+
+| Check | Rejected |
+|---|---|
+| Value | A value of the wrong type or outside the allowed set, such as `:kuikae :forbd` or `:multi-ron :dobule` |
+| Key | A key that is not a [game option](game.md#options), a scoring option, or read by one of the variant's [yaku](yaku.md)[^lambda] |
+
+A child variant keeps the keys its parent accepted, so removing a yaku does not reject the options it read.
+
+```lisp
+(defvariant typo :extends riichi
+  (:set :kuittan nil))   ; invalid: unknown option :kuittan
+```
+
 ## Deltas
 
 | Delta | Targets | Effect |
@@ -53,3 +69,5 @@ Every named definition must exist when the variant is looked up.
 | `variant-shapes`, `variant-yaku`, `variant-scoring` | The names |
 | `variant-options` | The options plist |
 | `(variant-option variant key)` | An option, falling back to the [game defaults](game.md#options) |
+
+[^lambda]: A key is known to a yaku when one of its `(option key)` patterns names it. A `(:lambda ...)` yakuman that reads options itself does not declare any.
