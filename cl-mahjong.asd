@@ -55,6 +55,7 @@
                (:file "tests/wrc")
                (:file "tests/corpus")
                (:file "tests/hk")
+               (:file "tests/chombo")
                (:file "tests/bot")
                (:file "tests/view")
                (:file "tests/replay"))

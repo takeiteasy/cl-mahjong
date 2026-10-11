@@ -17,6 +17,7 @@
     :riichi-cost 1000 :riichi-min-tiles 4 :renchan :tenpai
     :uma (15 5 -5 -15) :oka t :score-rounding nil :initial-dora 1
     :bonus-tiles nil :bonus-rinshan t :bonus-win nil :bonus-rob nil :riichi t :open-riichi nil :furiten t
+    :chombo nil :chombo-sticks :return
     :nukidora nil :kita-ippatsu nil :kita-interrupts t :kita-rinshan t :kita-ron t
     :winds (:east :south :west :north))
   "Game-flow options a variant's :options may override.")
@@ -32,7 +33,7 @@
 (defstruct (player (:constructor make-player (tiles)))
   tiles melds discards nuki bonus
   (called-away 0)
-  riichi open-riichi double-riichi ippatsu temp-furiten riichi-furiten)
+  riichi open-riichi double-riichi ippatsu temp-furiten riichi-furiten false-riichi)
 
 (defstruct claim kind tile from options responses)
 
@@ -43,7 +44,7 @@
 ;; kyoku counts rounds from east 1; the dealer is kyoku mod players.
 (defstruct game
   variant seed walls (dealt 0) scores (kyoku 0) (honba 0) (table-sticks 0)
-  deal (phase :playing) result final)
+  penalties deal (phase :playing) result final)
 
 (defvar *events*)
 
@@ -142,6 +143,7 @@ POINTS, KYOKU, HONBA and STICKS start the game part way through."
                           :seed (or seed (random most-positive-fixnum))
                           :walls walls
                           :kyoku kyoku :honba honba :table-sticks sticks
+                         :penalties (make-array players :initial-element 0)
                           :scores (if points
                                       (coerce points 'simple-vector)
                                       (make-array players
@@ -456,7 +458,7 @@ A score whose payments name a :from seat is paid whole by that seat."
 
 (defun standings (game points sticks)
   "Plist (:order seats best first :points points with the table's STICKS given to first :scores final
-scores with uma and oka)."
+scores with uma and oka, less any :chombo penalty taken from the final score)."
   (let* ((seats (game-seats game))
          (order (stable-sort (loop for seat below seats collect seat) #'>
                              :key (lambda (seat) (aref points seat))))
@@ -480,6 +482,8 @@ scores with uma and oka)."
     (when rounded
       (setf (aref scores (first order))
             (- (loop for seat in (rest order) sum (aref scores seat)))))
+    (dotimes (seat seats)
+      (decf (aref scores seat) (aref (game-penalties game) seat)))
     (list :order order :points points :scores scores)))
 
 (defun game-ends-p (game points kyoku renchan yame)
@@ -498,12 +502,15 @@ scores with uma and oka)."
                 (if (eq yame :agari) (opt game :agari-yame) (opt game :tenpai-yame)))
            t))))
 
-(defun conclude-deal (game deal type deltas &key renchan reset-honba collect yame detail)
-  "Finish DEAL: apply DELTAS, rotate the dealer unless RENCHAN, and end the game when its rules say so."
+(defun conclude-deal (game deal type deltas &key renchan reset-honba keep-honba collect yame detail)
+  "Finish DEAL: apply DELTAS, rotate the dealer unless RENCHAN, and end the game when its rules say so.
+Honba grow unless RESET-HONBA or KEEP-HONBA."
   (let* ((points (apply-deltas (deal-points deal) deltas))
          (sticks (if collect 0 (deal-sticks deal)))
          (kyoku (if renchan (game-kyoku game) (1+ (game-kyoku game))))
-         (honba (if reset-honba 0 (1+ (game-honba game))))
+         (honba (cond (reset-honba 0)
+                      (keep-honba (game-honba game))
+                      (t (1+ (game-honba game)))))
          (over (game-ends-p game points kyoku renchan yame))
          (finished (copy-deal deal))
          (result (list* :type type :deltas deltas :kyoku (game-kyoku game) detail))
@@ -561,22 +568,24 @@ scores with uma and oka)."
                     (or (kind-honor-p kind) (terminal-p tileset kind))))
                 (player-discards player)))))
 
+(defun limit-tsumo-deltas (game deal seat limit)
+  "Alist of (seat . points) for SEAT winning LIMIT as a tsumo."
+  (let ((dealer (= seat (deal-dealer deal))))
+    (multiple-value-bind (payments total)
+        (limit-payments (variant-scoring (game-variant game)) limit
+                        :dealer dealer :players (game-seats game))
+      (cons (cons seat total)
+            (loop for other below (game-seats game)
+                  unless (= other seat)
+                    collect (cons other
+                                  (- (if (and (not dealer) (= other (deal-dealer deal)))
+                                         (getf payments :dealer)
+                                         (getf payments :other)))))))))
+
 (defun nagashi-deltas (game deal seats)
-  (let ((scoring (variant-scoring (game-variant game))))
-    (apply #'merge-deltas
-           (loop for seat in seats
-                 collect (let ((dealer (= seat (deal-dealer deal))))
-                           (multiple-value-bind (payments total)
-                               (limit-payments scoring (opt game :nagashi-mangan)
-                                               :dealer dealer :players (game-seats game))
-                             (cons (cons seat total)
-                                   (loop for other below (game-seats game)
-                                         unless (= other seat)
-                                           collect (cons other
-                                                         (- (if (and (not dealer)
-                                                                     (= other (deal-dealer deal)))
-                                                                (getf payments :dealer)
-                                                                (getf payments :other))))))))))))
+  (apply #'merge-deltas
+         (loop for seat in seats
+               collect (limit-tsumo-deltas game deal seat (opt game :nagashi-mangan)))))
 
 (defun tenpai-p (game player)
   "True when PLAYER is one tile from a win and a winning kind is not held in full in the concealed hand."
@@ -588,6 +597,15 @@ scores with uma and oka)."
          t)))
 
 (defun exhaustive-draw (game)
+  (let* ((deal (game-deal game))
+         (offenders (and (opt game :chombo)
+                         (loop for seat below (game-seats game)
+                               when (player-false-riichi (deal-player deal seat)) collect seat))))
+    (if offenders
+        (conclude-chombo game offenders :noten-riichi)
+        (settle-exhaustive-draw game))))
+
+(defun settle-exhaustive-draw (game)
   (let* ((deal (game-deal game))
          (seats (game-seats game))
          (tenpai (loop for seat below seats
@@ -601,6 +619,41 @@ scores with uma and oka)."
                    (if nagashi (nagashi-deltas game deal nagashi) (noten-deltas game tenpai))
                    :renchan renchan :yame :tenpai
                    :detail (list :tenpai tenpai :nagashi nagashi))))
+
+(defun chombo-deltas (game deal offenders)
+  "Alist of (seat . points) for the :chombo penalty of OFFENDERS; NIL for a penalty taken from the final score."
+  (let* ((penalty (opt game :chombo))
+         (seats (game-seats game))
+         (others (1- seats)))
+    (apply #'merge-deltas
+           (loop for offender in offenders
+                 collect (cond ((keywordp penalty)
+                                (loop for (seat . points) in (limit-tsumo-deltas game deal offender penalty)
+                                      collect (cons seat (- points))))
+                               ((eq (first penalty) :split)
+                                (let ((share (* 100 (floor (second penalty) (* 100 others)))))
+                                  (loop for seat below seats
+                                        collect (cons seat (if (= seat offender) (- (* share others)) share))))))))))
+
+(defun conclude-chombo (game offenders reason)
+  "OFFENDERS are penalised for REASON and the deal is void: the dealer repeats and honba stay."
+  (let* ((deal (copy-deal (game-deal game)))
+         (penalty (opt game :chombo))
+         (refunded (and (eq (opt game :chombo-sticks) :return)
+                        (loop for seat below (game-seats game)
+                              when (eq (player-riichi (deal-player deal seat)) :active) collect seat)))
+         (deltas (merge-deltas (chombo-deltas game deal offenders)
+                               (loop for seat in refunded collect (cons seat (opt game :riichi-cost)))))
+         (game (copy-game game)))
+    (decf (deal-sticks deal) (length refunded))
+    (when (and (consp penalty) (eq (first penalty) :final))
+      (setf (game-penalties game) (copy-seq (game-penalties game)))
+      (dolist (offender offenders)
+        (incf (aref (game-penalties game) offender) (second penalty))))
+    (dolist (offender offenders)
+      (emit :chombo :seat offender :reason reason))
+    (conclude-deal game deal :chombo deltas :renchan t :keep-honba t
+                   :detail (list :seats offenders :reason reason))))
 
 (defun abort-deal (game reason)
   (conclude-deal game (game-deal game) :abortive nil :renchan t :detail (list :reason reason)))

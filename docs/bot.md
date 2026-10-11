@@ -48,7 +48,7 @@ Choose from `view-actions`, not the hand: kuikae and riichi restrictions exist o
 | `on-events` | Function called with every batch of events |
 | `deals` | Stop after this many deals |
 
-An illegal action signals `illegal-action`.
+An illegal action signals `illegal-action`; bots only play legal actions, so they never cause a [chombo](game.md#chombo).
 
 ## Helpers
 

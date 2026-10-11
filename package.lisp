@@ -174,6 +174,7 @@
    #:player-ippatsu
    #:player-temp-furiten
    #:player-riichi-furiten
+   #:player-false-riichi
    #:player-called-away
    #:variant-option
    #:limit-payments

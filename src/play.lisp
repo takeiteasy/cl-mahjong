@@ -108,6 +108,15 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
 
 ;;; Legal actions
 
+(defun claim-options-from (game from tile &rest keys)
+  "Alist of (seat . options) for the seats that answer TILE from FROM; KEYS go to `seat-claim-options'.
+With :chombo every seat answers, so any of them can declare a false ron."
+  (loop for seat below (game-seats game)
+        unless (= seat from)
+          append (let ((options (or (apply #'seat-claim-options game seat tile from keys)
+                                    (and (opt game :chombo) (list (list :pass))))))
+                   (and options (list (cons seat options))))))
+
 (defun nuki-possible-p (game)
   "A set-aside tile needs a live wall tile and a nuki slot for its replacement."
   (let ((wall (deal-wall (game-deal game))))
@@ -290,24 +299,46 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
 
 ;;; Applying actions
 
+(defun chombo-reason (game seat action)
+  "Why ACTION, which is not legal, is a wrong declaration that :chombo penalises, or NIL."
+  (when (and (opt game :chombo) (eq (game-phase game) :playing) (consp action))
+    (let ((deal (game-deal game)))
+      (case (deal-phase deal)
+        (:turn
+         (when (= seat (deal-turn deal))
+           (case (first action)
+             (:tsumo (and (= (length action) 1) :false-tsumo))
+             ((:riichi :open-riichi)
+              (and (= (length action) 2)
+                   (member (second action) (discard-candidates game deal seat))
+                   (or (eq (first action) :riichi) (opt game :open-riichi))
+                   (riichi-allowed-p game deal seat)
+                   (if (eq (first action) :riichi) :noten-riichi :noten-open-riichi))))))
+        ((:claim :chankan)
+         (and (equal action '(:ron)) (claim-actions game seat) :false-ron))))))
+
 (defun apply-action (game seat action)
-  "(values game events). Signals ILLEGAL-ACTION unless ACTION is one of `legal-actions' for SEAT."
-  (unless (action-legal-p game seat action)
-    (illegal "~s is not a legal action for seat ~a" action seat))
-  (let* ((*events* '())
-         (deal (game-deal game))
-         (new (if (eq (deal-phase deal) :turn)
-                  (ecase (first action)
-                    (:discard (discard-tile game seat (second action) nil))
-                    (:riichi (discard-tile game seat (second action) t))
-                    (:open-riichi (discard-tile game seat (second action) :open))
-                    (:tsumo (declare-tsumo game seat))
-                    (:kyuushu (abort-deal game :kyuushu))
-                    (:kita (declare-kita game seat))
-                    (:ankan (declare-ankan game seat (second action)))
-                    (:shouminkan (declare-shouminkan game seat (second action))))
-                  (respond game seat action))))
-    (values new (reverse *events*))))
+  "(values game events). Signals ILLEGAL-ACTION unless ACTION is one of `legal-actions' for SEAT,
+or with :chombo a wrong declaration, which ends the deal in a penalty (a wrong riichi at the exhaustive draw)."
+  (let ((reason (and (not (action-legal-p game seat action))
+                     (or (chombo-reason game seat action)
+                         (illegal "~s is not a legal action for seat ~a" action seat))))
+        (*events* '())
+        (deal (game-deal game)))
+    (values (cond ((member reason '(:false-tsumo :false-ron :noten-open-riichi))
+                   (conclude-chombo game (list seat) reason))
+                  ((eq (deal-phase deal) :turn)
+                   (ecase (first action)
+                     (:discard (discard-tile game seat (second action) nil))
+                     (:riichi (discard-tile game seat (second action) t (eq reason :noten-riichi)))
+                     (:open-riichi (discard-tile game seat (second action) :open))
+                     (:tsumo (declare-tsumo game seat))
+                     (:kyuushu (abort-deal game :kyuushu))
+                     (:kita (declare-kita game seat))
+                     (:ankan (declare-ankan game seat (second action)))
+                     (:shouminkan (declare-shouminkan game seat (second action)))))
+                  (t (respond game seat action)))
+            (reverse *events*))))
 
 (defun declare-tsumo (game seat)
   (let* ((deal (game-deal game))
@@ -318,8 +349,9 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
 
 ;;; Discards
 
-(defun discard-tile (game seat tile riichi)
-  "SEAT discards TILE; RIICHI is NIL, T for a riichi declaration or :OPEN for an open one."
+(defun discard-tile (game seat tile riichi &optional false-riichi)
+  "SEAT discards TILE; RIICHI is NIL, T for a riichi declaration or :OPEN for an open one.
+FALSE-RIICHI marks a riichi that was declared while not tenpai."
   (let* ((deal (game-deal game))
          (first-turn (first-turn-p deal (deal-player deal seat)))
          (game (updating-deal (deal game)
@@ -333,7 +365,8 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
                                (when riichi
                                  (setf (player-riichi player) :pending
                                        (player-open-riichi player) (eq riichi :open)
-                                       (player-double-riichi player) first-turn)))))
+                                       (player-double-riichi player) first-turn
+                                       (player-false-riichi player) false-riichi)))))
                    (setf (deal-drawn deal) nil
                          (deal-forbidden deal) nil
                          (deal-rinshan deal) nil)
@@ -343,10 +376,7 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
                 tile seat)))
 
 (defun open-claim (game tile from)
-  (let ((options (loop for seat below (game-seats game)
-                       unless (= seat from)
-                         append (let ((options (seat-claim-options game seat tile from)))
-                                  (and options (list (cons seat options)))))))
+  (let ((options (claim-options-from game from tile)))
     (if (null options)
         (after-discard game from)
         (updating-deal (deal game)
@@ -622,11 +652,7 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
   (let* ((game (reveal-pending-dora game))
          (tiles (tiles-of-kind-in game (player-tiles (deal-player (game-deal game) seat)) id))
          (options (and (opt game :ankan-chankan)
-                       (loop for other below (game-seats game)
-                             unless (= other seat)
-                               append (let ((options (seat-claim-options game other (first tiles) seat
-                                                                         :kan t :ankan t)))
-                                        (and options (list (cons other options))))))))
+                       (claim-options-from game seat (first tiles) :kan t :ankan t))))
     (if (null options)
         (finish-ankan game seat (first tiles))
         (updating-deal (deal game)
@@ -655,10 +681,7 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
          (game (updating-deal (deal game)
                  (updating-player (player deal seat)
                    (setf (player-tiles player) (remove tile (player-tiles player))))))
-         (options (loop for other below (game-seats game)
-                        unless (= other seat)
-                          append (let ((options (seat-claim-options game other tile seat :kan t)))
-                                   (and options (list (cons other options)))))))
+         (options (claim-options-from game seat tile :kan t)))
     (if (null options)
         (finish-shouminkan game seat tile)
         (updating-deal (deal game)
@@ -700,11 +723,7 @@ A closed kan, ANKAN, can only be robbed for a kokushi win."
                  (updating-player (player deal seat)
                    (setf (player-tiles player) (remove tile (player-tiles player))))))
          (options (and (opt game :kita-ron)
-                       (loop for other below (game-seats game)
-                             unless (= other seat)
-                               append (let ((options (seat-claim-options game other tile seat
-                                                                         :kita t)))
-                                        (and options (list (cons other options))))))))
+                       (claim-options-from game seat tile :kita t))))
     (if (null options)
         (finish-kita game seat tile)
         (updating-deal (deal game)

@@ -52,6 +52,7 @@ Each event is `(type . plist)`.
 | `:kita` | `:seat :tile` |
 | `:riichi` | `:seat`, once the discard passes; an open riichi adds `:open T` and the revealed `:tiles` |
 | `:dora` | `:tile`, a new indicator |
+| `:chombo` | `:seat :reason`, a wrong declaration under [`:chombo`](#chombo) |
 | `:win` | `:seat :from :han :fu :limit :points :yaku :pao :score`; `:pao` lists `(seat . amount)` for liable seats, including the [rinshan pao](scoring.md#rinshan-pao) giver |
 | `:deal-end` | `:type :deltas :points` |
 | `:game-end` | `:final` |
@@ -69,7 +70,7 @@ Each event is `(type . plist)`.
 | Kan | Needs a replacement tile and a live wall tile; a closed kan can only be robbed for kokushi |
 | Kita | Needs a live wall tile and a [`:nuki` slot](wall.md#layout); the north stays out of the hand and melds and counts as dora in scoring ([scoring.md](scoring.md#dora)) |
 | Multiple ron | Honba and sticks go to the nearest winner |
-| Deal end | `game-result` holds `:type` (`:tsumo :ron :exhaustive :abortive`), `:deltas`, and details such as `:winners` or `:reason` |
+| Deal end | `game-result` holds `:type` (`:tsumo :ron :exhaustive :abortive :chombo`), `:deltas`, and details such as `:winners` or `:reason` |
 
 Exhaustive draws pay noten payments (a hand is tenpai unless the concealed hand and own nukidora hold every copy of each winning tile; copies in a meld do not count), or nagashi mangan like a tsumo of that limit. The dealer repeats on a win or, with `:renchan :tenpai`, when tenpai; honba reset after a non-dealer win. After a deal, game fields describe the next deal.
 
@@ -78,6 +79,27 @@ Exhaustive draws pay noten payments (a hand is tenpai unless the concealed hand 
 With `:bonus-tiles` a seat sets every bonus tile aside as soon as it holds one, and draws a replacement from the [`:nuki` slots](wall.md#layout). The deal does this seat by seat from the dealer, and a replacement that is a bonus tile is set aside in turn. The tiles stay in `player-bonus` and in the win context's `bonus`; they never count as dora. A tileset with bonus kinds needs the option.
 
 With `:bonus-win (8 :yakuman)` the seat that sets its eighth bonus tile aside wins the `yakuman` limit at once, paid like a tsumo. With `:bonus-rob` a seat holding seven wins instead when another seat sets the eighth aside, paid by that seat like a ron. The win has the yaku `bonus-win`. The deal checks this too: a seat dealt its eighth tile, or seven with another seat setting the eighth aside, wins before anyone draws.
+
+## Chombo
+
+Off by default: a wrong declaration signals `illegal-action`. With `:chombo` the game accepts these, ends the deal, and penalises the offender.
+
+| Offence | Reason | Penalised |
+|---|---|---|
+| `(:tsumo)` without a winning hand and yaku | `:false-tsumo` | At once |
+| `(:ron)` without a winning hand and yaku, or while furiten | `:false-ron` | At once |
+| `(:open-riichi tile)` while not tenpai | `:noten-open-riichi` | At once |
+| `(:riichi tile)` while not tenpai | `:noten-riichi` | At the exhaustive draw; a deal that ends otherwise has no penalty |
+
+The deal result is `:chombo` with `:seats` and `:reason`. The dealer repeats and honba stay. Every seat answers every discard and kan, so any seat can declare a ron; `legal-actions` lists only legal moves (`(:pass)` for a seat with none).
+
+| `:chombo` | Offender |
+|---|---|
+| A limit, such as `:mangan` | Pays that limit as a tsumo: 4000 all as dealer, 2000/4000 otherwise |
+| `(:split 20000)` | Pays 20000 shared by the others, rounded down to hundreds |
+| `(:final 20000)` | Pays nothing now; 20000 comes off the final score |
+
+Riichi sticks put down in the void deal go back to their owners, or with `:chombo-sticks :keep` stay on the table.[^chombo]
 
 ## Game end
 
@@ -117,6 +139,8 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 | `:bonus-rinshan` | on | A win on a bonus replacement scores rinshan |
 | `:bonus-win` | off | `(count limit)`: holding `count` bonus tiles wins at once; see [below](#bonus-tiles) |
 | `:bonus-rob` | off | A seat one tile short of `:bonus-win` wins on another seat's bonus tile |
+| `:chombo` | off | Penalty for a wrong declaration: a limit keyword, `(:split points)` or `(:final points)`; see [below](#chombo) |
+| `:chombo-sticks` | `:return` | Riichi sticks of a chombo deal: `:return` to their owners or `:keep` on the table |
 | `:nukidora` | off | Offer `(:kita)` for a north |
 | `:kita-ippatsu` | off | A kita keeps ippatsu; off breaks every seat's ippatsu |
 | `:kita-interrupts` | on | A kita counts as an interruption: no later double riichi, first-turn win or kyuushu |
@@ -135,3 +159,5 @@ Variants override these in `:options`; the defaults are Mahjong Soul ranked rule
 ## Limitations
 
 See [PLAN.md](PLAN.md#limitations): shanten and wait scans use the generic search ([#6](https://github.com/takeiteasy/cl-mahjong/issues/6)).
+
+[^chombo]: A `:final` penalty is kept in `game-penalties` and taken off `game-final`'s `:scores` after uma, oka and rounding. A false `(:riichi tile)` stays a riichi for the rest of the deal.
