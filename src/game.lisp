@@ -386,14 +386,16 @@ CONCEALED-ONLY just those in COUNTS and NUKI, so a tile whose other copies are i
             collect id)))
 
 (defun furiten-p (game deal seat)
+  "Whether SEAT is furiten. A hand holding a tile to discard has no waits, so only a passed ron counts."
   (let ((player (deal-player deal seat)))
     (and (opt game :furiten)
          (or (player-temp-furiten player)
              (player-riichi-furiten player)
-             (let ((waits (winning-kinds game (hand-counts (game-tileset game) (player-tiles player))
-                                         (player-melds player) :nuki (player-nuki player))))
-               (some (lambda (id) (member id waits))
-                     (tile-kind-ids game (player-discards player))))))))
+             (and (= 1 (mod (+ (length (player-tiles player)) (* 3 (length (player-melds player)))) 3))
+                  (let ((waits (winning-kinds game (hand-counts (game-tileset game) (player-tiles player))
+                                              (player-melds player) :nuki (player-nuki player))))
+                    (some (lambda (id) (member id waits))
+                          (tile-kind-ids game (player-discards player)))))))))
 
 ;;; Points
 

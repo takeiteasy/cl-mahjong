@@ -163,7 +163,7 @@ With DEALS, stop once that many deals are over. Returns the game."
                (when on-events (funcall on-events events))
                (loop for bot across bots
                      for seat from 0
-                     do (observe bot seat events)))))
+                     do (observe bot seat (seat-events seat events))))))
       (announce events)
       (loop until (or (game-over-p game) (and deals (>= played deals)))
             do (multiple-value-bind (new events)

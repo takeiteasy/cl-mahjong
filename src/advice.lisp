@@ -2,35 +2,34 @@
 
 ;;; Visible tiles
 
-(defun called-tiles (deal)
+(defun called-tiles (seen)
   "Tile ids taken from a discard into a meld; they stay in the discarder's discards."
-  (loop for player across (deal-players deal)
-        append (loop for meld in (player-melds player)
+  (loop for seat across seen
+        append (loop for meld in (seen-melds seat)
                      when (and (meld-from meld) (meld-tiles meld))
                        collect (first (meld-tiles meld)))))
 
 (defun seat-visible (game seat)
   "Kind-count vector of the tiles SEAT sees outside its own hand and melds, for the :visible key of
 `shanten' and `ukeire'. Discards, other seats' melds, every seat's nuki, dora indicators and the
-revealed hand of an open riichi seat count once each."
-  (let* ((deal (game-deal game))
-         (tileset (game-tileset game))
+`shown-tiles' of other seats count once each."
+  (let* ((tileset (game-tileset game))
          (counts (make-array (tileset-kind-count tileset) :element-type 'fixnum :initial-element 0))
-         (called (called-tiles deal)))
+         (seen (seen-seats game seat))
+         (called (called-tiles seen)))
     (flet ((see (tiles)
              (dolist (tile tiles)
                (let ((id (tile-kind-id tileset tile)))
                  (unless (eq (kind-category (tileset-kind tileset id)) :bonus)
                    (incf (aref counts id)))))))
-      (dotimes (other (game-seats game))
-        (let ((player (deal-player deal other)))
-          (see (remove-if (lambda (tile) (member tile called)) (player-discards player)))
-          (see (player-nuki player))
-          (unless (= other seat)
-            (see (loop for meld in (player-melds player) append (meld-tiles meld)))
-            (when (and (eq (player-riichi player) :active) (player-open-riichi player))
-              (see (player-tiles player))))))
-      (see (wall-dora-indicators (deal-wall deal))))
+      (loop for other across seen
+            for index from 0
+            do (see (remove-if (lambda (tile) (member tile called)) (seen-discards other)))
+               (see (seen-nuki other))
+               (unless (= index seat)
+                 (see (loop for meld in (seen-melds other) append (meld-tiles meld)))
+                 (see (seen-shown other))))
+      (see (wall-dora-indicators (deal-wall (game-deal game)))))
     counts))
 
 ;;; Waits

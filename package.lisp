@@ -177,6 +177,41 @@
    #:player-called-away
    #:variant-option
    #:limit-payments
+   ;; view
+   #:game-view
+   #:shown-tiles
+   #:seat-events
+   #:seat-view
+   #:view-seat
+   #:view-phase
+   #:view-deal-phase
+   #:view-dealer
+   #:view-turn
+   #:view-kyoku
+   #:view-honba
+   #:view-round-wind
+   #:view-seat-wind
+   #:view-points
+   #:view-sticks
+   #:view-dora
+   #:view-wall-left
+   #:view-claim
+   #:view-result
+   #:view-final
+   #:view-hand
+   #:view-drawn
+   #:view-forbidden
+   #:view-furiten
+   #:view-seats
+   #:seen-seat
+   #:seen-discards
+   #:seen-melds
+   #:seen-nuki
+   #:seen-bonus
+   #:seen-hand-size
+   #:seen-riichi
+   #:seen-open-riichi
+   #:seen-shown
    ;; advice
    #:seat-visible
    #:tenpai-waits

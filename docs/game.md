@@ -8,7 +8,7 @@ A game plays a [variant](variant.md) from deal to final standings. State is immu
   (apply-action game 0 '(:discard 17)))    ; => (values game events)
 ```
 
-Seats are numbered from 0, the first dealer. `deciding-seats` lists who owes an action; [bots](bot.md) can play them. After a deal ends, `next-deal` starts the next one until `game-over-p`.
+Seats are numbered from 0, the first dealer. `deciding-seats` lists who owes an action; [bots](bot.md) can play them, and `game-view` gives a seat its [view](view.md). After a deal ends, `next-deal` starts the next one until `game-over-p`.
 
 ## Phases
 

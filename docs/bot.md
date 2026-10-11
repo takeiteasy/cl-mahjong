@@ -34,7 +34,7 @@ A bot picks an action for a seat from its [legal actions](game.md). `play-bots` 
       (first actions)))
 ```
 
-Choose from `actions`, not the hand: kuikae and riichi restrictions exist only there. A bot receives the whole game, so every hand is readable; playing fair is up to the bot.[^view]
+Choose from `actions`, not the hand: kuikae and riichi restrictions exist only there. `observe` receives [`seat-events`](view.md#events), without other seats' draws. `choose-action` receives the whole game, so every hand is readable; playing fair is up to the bot, which can read its [`game-view`](view.md).[^view]
 
 ## Running games
 
@@ -75,7 +75,7 @@ The built-in bots use these; so can a UI.
 | Every seat's discards, a called tile once in its meld | The seat's own hand and melds |
 | Other seats' melds, closed kans included | Hands of other seats |
 | Every seat's nuki, dora indicators | Bonus tiles |
-| The hand of a seat in open riichi | |
+| The concealed tiles of other seats that [`shown-tiles`](view.md#variants-that-show-more) gives, such as an open riichi hand | |
 
 ### Tile safety
 
@@ -90,5 +90,5 @@ The built-in bots use these; so can a UI.
 The score is the lowest across the seats in riichi.
 
 [^calls]: A yakuhai tile is a dragon, the seat wind or the round wind. The hard bot makes no other calls ([#42](https://github.com/takeiteasy/cl-mahjong/issues/42)).
-[^view]: See [PLAN.md](PLAN.md#limitations): there is no per-seat view ([#28](https://github.com/takeiteasy/cl-mahjong/issues/28)).
+[^view]: See [PLAN.md](PLAN.md#limitations): bots are not given a view instead of the game ([#45](https://github.com/takeiteasy/cl-mahjong/issues/45)).
 [^safety]: Tiles passed since the declaration, kabe and open hands are not read ([#41](https://github.com/takeiteasy/cl-mahjong/issues/41)).
