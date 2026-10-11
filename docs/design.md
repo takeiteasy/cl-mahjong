@@ -38,7 +38,7 @@ An event ruleset is a variant that extends another and changes a few rules.
 
 | Path | Content |
 |---|---|
-| `src/` | engine: registry, random, tileset, [wall](wall.md), hand, [shapes](shape.md), [analysis](analysis.md), win, [patterns](pattern.md), [yaku](yaku.md), [scoring](scoring.md), [variant](variant.md), [game](game.md) (state and `play`: actions) |
+| `src/` | engine: registry, random, tileset, [wall](wall.md), hand, [shapes](shape.md), [analysis](analysis.md), win, [patterns](pattern.md), [yaku](yaku.md), [scoring](scoring.md), [variant](variant.md), [game](game.md) (state and `play`: actions), [record](record.md) |
 | `variants/` | `riichi`, `sanma`, `tenhou`, `wrc`, `hk`, event rulesets (`events`); see [dsl.md](dsl.md) |
 | `tests/` | fiveam suites |
 

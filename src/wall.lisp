@@ -99,3 +99,13 @@ Returns (values nil wall) when none is left."
 
 (defun wall-ura-indicators (wall)
   (revealed-indicators wall (wall-layout-ura (tileset-wall-layout (wall-tileset wall)))))
+
+(defun wall-stacked-order (wall)
+  "The tile ids of WALL in the order `make-wall' :tiles takes them, or NIL once tiles have been drawn."
+  (when (and (zerop (wall-live-start wall))
+             (zerop (wall-replacements-drawn wall))
+             (zerop (wall-nuki-drawn wall))
+             (= (wall-live-end wall) (length (wall-tiles wall)))
+             (= (wall-dora-revealed wall)
+                (min 1 (length (wall-layout-dora (tileset-wall-layout (wall-tileset wall)))))))
+    (concatenate 'list (wall-tiles wall) (wall-dead wall))))

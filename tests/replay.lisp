@@ -211,8 +211,8 @@
 
 ;;; Replaying a game
 
-(defun replay-game (data &optional (variant (or (getf data :variant) 'tenhou)))
-  "NIL when the engine reproduces the logged game, else a description of the first divergence."
+(defun replay-tenhou-log (data &optional (variant (or (getf data :variant) 'tenhou)))
+  "NIL when the engine reproduces the logged game and replays its own action log, else a description of the first divergence."
   (handler-case
       (let* ((deals (getf data :deals))
              (opening (first deals))
@@ -238,6 +238,8 @@
                          (t (unless (cl-mahjong:game-over-p game)
                               (diverge "the log ends but the engine's game goes on"))
                             (verify-final game data)))))
+        (unless (equalp game (cl-mahjong:replay-game variant (cl-mahjong:game-log game)))
+          (diverge "replaying the engine's own action log gives a different game"))
         nil)
     (replay-mismatch (condition) (replay-message condition))))
 
@@ -270,7 +272,7 @@
   "(id . problem) for the converted log at PATH; a Lisp error counts as a problem."
   (let ((data (read-replay-file path)))
     (cons (getf data :id)
-          (handler-case (replay-game data)
+          (handler-case (replay-tenhou-log data)
             (error (condition) (format nil "~a: ~a" (getf data :id) condition))))))
 
 (defun replay-files (files)
@@ -427,18 +429,18 @@
   (dolist (seed '(1 2 3 4))
     (dolist (*greedy* '(nil t))
       (let ((data (record-game 'tenhou seed)))
-        (is (null (replay-game data)) "seed ~a greedy ~a: ~a" seed *greedy* (replay-game data))))))
+        (is (null (replay-tenhou-log data)) "seed ~a greedy ~a: ~a" seed *greedy* (replay-tenhou-log data))))))
 
 (test sanma-self-play-games-replay
   (dolist (seed '(1 2 3 4))
     (dolist (*greedy* '(nil t))
       (let ((data (record-game 'tenhou-sanma seed)))
-        (is (null (replay-game data 'tenhou-sanma))
-            "seed ~a greedy ~a: ~a" seed *greedy* (replay-game data 'tenhou-sanma))))))
+        (is (null (replay-tenhou-log data 'tenhou-sanma))
+            "seed ~a greedy ~a: ~a" seed *greedy* (replay-tenhou-log data 'tenhou-sanma))))))
 
 (test replay-reports-the-first-divergence
   (let* ((data (record-game 'tenhou 1))
          (deal (first (getf data :deals))))
     (setf (getf deal :points) (list 1 2 3 4)
           (first (getf data :deals)) deal)
-    (is (search "points" (replay-game data)))))
+    (is (search "points" (replay-tenhou-log data)))))

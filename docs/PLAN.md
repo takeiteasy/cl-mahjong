@@ -19,6 +19,7 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 | 10 | WRC variant | #9 | done |
 | 11 | Bot interface, dead/easy/hard bots | #4 | done |
 | 12 | Per-seat game view | #28 | done |
+| 13 | Action log, replay, save and restore | #29, #30 | done |
 
 ## Limitations
 
@@ -26,8 +27,6 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 |---|---|
 | Sanma logs before 2022-01-23 are not replayed | [#18](https://github.com/takeiteasy/cl-mahjong/issues/18) |
 | Table-only chombo offences (tile counts, exposed tiles) are not modelled | [#48](https://github.com/takeiteasy/cl-mahjong/issues/48) |
-| No action log; a game cannot be replayed from its actions | [#29](https://github.com/takeiteasy/cl-mahjong/issues/29) |
-| A game cannot be saved and restored | [#30](https://github.com/takeiteasy/cl-mahjong/issues/30) |
 | No player identities or turn timeouts | [#31](https://github.com/takeiteasy/cl-mahjong/issues/31) |
 | No Washizu (visible tiles) variant | [#32](https://github.com/takeiteasy/cl-mahjong/issues/32) |
 | No MCR variant | [#2](https://github.com/takeiteasy/cl-mahjong/issues/2) |

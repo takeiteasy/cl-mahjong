@@ -25,6 +25,7 @@ Mahjong rules engine for Common Lisp. A whole variant (tiles, wall, hand shapes,
 | Variants and deltas | [docs/variant.md](docs/variant.md) |
 | DSL examples (sanma, events) | [docs/dsl.md](docs/dsl.md) |
 | Game flow | [docs/game.md](docs/game.md) |
+| Record, replay and save | [docs/record.md](docs/record.md) |
 | Per-seat view | [docs/view.md](docs/view.md) |
 | Bots and hand helpers | [docs/bot.md](docs/bot.md) |
 | Validation corpus | [docs/corpus.md](docs/corpus.md) |

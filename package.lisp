@@ -179,6 +179,13 @@
    #:player-called-away
    #:variant-option
    #:limit-payments
+   ;; record
+   #:game-log
+   #:replay-game
+   #:game-record
+   #:restore-game
+   #:write-game
+   #:read-game
    ;; view
    #:game-view
    #:shown-tiles

@@ -29,7 +29,8 @@
 ;; kyoku counts rounds from east 1; the dealer is kyoku mod players.
 (defstruct game
   variant seed walls (dealt 0) scores (kyoku 0) (honba 0) (table-sticks 0)
-  penalties deal (phase :playing) result final)
+  penalties deal (phase :playing) result final
+  start actions)
 
 (defvar *events*)
 
@@ -140,6 +141,14 @@ POINTS, KYOKU, HONBA and STICKS start the game part way through."
     (when (and (not (variant-option variant :bonus-tiles))
                (find :bonus (tileset-kinds (variant-tileset variant)) :key #'kind-category))
       (illegal "The tileset has bonus tiles; the variant needs the :bonus-tiles option"))
+    (setf (game-start game)
+          (list :seed (game-seed game)
+                :walls (mapcar (lambda (wall)
+                                 (or (wall-stacked-order wall)
+                                     (illegal "A stacked wall must not have been drawn from")))
+                               walls)
+                :points (coerce (game-scores game) 'list)
+                :kyoku kyoku :honba honba :sticks sticks))
     (let ((game (begin-deal game)))
       (values game (reverse *events*)))))
 
@@ -218,6 +227,7 @@ a :bonus-win, whose WINNER wins from the seat FROM, or NIL for a tsumo."
     (illegal "The game is not between deals"))
   (let ((*events* '()))
     (let ((game (begin-deal game)))
+      (push '(:next-deal) (game-actions game))
       (values game (reverse *events*)))))
 
 ;;; Draws

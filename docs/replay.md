@@ -20,6 +20,7 @@ No Tenhou logs are in this repository; zips, logs and converted output are git-i
 | Each draw | Abortive reason, tenpai seats, nagashi mangan |
 | Each deal end | Point changes of every seat |
 | Game end | Final points and final scores, exactly |
+| Whole game | Replaying the engine's own [action log](record.md) gives an equal game |
 
 A failure names the log, deal, and seat, with the legal actions when an action is refused.
 
