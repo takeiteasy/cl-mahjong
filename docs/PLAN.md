@@ -30,7 +30,7 @@ cl-mahjong is a Common Lisp rules engine where a whole mahjong variant (tiles, w
 | No player identities or turn timeouts | [#31](https://github.com/takeiteasy/cl-mahjong/issues/31) |
 | No Washizu (visible tiles) variant | [#32](https://github.com/takeiteasy/cl-mahjong/issues/32) |
 | No MCR variant | [#2](https://github.com/takeiteasy/cl-mahjong/issues/2) |
-| No CLI; the library has no UI | [#3](https://github.com/takeiteasy/cl-mahjong/issues/3) |
+| No UI; terminal and graphical clients live in [OpenMahjong](https://github.com/takeiteasy/OpenMahjong) | |
 | Rule files must be trusted Lisp; no sandboxed loading | [#5](https://github.com/takeiteasy/cl-mahjong/issues/5) |
 | Shanten uses generic shape search, no fast path; waits are found by testing every kind | [#6](https://github.com/takeiteasy/cl-mahjong/issues/6) |
 | Pattern selector names are not checked against the tileset | [#7](https://github.com/takeiteasy/cl-mahjong/issues/7) |
